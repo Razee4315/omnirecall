@@ -1,274 +1,293 @@
-# OmniRecall
+<p align="center">
+  <img src="src-tauri/icons/icon.png" width="120" alt="OmniRecall Logo">
+</p>
 
-<div align="center">
+<h1 align="center">OmniRecall</h1>
 
-![OmniRecall Logo](src-tauri/icons/icon.svg)
+<p align="center">
+  <strong>Your AI-Powered Knowledge Assistant</strong><br>
+  Instant access to AI chat with document context, right at your cursor.
+</p>
 
-**AI-Powered Document Assistant with Local RAG**
+<p align="center">
+  <a href="#demo">Demo</a> •
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#development">Development</a>
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tauri](https://img.shields.io/badge/Tauri-v2-blue?logo=tauri)](https://tauri.app/)
-[![Rust](https://img.shields.io/badge/Rust-1.70+-orange?logo=rust)](https://www.rust-lang.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript)](https://www.typescriptlang.org/)
-
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Configuration](#configuration) • [Development](#development) • [Contributing](#contributing)
-
-</div>
+<p align="center">
+  <a href="https://github.com/Razee4315/omnirecall/releases">
+    <img src="https://img.shields.io/github/v/release/Razee4315/omnirecall?style=flat-square&color=blue" alt="Release">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+  </a>
+  <a href="https://github.com/Razee4315/omnirecall/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/Razee4315/omnirecall/ci.yml?style=flat-square" alt="Build">
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%20|%20macOS%20|%20Linux-lightgrey?style=flat-square" alt="Platform">
+</p>
 
 ---
 
-## Overview
+## Demo
 
-OmniRecall is a high-performance, privacy-focused desktop application that brings RAG (Retrieval-Augmented Generation) directly to your fingertips. Unlike web-based chat interfaces, OmniRecall runs locally and can be summoned instantly via a global hotkey, enabling seamless AI-powered document queries without leaving your current workflow.
+<p align="center">
+  <video src="demo/demo.mp4" width="100%" controls autoplay loop muted>
+    Your browser does not support the video tag.
+  </video>
+</p>
 
-**Key Highlights:**
-- Instant access via global hotkey (like Spotlight/Alfred)
-- Multi-provider AI support (Gemini, OpenAI, Claude, Ollama)
-- 100% local document storage - your data never leaves your device
-- Bring your own API keys - pay only for what you use
-- Lightweight and fast (~50MB RAM when idle)
+> **Note**: Place your demo video as `demo/demo.mp4` in the repository.
+
+<details>
+<summary>📸 Screenshots</summary>
+
+| Spotlight Mode | Dashboard Mode |
+|----------------|----------------|
+| Quick access popup at cursor | Full interface with sidebar |
+| ![Spotlight](demo/spotlight.png) | ![Dashboard](demo/dashboard.png) |
+
+</details>
+
+---
 
 ## Features
 
-### Multi-Provider AI Support
-- **Google Gemini** - gemini-2.0-flash-exp, gemini-1.5-pro, and more
-- **OpenAI** - GPT-4o, GPT-4-turbo, GPT-3.5-turbo
-- **Anthropic Claude** - Claude 3.5 Sonnet, Claude 3 Opus
-- **Ollama (Local)** - Llama 3.2, Mistral, CodeLlama, and any local model
+### 🚀 Instant Access
+- **Appears at cursor** - Press `Alt+Space` and the window appears right where you're working
+- **Spotlight-style UI** - Clean, minimal interface that doesn't interrupt your flow
+- **System tray** - Always running in background, ready when you need it
 
-### Two Operating Modes
+### 🤖 Multi-Provider AI
+| Provider | Models | Free Tier |
+|----------|--------|-----------|
+| **Google Gemini** | gemini-2.0-flash, gemini-1.5-pro | ✅ Generous |
+| **OpenAI** | GPT-4o, GPT-4-turbo | ❌ |
+| **Anthropic** | Claude 3.5 Sonnet, Haiku | ❌ |
+| **Ollama** | Llama 3.2, Mistral, any local | ✅ 100% Local |
 
-**Spotlight Mode (Quick Access)**
-- Instant overlay triggered by hotkey
-- Clipboard-aware context injection
-- Streaming responses
-- Quick actions (Summarize, Explain, Translate)
+### 📄 Document RAG
+- **Add documents** - PDF, TXT, MD, code files
+- **Context-aware** - AI answers based on your documents
+- **Persistent** - Documents stay loaded between sessions
 
-**Dashboard Mode (Full Interface)**
-- Three-panel layout (Spaces, Chat, Documents)
-- Conversation history with search
-- Document management with drag-and-drop
-- Source citations with page references
+### 💬 Smart Chat
+- **Markdown rendering** - Bold, lists, headers formatted beautifully
+- **Code blocks** - Syntax display with one-click copy
+- **Chat history** - Persistent conversations, searchable
+- **Streaming** - See responses as they're generated
 
-### Knowledge Spaces
-- Organize documents into separate spaces
-- Each space has its own vector index
-- Switch contexts instantly
-- Cross-document queries within spaces
+### 🎨 Beautiful UI
+- **Dark & Light themes** - Easy on the eyes
+- **Glass effect** - Modern transparent design
+- **Responsive** - Adapts to Spotlight and Dashboard modes
 
-### Privacy First
-- All vectors stored locally (LanceDB)
-- API keys stored in OS credential manager
-- No telemetry or data collection
-- Optional fully local mode with Ollama
+### 🔒 Privacy First
+- **Local storage** - All data stays on your device
+- **Your API keys** - Stored securely in OS credential manager
+- **No telemetry** - Zero data collection
+
+---
 
 ## Installation
 
-### Download Installer
+### Download
 
-Download the latest release from the [Releases](https://github.com/Razee4315/omnirecall/releases) page:
+Get the latest release for your platform:
 
-- **Windows**: `OmniRecall_x.x.x_x64-setup.exe` (recommended) or `.msi`
+| Platform | Download | Size |
+|----------|----------|------|
+| **Windows** | [OmniRecall_x64-setup.exe](https://github.com/Razee4315/omnirecall/releases/latest) | ~3 MB |
+| **Windows** | [OmniRecall_x64.msi](https://github.com/Razee4315/omnirecall/releases/latest) | ~5 MB |
+| **macOS** | Coming soon | - |
+| **Linux** | Coming soon | - |
 
 ### Build from Source
 
-#### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [Rust](https://rustup.rs/) (1.70 or higher)
-- [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
-
-#### Steps
-
 ```bash
-# Clone the repository
+# Prerequisites: Node.js 18+, Rust 1.70+
+
+# Clone
 git clone https://github.com/Razee4315/omnirecall.git
 cd omnirecall
 
 # Install dependencies
 npm install
 
-# Run in development mode
+# Development
 npm run tauri dev
 
-# Build for production
+# Production build
 npm run tauri build
 ```
 
-The installer will be created in `src-tauri/target/release/bundle/`.
+---
 
 ## Usage
 
-### Getting Started
+### Quick Start
 
-1. **Launch OmniRecall** from the desktop shortcut or Start Menu
-2. **Open Settings** (Ctrl+, or click the gear icon)
-3. **Add your API key**:
-   - Get a free Gemini API key at [Google AI Studio](https://aistudio.google.com/apikey)
-   - Or use OpenAI, Anthropic, or local Ollama
-4. **Click "Test"** to verify the connection
-5. **Start chatting!**
+1. **Launch** OmniRecall from Start Menu or desktop
+2. **Press `Alt+Space`** to open at your cursor
+3. **Add API Key** - Click ⚙️ Settings → Add your Gemini/OpenAI key
+4. **Start chatting!**
 
 ### Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `Alt + Space` | Toggle Spotlight Mode |
+| `Alt + Space` | Toggle window at cursor |
 | `Ctrl + ,` | Open Settings |
-| `Ctrl + N` | New Conversation |
-| `Ctrl + B` | Toggle Sidebar |
-| `Ctrl + D` | Toggle Document Drawer |
-| `Enter` | Send Message |
-| `Shift + Enter` | New Line |
-| `Escape` | Close Spotlight |
+| `Escape` | Hide window |
+| `Enter` | Send message |
+| `Shift + Enter` | New line |
+
+### Two Modes
+
+**Spotlight Mode** (Small Window)
+- Quick questions
+- Appears at cursor
+- Hides when clicking outside
+- Perfect for quick lookups
+
+**Dashboard Mode** (Full Window)
+- Click expand icon or use full interface
+- Chat history sidebar
+- Document management
+- Stays open until you close it
 
 ### Adding Documents
 
-1. Open Dashboard Mode (click expand icon in Spotlight)
-2. Drag and drop files to the Document Drawer
-3. Wait for indexing to complete
-4. Ask questions about your documents!
-
-**Supported Formats:**
-- PDF (.pdf)
-- Word (.docx)
-- Text (.txt, .md)
-- Code (.py, .js, .rs, .java, etc.)
-- HTML (.html)
-
-## Configuration
-
-### API Keys
-
-OmniRecall supports multiple AI providers. You only need to configure the ones you want to use.
-
-| Provider | Get API Key | Free Tier |
-|----------|-------------|-----------|
-| Google Gemini | [AI Studio](https://aistudio.google.com/apikey) | Yes (generous) |
-| OpenAI | [Platform](https://platform.openai.com/api-keys) | No |
-| Anthropic | [Console](https://console.anthropic.com/) | No |
-| Ollama | [Download](https://ollama.ai) | Yes (local) |
-
-### Settings
-
-Access settings via `Ctrl + ,` or the gear icon:
-
-- **AI Providers**: Configure API keys and default models
-- **Appearance**: Theme (Dark/Light), font size, accent color
-- **Shortcuts**: Customize keyboard shortcuts
-- **Advanced**: RAG parameters, context chunks, similarity threshold
-
-## Project Structure
-
-```
-omnirecall/
-├── src/                          # Frontend (Preact + TypeScript)
-│   ├── components/
-│   │   ├── icons/               # Custom SVG icons
-│   │   ├── spotlight/           # Spotlight mode UI
-│   │   ├── dashboard/           # Dashboard UI components
-│   │   └── settings/            # Settings panel
-│   ├── stores/                  # State management (Preact Signals)
-│   └── styles/                  # Tailwind CSS + design system
-├── src-tauri/                   # Backend (Rust)
-│   └── src/
-│       ├── commands/            # Tauri IPC commands
-│       └── services/            # AI client, embedding, document pipeline
-├── package.json
-├── tailwind.config.js
-└── vite.config.ts
-```
-
-## Technology Stack
-
-- **Framework**: [Tauri v2](https://tauri.app/) - Lightweight native app framework
-- **Frontend**: [Preact](https://preactjs.com/) + [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Backend**: [Rust](https://www.rust-lang.org/)
-- **Vector DB**: [LanceDB](https://lancedb.com/) (embedded)
-- **State**: [Preact Signals](https://preactjs.com/guide/v10/signals/)
-
-## Development
-
-### Prerequisites
-
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Install Node.js dependencies
-npm install
-
-# Install Tauri CLI
-npm install -g @tauri-apps/cli
-```
-
-### Development Commands
-
-```bash
-# Start development server with hot reload
-npm run tauri dev
-
-# Build for production
-npm run tauri build
-
-# Run frontend only (for UI development)
-npm run dev
-
-# Type check
-npm run build
-```
-
-### Adding a New AI Provider
-
-1. Add provider configuration in `src/stores/appStore.ts`
-2. Implement the provider client in `src-tauri/src/services/ai_client.rs`
-3. Add UI components in `src/components/settings/Settings.tsx`
-
-## Roadmap
-
-- [ ] macOS and Linux support
-- [ ] Image embedding and search
-- [ ] Voice input
-- [ ] Browser extension for web clipping
-- [ ] Plugin/extension system
-- [ ] Cloud sync (optional, user's own storage)
-- [ ] Mobile companion app
-
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Author
-
-**Saqlain Razee**
-
-- GitHub: [@Razee4315](https://github.com/Razee4315)
-- LinkedIn: [saqlainrazee](https://linkedin.com/in/saqlainrazee)
-- Email: saqlainrazee@gmail.com
-
-## Acknowledgments
-
-- [Tauri](https://tauri.app/) - For the amazing framework
-- [Google AI](https://ai.google.dev/) - For Gemini API
-- [LanceDB](https://lancedb.com/) - For the embedded vector database
+1. Click 📁 folder icon in header
+2. Select PDF, TXT, MD, or code files
+3. Documents load automatically
+4. Ask questions about your docs!
 
 ---
 
-<div align="center">
+## Configuration
 
-**If you find OmniRecall useful, please consider giving it a star!**
+### Get API Keys
 
-[![GitHub stars](https://img.shields.io/github/stars/Razee4315/omnirecall?style=social)](https://github.com/Razee4315/omnirecall)
+| Provider | Link | Notes |
+|----------|------|-------|
+| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | **Recommended** - Free, fast |
+| OpenAI | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Requires payment |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com/) | Requires payment |
+| Ollama | [ollama.ai](https://ollama.ai) | 100% local, free |
 
-</div>
+### Settings
+
+Access via `Ctrl + ,`:
+
+- **AI Providers** - Add/test API keys, select default model
+- **Appearance** - Dark/Light theme
+- **Shortcuts** - View keyboard shortcuts
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | [Tauri v2](https://tauri.app/) |
+| Frontend | [Preact](https://preactjs.com/) + TypeScript |
+| Styling | [Tailwind CSS](https://tailwindcss.com/) |
+| Backend | [Rust](https://www.rust-lang.org/) |
+| State | [Preact Signals](https://preactjs.com/guide/v10/signals/) |
+| Storage | [Tauri Store](https://tauri.app/plugin/store/) |
+
+---
+
+## Development
+
+### Project Structure
+
+```
+omnirecall/
+├── src/                    # Frontend
+│   ├── components/         # UI components
+│   │   ├── spotlight/      # Spotlight mode
+│   │   ├── dashboard/      # Dashboard mode
+│   │   ├── settings/       # Settings panel
+│   │   ├── common/         # Shared (Markdown, etc.)
+│   │   └── icons/          # SVG icons
+│   ├── stores/             # State management
+│   └── styles/             # CSS
+├── src-tauri/              # Backend (Rust)
+│   └── src/
+│       ├── commands/       # IPC commands
+│       └── services/       # AI client, documents
+├── demo/                   # Demo video & screenshots
+└── .github/workflows/      # CI/CD
+```
+
+### Commands
+
+```bash
+npm run dev          # Frontend only (port 1420)
+npm run tauri dev    # Full app with hot reload
+npm run tauri build  # Production build
+npm run build        # TypeScript check
+```
+
+---
+
+## Roadmap
+
+- [x] Multi-provider AI support
+- [x] Document RAG
+- [x] Persistent chat history
+- [x] Markdown rendering
+- [x] Cursor-position window
+- [ ] Streaming responses (real-time typing)
+- [ ] Clipboard integration
+- [ ] Voice input
+- [ ] Image support (vision models)
+- [ ] macOS & Linux builds
+- [ ] Web search integration
+
+---
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+# Fork → Clone → Branch → Code → PR
+git checkout -b feature/your-feature
+git commit -m "Add your feature"
+git push origin feature/your-feature
+```
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE)
+
+---
+
+## Author
+
+<p align="center">
+  <strong>Saqlain Razee</strong><br>
+  <a href="https://github.com/Razee4315">GitHub</a> •
+  <a href="https://linkedin.com/in/saqlainrazee">LinkedIn</a> •
+  <a href="mailto:saqlainrazee@gmail.com">Email</a>
+</p>
+
+---
+
+<p align="center">
+  <strong>⭐ Star this repo if you find it useful!</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Razee4315/omnirecall/stargazers">
+    <img src="https://img.shields.io/github/stars/Razee4315/omnirecall?style=social" alt="Stars">
+  </a>
+</p>

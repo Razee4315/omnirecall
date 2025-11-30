@@ -1,0 +1,106 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: msi,nsis
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            bundles: dmg
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+
+    runs-on: ${{ matrix.platform }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'OmniRecall v__VERSION__'
+          releaseBody: |
+            ## What's New
+            See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+            
+            ## Downloads
+            | Platform | Download |
+            |----------|----------|
+            | Windows (installer) | `OmniRecall_x.x.x_x64-setup.exe` |
+            | Windows (MSI) | `OmniRecall_x.x.x_x64_en-US.msi` |
+            | macOS (Intel) | `OmniRecall_x.x.x_x64.dmg` |
+            | macOS (Apple Silicon) | `OmniRecall_x.x.x_aarch64.dmg` |
+            | Linux (Debian/Ubuntu) | `omnirecall_x.x.x_amd64.deb` |
+            | Linux (AppImage) | `OmniRecall_x.x.x_amd64.AppImage` |
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Publish Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const releases = await github.rest.repos.listReleases({ owner, repo });
+            const draft = releases.data.find(r => r.draft);
+            if (draft) {
+              await github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: draft.id,
+                draft: false
+              });
+            }
