@@ -4,17 +4,18 @@
 
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f7;
-  --bg-tertiary: #e8e8ec;
-  --text-primary: #1a1a1f;
-  --text-secondary: #4a4a52;
-  --text-tertiary: #8a8a93;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-tertiary: #868e96;
   --accent-primary: #2563eb;
   --accent-secondary: #7c3aed;
-  --border-color: #e0e0e5;
+  --border-color: #dee2e6;
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+  --glass-bg: rgba(255, 255, 255, 0.92);
 }
 
 .dark {
@@ -27,6 +28,7 @@
   --accent-primary: #4a9eff;
   --accent-secondary: #7c3aed;
   --border-color: #2e2e35;
+  --glass-bg: rgba(13, 13, 15, 0.92);
 }
 
 * {
@@ -43,17 +45,21 @@ body,
   overflow: hidden;
 }
 
+html {
+  background: transparent;
+}
+
 body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  background-color: var(--bg-primary);
+  background: transparent;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -62,7 +68,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -76,22 +82,21 @@ body {
 
 input,
 textarea,
-button {
+button,
+select {
   font-family: inherit;
+  color: var(--text-primary);
+}
+
+select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .glass {
-  background: rgba(13, 13, 15, 0.85);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-}
-
-.dark .glass {
-  background: rgba(13, 13, 15, 0.9);
-}
-
-.light .glass {
-  background: rgba(255, 255, 255, 0.85);
 }
 
 @layer utilities {
@@ -102,4 +107,22 @@ button {
   .no-drag {
     -webkit-app-region: no-drag;
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-pulse-cursor {
+  animation: pulse 1s ease-in-out infinite;
 }

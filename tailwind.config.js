@@ -20,6 +20,9 @@ export default {
           secondary: "var(--accent-secondary)",
         },
         border: "var(--border-color)",
+        success: "var(--success)",
+        warning: "var(--warning)",
+        error: "var(--error)",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],

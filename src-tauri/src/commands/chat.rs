@@ -1,80 +1,47 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
-use crate::error::{AppError, Result};
-use crate::services::ai_client::{AiClient, ChatMessage, StreamEvent};
+use crate::error::Result;
+use crate::services::ai_client::AiClient;
 
 #[derive(Debug, Deserialize)]
-pub struct SendMessageRequest {
-    pub provider: String,
-    pub model: String,
-    pub api_key: String,
-    pub messages: Vec<ChatMessage>,
-    pub context: Option<String>,
-    pub stream_id: String,
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct SendMessageResponse {
-    pub stream_id: String,
+#[derive(Debug, Deserialize)]
+pub struct DocumentContext {
+    pub name: String,
+    pub content: String,
 }
 
 #[tauri::command]
 pub async fn send_message(
-    app: AppHandle,
-    request: SendMessageRequest,
-) -> Result<SendMessageResponse> {
-    let stream_id = request.stream_id.clone();
-    let app_clone = app.clone();
-
-    tokio::spawn(async move {
-        let client = AiClient::new(
-            &request.provider,
-            &request.api_key,
-            None,
-        );
-
-        match client.chat_stream(&request.model, request.messages, request.context).await {
-            Ok(mut stream) => {
-                use futures::StreamExt;
-                
-                while let Some(event) = stream.next().await {
-                    match event {
-                        StreamEvent::Token(token) => {
-                            let _ = app_clone.emit("chat:token", serde_json::json!({
-                                "streamId": request.stream_id,
-                                "token": token,
-                            }));
-                        }
-                        StreamEvent::Done(sources) => {
-                            let _ = app_clone.emit("chat:complete", serde_json::json!({
-                                "streamId": request.stream_id,
-                                "sources": sources,
-                            }));
-                        }
-                        StreamEvent::Error(err) => {
-                            let _ = app_clone.emit("chat:error", serde_json::json!({
-                                "streamId": request.stream_id,
-                                "error": err,
-                            }));
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                let _ = app_clone.emit("chat:error", serde_json::json!({
-                    "streamId": request.stream_id,
-                    "error": e.to_string(),
-                }));
-            }
+    message: String,
+    history: Vec<ChatMessage>,
+    documents: Vec<DocumentContext>,
+    provider: String,
+    model: String,
+    api_key: String,
+) -> Result<String> {
+    let client = AiClient::new(&provider, &api_key, None);
+    
+    // Build context from documents
+    let doc_context = if !documents.is_empty() {
+        let mut context = String::from("Use the following document context to answer the question:\n\n");
+        for doc in &documents {
+            context.push_str(&format!("--- Document: {} ---\n{}\n\n", doc.name, doc.content));
         }
-    });
-
-    Ok(SendMessageResponse { stream_id })
+        Some(context)
+    } else {
+        None
+    };
+    
+    // Send with history and context
+    let response = client.chat_with_history(&model, &message, &history, doc_context.as_deref()).await?;
+    Ok(response)
 }
 
 #[tauri::command]
-pub async fn stop_generation(stream_id: String) -> Result<()> {
-    // In a real implementation, we would cancel the ongoing stream
-    tracing::info!("Stopping generation for stream: {}", stream_id);
+pub async fn stop_generation(_stream_id: String) -> Result<()> {
     Ok(())
 }

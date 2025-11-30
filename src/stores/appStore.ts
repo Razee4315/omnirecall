@@ -1,4 +1,5 @@
-import { signal, computed } from "@preact/signals";
+import { signal } from "@preact/signals";
+import { Store } from "@tauri-apps/plugin-store";
 
 export type ViewMode = "spotlight" | "dashboard";
 export type Theme = "dark" | "light" | "system";
@@ -12,87 +13,63 @@ export interface AIProvider {
   baseUrl?: string;
 }
 
-export interface Space {
+export interface Document {
   id: string;
   name: string;
-  icon: string;
-  color: string;
-  documentCount: number;
-  createdAt: string;
-  updatedAt: string;
+  path: string;
+  size: number;
+  type: string;
+  addedAt: string;
 }
 
-export interface Message {
+export interface ChatMessage {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant";
   content: string;
-  timestamp: string;
-  sources?: { documentId: string; page: number; text: string }[];
-  isStreaming?: boolean;
 }
 
-export interface Conversation {
+export interface ChatSession {
   id: string;
-  spaceId: string;
   title: string;
-  messages: Message[];
+  messages: ChatMessage[];
   createdAt: string;
-  updatedAt: string;
-  model: string;
-}
-
-export interface AppSettings {
-  theme: Theme;
-  hotkey: string;
-  defaultProvider: string;
-  defaultModel: string;
-  maxContextChunks: number;
-  showTokenCount: boolean;
 }
 
 // App State Signals
 export const viewMode = signal<ViewMode>("spotlight");
 export const theme = signal<Theme>("dark");
 export const isLoading = signal(false);
-export const clipboardText = signal<string | null>(null);
-export const includeClipboard = signal(false);
+export const currentQuery = signal("");
+export const isGenerating = signal(false);
+export const isSettingsOpen = signal(false);
 
 // AI Provider State
 export const providers = signal<AIProvider[]>([
   {
     id: "gemini",
     name: "Google Gemini",
-    models: [
-      "gemini-2.0-flash-exp",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-8b",
-      "gemini-1.5-pro",
-    ],
+    models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
     apiKey: "",
     isConnected: false,
   },
   {
     id: "openai",
     name: "OpenAI",
-    models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+    models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
     apiKey: "",
     isConnected: false,
   },
   {
     id: "anthropic",
     name: "Anthropic Claude",
-    models: [
-      "claude-3-5-sonnet-20241022",
-      "claude-3-5-haiku-20241022",
-      "claude-3-opus-20240229",
-    ],
+    models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
     apiKey: "",
     isConnected: false,
   },
   {
     id: "ollama",
     name: "Ollama (Local)",
-    models: ["llama3.2", "llama3.1", "mistral", "codellama", "phi3"],
+    models: ["llama3.2", "mistral", "codellama"],
     apiKey: "",
     isConnected: false,
     baseUrl: "http://localhost:11434",
@@ -100,119 +77,152 @@ export const providers = signal<AIProvider[]>([
 ]);
 
 export const activeProvider = signal("gemini");
-export const activeModel = signal("gemini-2.0-flash-exp");
+export const activeModel = signal("gemini-2.0-flash");
 
-// Spaces State
-export const spaces = signal<Space[]>([
-  {
-    id: "default",
-    name: "Quick Notes",
-    icon: "N",
-    color: "#4a9eff",
-    documentCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]);
+// Documents State
+export const documents = signal<Document[]>([]);
 
-export const activeSpaceId = signal("default");
-export const activeSpace = computed(() =>
-  spaces.value.find((s) => s.id === activeSpaceId.value)
-);
+// Chat History State (persistent)
+export const chatHistory = signal<ChatSession[]>([]);
+export const currentMessages = signal<ChatMessage[]>([]);
+export const activeSessionId = signal<string | null>(null);
 
-// Conversation State
-export const conversations = signal<Conversation[]>([]);
-export const activeConversationId = signal<string | null>(null);
-export const activeConversation = computed(() =>
-  conversations.value.find((c) => c.id === activeConversationId.value)
-);
+// Store instance
+let store: Store | null = null;
 
-// Current query state
-export const currentQuery = signal("");
-export const isGenerating = signal(false);
-export const streamingContent = signal("");
+async function getStore(): Promise<Store> {
+  if (!store) {
+    store = await Store.load("omnirecall-data.json");
+  }
+  return store;
+}
 
-// Settings
-export const settings = signal<AppSettings>({
-  theme: "dark",
-  hotkey: "Alt+Space",
-  defaultProvider: "gemini",
-  defaultModel: "gemini-2.0-flash-exp",
-  maxContextChunks: 5,
-  showTokenCount: true,
-});
+// Load data from persistent storage
+export async function loadPersistedData() {
+  try {
+    const s = await getStore();
+    
+    // Load chat history
+    const savedHistory = await s.get<ChatSession[]>("chatHistory");
+    if (savedHistory) {
+      chatHistory.value = savedHistory;
+    }
+    
+    // Load API keys
+    const savedProviders = await s.get<AIProvider[]>("providers");
+    if (savedProviders) {
+      // Merge saved API keys with current providers
+      providers.value = providers.value.map(p => {
+        const saved = savedProviders.find(sp => sp.id === p.id);
+        return saved ? { ...p, apiKey: saved.apiKey, isConnected: saved.isConnected } : p;
+      });
+    }
+    
+    // Load theme
+    const savedTheme = await s.get<Theme>("theme");
+    if (savedTheme) {
+      theme.value = savedTheme;
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+    }
+    
+    // Load documents
+    const savedDocs = await s.get<Document[]>("documents");
+    if (savedDocs) {
+      documents.value = savedDocs;
+    }
+  } catch (e) {
+    console.error("Failed to load persisted data:", e);
+  }
+}
 
-// Settings Modal State
-export const isSettingsOpen = signal(false);
+// Save chat history
+export async function saveChatHistory() {
+  try {
+    const s = await getStore();
+    await s.set("chatHistory", chatHistory.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to save chat history:", e);
+  }
+}
+
+// Save providers (API keys)
+export async function saveProviders() {
+  try {
+    const s = await getStore();
+    await s.set("providers", providers.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to save providers:", e);
+  }
+}
+
+// Save theme
+export async function saveTheme() {
+  try {
+    const s = await getStore();
+    await s.set("theme", theme.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to save theme:", e);
+  }
+}
+
+// Save documents
+export async function saveDocuments() {
+  try {
+    const s = await getStore();
+    await s.set("documents", documents.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to save documents:", e);
+  }
+}
 
 // Actions
-export function setViewMode(mode: ViewMode) {
-  viewMode.value = mode;
-}
-
-export function toggleTheme() {
-  theme.value = theme.value === "dark" ? "light" : "dark";
-  document.documentElement.classList.toggle("dark", theme.value === "dark");
-}
-
-export function setActiveSpace(spaceId: string) {
-  activeSpaceId.value = spaceId;
-}
-
-export function createSpace(name: string): Space {
-  const newSpace: Space = {
-    id: crypto.randomUUID(),
-    name,
-    icon: name.charAt(0).toUpperCase(),
-    color: "#4a9eff",
-    documentCount: 0,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  spaces.value = [...spaces.value, newSpace];
-  return newSpace;
-}
-
-export function setClipboardText(text: string | null) {
-  clipboardText.value = text;
-  includeClipboard.value = !!text;
-}
-
 export function updateProviderApiKey(providerId: string, apiKey: string) {
   providers.value = providers.value.map((p) =>
     p.id === providerId ? { ...p, apiKey } : p
   );
+  saveProviders();
 }
 
 export function setProviderConnected(providerId: string, connected: boolean) {
   providers.value = providers.value.map((p) =>
     p.id === providerId ? { ...p, isConnected: connected } : p
   );
+  saveProviders();
 }
 
-export function addMessage(conversationId: string, message: Message) {
-  conversations.value = conversations.value.map((c) =>
-    c.id === conversationId
-      ? {
-          ...c,
-          messages: [...c.messages, message],
-          updatedAt: new Date().toISOString(),
-        }
-      : c
+export function addChatSession(session: ChatSession) {
+  chatHistory.value = [session, ...chatHistory.value];
+  saveChatHistory();
+}
+
+export function updateChatSession(sessionId: string, messages: ChatMessage[]) {
+  chatHistory.value = chatHistory.value.map(s =>
+    s.id === sessionId ? { ...s, messages } : s
   );
+  saveChatHistory();
 }
 
-export function createConversation(spaceId: string): Conversation {
-  const newConversation: Conversation = {
-    id: crypto.randomUUID(),
-    spaceId,
-    title: "New Conversation",
-    messages: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    model: activeModel.value,
-  };
-  conversations.value = [...conversations.value, newConversation];
-  activeConversationId.value = newConversation.id;
-  return newConversation;
+export function deleteChatSession(sessionId: string) {
+  chatHistory.value = chatHistory.value.filter(s => s.id !== sessionId);
+  saveChatHistory();
+}
+
+export function addDocument(doc: Document) {
+  documents.value = [...documents.value, doc];
+  saveDocuments();
+}
+
+export function removeDocument(docId: string) {
+  documents.value = documents.value.filter(d => d.id !== docId);
+  saveDocuments();
+}
+
+export function setTheme(newTheme: Theme) {
+  theme.value = newTheme;
+  document.documentElement.classList.toggle("dark", newTheme === "dark");
+  saveTheme();
 }

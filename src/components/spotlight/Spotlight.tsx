@@ -1,72 +1,145 @@
 import { useState, useRef, useEffect } from "preact/hooks";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   viewMode,
   activeModel,
-  activeSpace,
-  clipboardText,
-  includeClipboard,
+  activeProvider,
+  providers,
   isGenerating,
-  streamingContent,
   currentQuery,
   isSettingsOpen,
+  documents,
+  activeSessionId,
+  currentMessages,
+  addChatSession,
+  updateChatSession,
+  addDocument,
+  loadPersistedData,
+  ChatMessage,
+  ChatSession,
+  Document,
 } from "../../stores/appStore";
 import {
   LogoIcon,
-  SearchIcon,
   SendIcon,
   SettingsIcon,
   ExpandIcon,
-  ClipboardIcon,
-  CloseIcon,
   SpinnerIcon,
   CopyIcon,
   RefreshIcon,
   ChevronDownIcon,
+  CloseIcon,
+  FolderIcon,
 } from "../icons";
-import { clsx } from "clsx";
+
+interface DocumentWithContent extends Document {
+  content?: string;
+}
 
 export function Spotlight() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [response, setResponse] = useState<string | null>(null);
-  const [sources, setSources] = useState<{ name: string; page: number }[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [showModelSelect, setShowModelSelect] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
 
+  // Load persisted data on mount
   useEffect(() => {
+    loadPersistedData();
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [currentMessages.value]);
+
+  // Load document contents
+  useEffect(() => {
+    const loadDocs = async () => {
+      if (documents.value.length === 0) {
+        setDocsWithContent([]);
+        return;
+      }
+      const loaded: DocumentWithContent[] = [];
+      for (const doc of documents.value) {
+        try {
+          const content = await invoke<string>("read_document_content", { filePath: doc.path });
+          loaded.push({ ...doc, content });
+        } catch {
+          loaded.push({ ...doc, content: "" });
+        }
+      }
+      setDocsWithContent(loaded);
+    };
+    loadDocs();
+  }, [documents.value]);
 
   const handleSubmit = async () => {
     if (!currentQuery.value.trim() || isGenerating.value) return;
 
-    isGenerating.value = true;
-    setResponse(null);
-    streamingContent.value = "";
-
-    // Simulate streaming response
-    const mockResponse = `Based on the documents in your "${activeSpace.value?.name || "Quick Notes"}" space, here's what I found:
-
-The information you're looking for relates to several key points:
-
-1. **Primary Finding**: The analysis shows significant patterns in the data that align with your query about "${currentQuery.value.slice(0, 50)}..."
-
-2. **Supporting Evidence**: Multiple sources corroborate this finding, with particularly strong evidence from the indexed documents.
-
-3. **Recommendations**: Based on this analysis, consider reviewing the highlighted sections for more detailed information.
-
-This summary is generated from your local documents using RAG (Retrieval-Augmented Generation).`;
-
-    // Simulate streaming
-    for (let i = 0; i < mockResponse.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      streamingContent.value = mockResponse.slice(0, i + 1);
+    const provider = providers.value.find(p => p.id === activeProvider.value);
+    if (!provider?.apiKey && provider?.id !== "ollama") {
+      setError("Please add your API key in Settings (click gear icon)");
+      return;
     }
 
-    setResponse(mockResponse);
-    setSources([
-      { name: "Document1.pdf", page: 3 },
-      { name: "Document2.pdf", page: 7 },
-    ]);
-    isGenerating.value = false;
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: currentQuery.value,
+    };
+
+    const newMessages = [...currentMessages.value, userMessage];
+    currentMessages.value = newMessages;
+    const query = currentQuery.value;
+    currentQuery.value = "";
+    isGenerating.value = true;
+    setError(null);
+
+    try {
+      const history = currentMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
+      const documentContext = docsWithContent
+        .filter(d => d.content && d.content.length > 0)
+        .map(d => ({ name: d.name, content: d.content! }));
+
+      const result = await invoke<string>("send_message", {
+        message: query,
+        history,
+        documents: documentContext,
+        provider: activeProvider.value,
+        model: activeModel.value,
+        apiKey: provider?.apiKey || "",
+      });
+
+      const assistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: result,
+      };
+
+      const updatedMessages = [...newMessages, assistantMessage];
+      currentMessages.value = updatedMessages;
+
+      // Save to persistent chat history
+      if (!activeSessionId.value) {
+        const newSession: ChatSession = {
+          id: crypto.randomUUID(),
+          title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
+          messages: updatedMessages,
+          createdAt: new Date().toISOString(),
+        };
+        addChatSession(newSession);
+        activeSessionId.value = newSession.id;
+      } else {
+        updateChatSession(activeSessionId.value, updatedMessages);
+      }
+    } catch (err: any) {
+      setError(err?.message || err?.toString() || "Failed to get response");
+    } finally {
+      isGenerating.value = false;
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,11 +147,15 @@ This summary is generated from your local documents using RAG (Retrieval-Augment
       e.preventDefault();
       handleSubmit();
     }
+    if (e.key === "Escape") {
+      invoke("hide_window");
+    }
   };
 
   const handleCopy = async () => {
-    if (response) {
-      await navigator.clipboard.writeText(response);
+    const lastAssistant = [...currentMessages.value].reverse().find(m => m.role === "assistant");
+    if (lastAssistant) {
+      await navigator.clipboard.writeText(lastAssistant.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -86,198 +163,230 @@ This summary is generated from your local documents using RAG (Retrieval-Augment
 
   const handleClear = () => {
     currentQuery.value = "";
-    setResponse(null);
-    setSources([]);
-    streamingContent.value = "";
+    currentMessages.value = [];
+    activeSessionId.value = null;
+    setError(null);
     inputRef.current?.focus();
   };
 
+  const handleExpand = async () => {
+    viewMode.value = "dashboard";
+    await invoke("toggle_dashboard", { isDashboard: true });
+  };
+
+  const handleAddDocuments = async () => {
+    try {
+      const selected = await open({
+        multiple: true,
+        filters: [{
+          name: "Documents",
+          extensions: ["pdf", "txt", "md", "docx", "html", "py", "js", "ts", "rs", "java", "cpp", "c", "json", "yaml", "yml", "toml"]
+        }]
+      });
+      if (selected) {
+        const files = Array.isArray(selected) ? selected : [selected];
+        for (const filePath of files) {
+          const fileName = filePath.split(/[/\\]/).pop() || "Unknown";
+          const ext = fileName.split(".").pop() || "";
+          const newDoc: Document = {
+            id: crypto.randomUUID(),
+            name: fileName,
+            path: filePath,
+            size: 0,
+            type: ext,
+            addedAt: new Date().toISOString(),
+          };
+          addDocument(newDoc);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to add documents:", err);
+      setError("Failed to open file picker");
+    }
+  };
+
+  const selectModel = (providerId: string, model: string) => {
+    activeProvider.value = providerId;
+    activeModel.value = model;
+    setShowModelSelect(false);
+  };
+
+  const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
+
   return (
-    <div className="h-full w-full flex items-start justify-center pt-[15vh]">
-      <div className="w-full max-w-[650px] mx-4 animate-fade-in">
-        <div className="glass rounded-xl border border-border shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-3">
-              <LogoIcon size={24} className="text-accent-primary" />
-              <button className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-sm text-text-secondary">
-                <span>{activeModel.value}</span>
-                <ChevronDownIcon size={14} />
-              </button>
-              <div className="w-px h-4 bg-border" />
-              <button className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-sm text-text-secondary">
-                <span>{activeSpace.value?.name || "Quick Notes"}</span>
-                <ChevronDownIcon size={14} />
-              </button>
-            </div>
-            <div className="flex items-center gap-1">
+    <div className="h-full w-full flex flex-col">
+      <div className="glass rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in m-2 flex flex-col flex-1">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border drag-region">
+          <div className="flex items-center gap-2 no-drag">
+            <LogoIcon size={18} className="text-accent-primary" />
+            
+            <div className="relative">
               <button
-                onClick={() => (isSettingsOpen.value = true)}
-                className="p-2 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-                title="Settings (Ctrl+,)"
+                onClick={() => setShowModelSelect(!showModelSelect)}
+                className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-xs text-text-secondary"
               >
-                <SettingsIcon size={18} />
+                <span className="max-w-[100px] truncate">{activeModel.value}</span>
+                <ChevronDownIcon size={10} />
               </button>
-              <button
-                onClick={() => (viewMode.value = "dashboard")}
-                className="p-2 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-                title="Expand to Dashboard"
-              >
-                <ExpandIcon size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Input Area */}
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <SearchIcon size={20} className="text-text-tertiary mt-2.5" />
-              <textarea
-                ref={inputRef}
-                value={currentQuery.value}
-                onInput={(e) =>
-                  (currentQuery.value = (e.target as HTMLTextAreaElement).value)
-                }
-                onKeyDown={handleKeyDown}
-                placeholder="Ask anything about your documents..."
-                className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-base leading-relaxed min-h-[44px] max-h-[120px]"
-                rows={1}
-                disabled={isGenerating.value}
-              />
-              <button
-                onClick={handleSubmit}
-                disabled={!currentQuery.value.trim() || isGenerating.value}
-                className={clsx(
-                  "p-2 rounded-lg transition-all",
-                  currentQuery.value.trim() && !isGenerating.value
-                    ? "bg-accent-primary text-white hover:bg-accent-primary/90"
-                    : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                )}
-              >
-                {isGenerating.value ? (
-                  <SpinnerIcon size={20} />
-                ) : (
-                  <SendIcon size={20} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Clipboard Chip */}
-          {clipboardText.value && (
-            <div className="px-4 pb-3">
-              <button
-                onClick={() => (includeClipboard.value = !includeClipboard.value)}
-                className={clsx(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all w-full",
-                  includeClipboard.value
-                    ? "bg-accent-primary/10 border border-accent-primary/30 text-accent-primary"
-                    : "bg-bg-tertiary border border-transparent text-text-secondary hover:border-border"
-                )}
-              >
-                <ClipboardIcon size={16} />
-                <span className="truncate flex-1 text-left">
-                  {includeClipboard.value ? "Including: " : "Include clipboard: "}
-                  "{clipboardText.value.slice(0, 60)}
-                  {clipboardText.value.length > 60 ? "..." : ""}"
-                </span>
-                {includeClipboard.value && (
-                  <CloseIcon
-                    size={14}
-                    className="flex-shrink-0 hover:text-white"
-                  />
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Response Area */}
-          {(streamingContent.value || response) && (
-            <div className="border-t border-border">
-              <div className="p-4 max-h-[50vh] overflow-y-auto">
-                <div className="prose prose-sm prose-invert max-w-none">
-                  <div className="text-text-primary whitespace-pre-wrap leading-relaxed">
-                    {streamingContent.value || response}
-                    {isGenerating.value && (
-                      <span className="inline-block w-2 h-4 bg-accent-primary ml-0.5 animate-pulse-subtle" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Sources */}
-                {sources.length > 0 && !isGenerating.value && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <div className="text-xs text-text-tertiary mb-2">Sources</div>
-                    <div className="flex flex-wrap gap-2">
-                      {sources.map((source, i) => (
+              
+              {showModelSelect && (
+                <div className="absolute top-full left-0 mt-1 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                  {providers.value.map(provider => (
+                    <div key={provider.id}>
+                      <div className="px-3 py-1 text-xs text-text-tertiary font-medium">
+                        {provider.name}
+                      </div>
+                      {provider.models.map(model => (
                         <button
-                          key={i}
-                          className="px-2 py-1 bg-bg-tertiary rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
+                          key={model}
+                          onClick={() => selectModel(provider.id, model)}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-bg-tertiary transition-colors ${
+                            activeModel.value === model ? "text-accent-primary bg-accent-primary/10" : "text-text-primary"
+                          }`}
                         >
-                          [{i + 1}] {source.name}, p.{source.page}
+                          {model}
                         </button>
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              {/* Response Actions */}
-              {response && !isGenerating.value && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-bg-secondary/50">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-                    >
-                      <CopyIcon size={14} />
-                      {copied ? "Copied!" : "Copy"}
-                    </button>
-                    <button
-                      onClick={() => (viewMode.value = "dashboard")}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-                    >
-                      <ExpandIcon size={14} />
-                      Expand
-                    </button>
-                    <button
-                      onClick={handleClear}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-                    >
-                      <RefreshIcon size={14} />
-                      New Query
-                    </button>
+            {totalDocsLoaded > 0 && (
+              <span className="px-1.5 py-0.5 bg-accent-primary/10 rounded text-xs text-accent-primary">
+                {totalDocsLoaded} doc{totalDocsLoaded > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-0.5 no-drag">
+            <button
+              onClick={handleAddDocuments}
+              className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              title="Add Documents"
+            >
+              <FolderIcon size={14} />
+            </button>
+            <button
+              onClick={() => (isSettingsOpen.value = true)}
+              className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              title="Settings (Ctrl+,)"
+            >
+              <SettingsIcon size={14} />
+            </button>
+            <button
+              onClick={handleExpand}
+              className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              title="Expand"
+            >
+              <ExpandIcon size={14} />
+            </button>
+            <button
+              onClick={() => invoke("hide_window")}
+              className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              title="Close (Esc)"
+            >
+              <CloseIcon size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto">
+          {currentMessages.value.length === 0 && !isGenerating.value && !error ? (
+            <div className="h-full flex items-center justify-center p-4">
+              <div className="text-center">
+                <p className="text-xs text-text-tertiary mb-2">
+                  {totalDocsLoaded > 0 
+                    ? `Ask about your ${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''}`
+                    : "Ask anything or add documents"}
+                </p>
+                <p className="text-xs text-text-tertiary">
+                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> send · 
+                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded ml-1">Esc</kbd> hide
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 space-y-3">
+              {currentMessages.value.map((msg) => (
+                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs ${
+                    msg.role === "user" 
+                      ? "bg-accent-primary text-white" 
+                      : "bg-bg-tertiary text-text-primary"
+                  }`}>
+                    <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                   </div>
-                  <div className="text-xs text-text-tertiary">
-                    Tokens: ~1,234
+                </div>
+              ))}
+              {isGenerating.value && (
+                <div className="flex justify-start">
+                  <div className="bg-bg-tertiary rounded-lg px-3 py-2">
+                    <SpinnerIcon size={14} className="text-accent-primary" />
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
           )}
         </div>
 
-        {/* Keyboard Hints */}
-        <div className="flex items-center justify-center gap-4 mt-4 text-xs text-text-tertiary">
-          <span>
-            <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-secondary">
-              Enter
-            </kbd>{" "}
-            to send
-          </span>
-          <span>
-            <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-secondary">
-              Esc
-            </kbd>{" "}
-            to close
-          </span>
-          <span>
-            <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-secondary">
-              Ctrl+,
-            </kbd>{" "}
-            settings
-          </span>
+        {/* Error */}
+        {error && (
+          <div className="px-3 py-2 bg-error/10 border-t border-error/20">
+            <p className="text-xs text-error">{error}</p>
+          </div>
+        )}
+
+        {/* Input Area */}
+        <div className="p-2 border-t border-border">
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              value={currentQuery.value}
+              onInput={(e) => (currentQuery.value = (e.target as HTMLTextAreaElement).value)}
+              onKeyDown={handleKeyDown}
+              placeholder={totalDocsLoaded > 0 ? "Ask about your docs..." : "Ask anything..."}
+              className="flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"
+              rows={1}
+              disabled={isGenerating.value}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={!currentQuery.value.trim() || isGenerating.value}
+              className={`p-2 rounded-lg transition-all flex-shrink-0 ${
+                currentQuery.value.trim() && !isGenerating.value
+                  ? "bg-accent-primary text-white hover:bg-accent-primary/90"
+                  : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+              }`}
+            >
+              {isGenerating.value ? <SpinnerIcon size={14} /> : <SendIcon size={14} />}
+            </button>
+          </div>
         </div>
+
+        {/* Actions Bar */}
+        {currentMessages.value.length > 0 && !isGenerating.value && (
+          <div className="flex items-center gap-2 px-2 py-1.5 border-t border-border bg-bg-secondary/50">
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            >
+              <CopyIcon size={10} />
+              {copied ? "Copied!" : "Copy"}
+            </button>
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            >
+              <RefreshIcon size={10} />
+              Clear
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
