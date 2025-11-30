@@ -45,9 +45,6 @@
 |----------------|----------------|
 | ![Spotlight](demo/spotlight.png) | ![Dashboard](demo/dashboard.png) |
 
-| Settings | Chat with Code |
-|----------|----------------|
-| ![Settings](demo/settings.png) | ![Code Output](demo/code.png) |
 
 ---
 
