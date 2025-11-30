@@ -126,3 +126,57 @@ select option {
 .animate-pulse-cursor {
   animation: pulse 1s ease-in-out infinite;
 }
+
+/* Markdown content styles */
+.markdown-content p {
+  margin: 0.25rem 0;
+}
+
+.markdown-content p:first-child {
+  margin-top: 0;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 0.5rem;
+}
+
+.markdown-content li {
+  margin: 0.125rem 0;
+}
+
+.markdown-content pre {
+  margin: 0;
+}
+
+.markdown-content code {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+}
+
+.markdown-content a {
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content blockquote {
+  border-left-width: 3px;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  line-height: 1.3;
+}
+
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child {
+  margin-top: 0;
+}

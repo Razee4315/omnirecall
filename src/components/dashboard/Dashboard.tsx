@@ -36,6 +36,7 @@ import {
   MenuIcon,
   CheckIcon,
 } from "../icons";
+import { Markdown } from "../common/Markdown";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -444,9 +445,13 @@ export function Dashboard() {
                         : "bg-bg-secondary text-text-primary border border-border"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {message.content}
-                    </div>
+                    {message.role === "user" ? (
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {message.content}
+                      </div>
+                    ) : (
+                      <Markdown content={message.content} className="text-sm leading-relaxed" />
+                    )}
                   </div>
                 </div>
               ))}

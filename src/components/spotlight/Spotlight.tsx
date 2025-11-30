@@ -32,6 +32,7 @@ import {
   CloseIcon,
   FolderIcon,
 } from "../icons";
+import { Markdown } from "../common/Markdown";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -318,7 +319,11 @@ export function Spotlight() {
                       ? "bg-accent-primary text-white" 
                       : "bg-bg-tertiary text-text-primary"
                   }`}>
-                    <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                    {msg.role === "user" ? (
+                      <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                    ) : (
+                      <Markdown content={msg.content} className="text-xs leading-relaxed" />
+                    )}
                   </div>
                 </div>
               ))}
