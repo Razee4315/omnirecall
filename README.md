@@ -34,23 +34,21 @@
 
 ## Demo
 
-<p align="center">
-  <video src="demo/demo.mp4" width="100%" controls autoplay loop muted>
-    Your browser does not support the video tag.
-  </video>
-</p>
+https://github.com/user-attachments/assets/demo.mp4
 
-> **Note**: Place your demo video as `demo/demo.mp4` in the repository.
+> **📹 Click the video above to watch the demo** | [Download Video](demo/demo.mp4)
 
-<details>
-<summary>📸 Screenshots</summary>
+---
+
+## Screenshots
 
 | Spotlight Mode | Dashboard Mode |
 |----------------|----------------|
-| Quick access popup at cursor | Full interface with sidebar |
 | ![Spotlight](demo/spotlight.png) | ![Dashboard](demo/dashboard.png) |
 
-</details>
+| Settings | Chat with Code |
+|----------|----------------|
+| ![Settings](demo/settings.png) | ![Code Output](demo/code.png) |
 
 ---
 
@@ -78,7 +76,6 @@
 - **Markdown rendering** - Bold, lists, headers formatted beautifully
 - **Code blocks** - Syntax display with one-click copy
 - **Chat history** - Persistent conversations, searchable
-- **Streaming** - See responses as they're generated
 
 ### 🎨 Beautiful UI
 - **Dark & Light themes** - Easy on the eyes
