@@ -58,27 +58,27 @@
 ### 🤖 Multi-Provider AI
 | Provider | Models | Free Tier |
 |----------|--------|-----------|
-| **Google Gemini** | gemini-2.0-flash, gemini-1.5-pro | ✅ Generous |
-| **OpenAI** | GPT-4o, GPT-4-turbo | ❌ |
-| **Anthropic** | Claude 3.5 Sonnet, Haiku | ❌ |
-| **Ollama** | Llama 3.2, Mistral, any local | ✅ 100% Local |
+| **Google Gemini** | gemini-2.0-flash, gemini-1.5-pro | Generous |
+| **OpenAI** | GPT-4o, GPT-4-turbo | No |
+| **Anthropic** | Claude 3.5 Sonnet, Haiku | No |
+| **Ollama** | Llama 3.2, Mistral, any local | 100% Local |
 
-### 📄 Document RAG
+### Document RAG
 - **Add documents** - PDF, TXT, MD, code files
 - **Context-aware** - AI answers based on your documents
 - **Persistent** - Documents stay loaded between sessions
 
-### 💬 Smart Chat
+### Smart Chat
 - **Markdown rendering** - Bold, lists, headers formatted beautifully
 - **Code blocks** - Syntax display with one-click copy
 - **Chat history** - Persistent conversations, searchable
 
-### 🎨 Beautiful UI
+### Beautiful UI
 - **Dark & Light themes** - Easy on the eyes
 - **Glass effect** - Modern transparent design
 - **Responsive** - Adapts to Spotlight and Dashboard modes
 
-### 🔒 Privacy First
+### Privacy First
 - **Local storage** - All data stays on your device
 - **Your API keys** - Stored securely in OS credential manager
 - **No telemetry** - Zero data collection
