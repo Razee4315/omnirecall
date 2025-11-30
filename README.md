@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="src-tauri/icons/icon.png" width="120" alt="OmniRecall Logo">
-</p>
-
 <h1 align="center">OmniRecall</h1>
 
 <p align="center">
