@@ -16,16 +16,44 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 // Track if we're in dashboard mode (don't hide on focus loss)
 static IS_DASHBOARD_MODE: AtomicBool = AtomicBool::new(false);
 
-fn position_window_top_right(window: &tauri::WebviewWindow) {
-    if let Ok(monitor) = window.current_monitor() {
-        if let Some(monitor) = monitor {
+fn position_window_at_cursor(window: &tauri::WebviewWindow) {
+    // Get cursor position
+    if let Ok(cursor_pos) = window.cursor_position() {
+        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(420, 500));
+        
+        // Get the monitor where cursor is
+        if let Ok(Some(monitor)) = window.current_monitor() {
             let screen_size = monitor.size();
-            let screen_position = monitor.position();
-            let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(420, 500));
+            let screen_pos = monitor.position();
             
-            let x = screen_position.x + screen_size.width as i32 - window_size.width as i32 - 20;
-            let y = screen_position.y + 50;
+            // Calculate position - place window so it doesn't go off screen
+            let mut x = cursor_pos.x as i32 - (window_size.width as i32 / 2);
+            let mut y = cursor_pos.y as i32 + 10; // Slightly below cursor
             
+            // Ensure window stays within screen bounds
+            let screen_right = screen_pos.x + screen_size.width as i32;
+            let screen_bottom = screen_pos.y + screen_size.height as i32;
+            
+            // Clamp X
+            if x < screen_pos.x {
+                x = screen_pos.x + 10;
+            } else if x + window_size.width as i32 > screen_right {
+                x = screen_right - window_size.width as i32 - 10;
+            }
+            
+            // Clamp Y - if would go below screen, show above cursor
+            if y + window_size.height as i32 > screen_bottom {
+                y = cursor_pos.y as i32 - window_size.height as i32 - 10;
+            }
+            if y < screen_pos.y {
+                y = screen_pos.y + 10;
+            }
+            
+            let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+        } else {
+            // Fallback: just use cursor position
+            let x = cursor_pos.x as i32 - (window_size.width as i32 / 2);
+            let y = cursor_pos.y as i32 + 10;
             let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
         }
     }
@@ -35,7 +63,7 @@ fn toggle_window(window: &tauri::WebviewWindow) {
     if window.is_visible().unwrap_or(false) {
         let _ = window.hide();
     } else {
-        position_window_top_right(window);
+        position_window_at_cursor(window);
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -57,8 +85,8 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             
-            // Position and show window
-            position_window_top_right(&window);
+            // Position at cursor and show window
+            position_window_at_cursor(&window);
             window.show().unwrap();
             
             // Setup tray menu
@@ -143,7 +171,7 @@ pub fn run() {
 
 #[tauri::command]
 async fn show_window(window: tauri::WebviewWindow) {
-    position_window_top_right(&window);
+    position_window_at_cursor(&window);
     let _ = window.show();
     let _ = window.set_focus();
 }
@@ -169,7 +197,7 @@ async fn toggle_dashboard(window: tauri::WebviewWindow, is_dashboard: bool) {
         let _ = window.set_size(tauri::LogicalSize::new(420, 500));
         let _ = window.set_min_size(Some(tauri::LogicalSize::new(380, 200)));
         let _ = window.set_max_size(Some(tauri::LogicalSize::new(500, 700)));
-        position_window_top_right(&window);
+        position_window_at_cursor(&window);
         let _ = window.set_always_on_top(true);
         let _ = window.set_skip_taskbar(true);
     }
