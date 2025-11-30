@@ -50,12 +50,12 @@
 
 ## Features
 
-### 🚀 Instant Access
+### Instant Access
 - **Appears at cursor** - Press `Alt+Space` and the window appears right where you're working
 - **Spotlight-style UI** - Clean, minimal interface that doesn't interrupt your flow
 - **System tray** - Always running in background, ready when you need it
 
-### 🤖 Multi-Provider AI
+### Multi-Provider AI
 | Provider | Models | Free Tier |
 |----------|--------|-----------|
 | **Google Gemini** | gemini-2.0-flash, gemini-1.5-pro | Generous |
