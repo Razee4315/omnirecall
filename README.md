@@ -34,9 +34,12 @@
 
 ## Demo
 
-https://github.com/user-attachments/assets/demo.mp4
+## Demo
 
-> **📹 Click the video above to watch the demo** | [Download Video](demo/demo.mp4)
+<video src="https://github.com/user-attachments/assets/demo.mp4" controls="controls" style="max-width: 100%;">
+</video>
+
+> [Download Video](demo/demo.mp4)
 
 ---
 
