@@ -96,7 +96,7 @@ impl AiClient {
 
     async fn test_ollama(&self) -> Result<Vec<String>> {
         let base_url = self.base_url.as_deref().unwrap_or("http://localhost:11434");
-        let response = self.client.get(&format!("{}/api/tags", base_url)).send().await;
+        let response = self.client.get(format!("{}/api/tags", base_url)).send().await;
         match response {
             Ok(resp) if resp.status().is_success() => {
                 #[derive(Deserialize)]
@@ -310,7 +310,7 @@ impl AiClient {
             "stream": false,
         });
 
-        let response = self.client.post(&format!("{}/api/chat", base_url))
+        let response = self.client.post(format!("{}/api/chat", base_url))
             .header("Content-Type", "application/json")
             .json(&body)
             .send()

@@ -103,11 +103,11 @@ impl DocumentPipeline {
                 current_tokens = 0;
                 
                 // Add overlap from previous sentences
-                let overlap_start = if i >= overlap / 50 { i - overlap / 50 } else { 0 };
-                for j in overlap_start..i {
-                    current_chunk.push_str(&sentences[j]);
+                let overlap_start = i.saturating_sub(overlap / 50);
+                for sentence_item in sentences.iter().take(i).skip(overlap_start) {
+                    current_chunk.push_str(sentence_item);
                     current_chunk.push(' ');
-                    current_tokens += self.estimate_tokens(&sentences[j]);
+                    current_tokens += self.estimate_tokens(sentence_item);
                 }
             }
             
@@ -154,7 +154,7 @@ impl DocumentPipeline {
 
     fn estimate_tokens(&self, text: &str) -> usize {
         // Rough estimate: ~4 characters per token for English
-        (text.len() + 3) / 4
+        text.len().div_ceil(4)
     }
 
     pub fn get_page_count(&self, file_path: &Path) -> Result<Option<u32>> {
