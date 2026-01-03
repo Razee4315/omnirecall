@@ -74,9 +74,15 @@ fn toggle_window(window: &tauri::WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Note: "Unicode mismatch" warnings from pdf-extract are harmless
+    // They occur when PDFs use ligatures (ﬁ → fi) and can't be suppressed
+    // as they're printed directly to stdout by the pdf-extract library
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        )
         .init();
 
     tauri::Builder::default()

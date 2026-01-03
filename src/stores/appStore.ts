@@ -83,7 +83,7 @@ export const providers = signal<AIProvider[]>([
 ]);
 
 export const activeProvider = signal("gemini");
-export const activeModel = signal("gemini-2.5-flash");
+export const activeModel = signal<string>("gemini-3-flash-preview");
 
 // Documents State
 export const documents = signal<Document[]>([]);
