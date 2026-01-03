@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default capabilities for OmniRecall","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","dialog:default","dialog:allow-open","clipboard-manager:allow-read-text","clipboard-manager:allow-write-text","global-shortcut:allow-register","global-shortcut:allow-unregister","store:default"]}}
