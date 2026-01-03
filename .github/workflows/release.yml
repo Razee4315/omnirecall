@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to release (e.g., v1.0.1)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -17,10 +22,6 @@ jobs:
         include:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-          - platform: macos-latest
-            target: aarch64-apple-darwin
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
 
@@ -55,18 +56,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'OmniRecall ${{ github.ref_name }}'
+          tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
+          releaseName: 'OmniRecall ${{ github.ref_name || inputs.version || "Development Build" }}'
           releaseBody: |
-            ## OmniRecall ${{ github.ref_name }}
+            ## OmniRecall ${{ github.ref_name || inputs.version }}
             
             See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
             
             ### Downloads
             - **Windows**: Download `.exe` (installer) or `.msi`
-            - **macOS Intel**: Download `_x64.dmg`
-            - **macOS Apple Silicon**: Download `_aarch64.dmg`
             - **Linux**: Download `.deb` or `.AppImage`
-          releaseDraft: false
-          prerelease: false
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
           args: --target ${{ matrix.target }}
