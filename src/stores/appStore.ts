@@ -2,7 +2,7 @@ import { signal } from "@preact/signals";
 import { Store } from "@tauri-apps/plugin-store";
 
 export type ViewMode = "spotlight" | "dashboard";
-export type Theme = "dark" | "light" | "system";
+export type Theme = "dark" | "light" | "transparent";
 
 export interface AIProvider {
   id: string;
@@ -107,13 +107,13 @@ async function getStore(): Promise<Store> {
 export async function loadPersistedData() {
   try {
     const s = await getStore();
-    
+
     // Load chat history
     const savedHistory = await s.get<ChatSession[]>("chatHistory");
     if (savedHistory) {
       chatHistory.value = savedHistory;
     }
-    
+
     // Load API keys
     const savedProviders = await s.get<AIProvider[]>("providers");
     if (savedProviders) {
@@ -123,14 +123,14 @@ export async function loadPersistedData() {
         return saved ? { ...p, apiKey: saved.apiKey, isConnected: saved.isConnected } : p;
       });
     }
-    
+
     // Load theme
     const savedTheme = await s.get<Theme>("theme");
     if (savedTheme) {
       theme.value = savedTheme;
-      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+      applyThemeClasses(savedTheme);
     }
-    
+
     // Load documents
     const savedDocs = await s.get<Document[]>("documents");
     if (savedDocs) {
@@ -227,8 +227,19 @@ export function removeDocument(docId: string) {
   saveDocuments();
 }
 
+function applyThemeClasses(newTheme: Theme) {
+  const html = document.documentElement;
+  html.classList.remove("dark", "transparent");
+  if (newTheme === "dark" || newTheme === "transparent") {
+    html.classList.add("dark");
+  }
+  if (newTheme === "transparent") {
+    html.classList.add("transparent");
+  }
+}
+
 export function setTheme(newTheme: Theme) {
   theme.value = newTheme;
-  document.documentElement.classList.toggle("dark", newTheme === "dark");
+  applyThemeClasses(newTheme);
   saveTheme();
 }

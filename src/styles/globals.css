@@ -31,6 +31,31 @@
   --glass-bg: rgba(13, 13, 15, 0.92);
 }
 
+/* Transparent Glass Theme */
+.transparent {
+  --bg-primary: rgba(10, 10, 12, 0.65);
+  --bg-secondary: rgba(26, 26, 31, 0.55);
+  --bg-tertiary: rgba(37, 37, 41, 0.5);
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b8;
+  --text-tertiary: #7b7b83;
+  --accent-primary: #5aafff;
+  --accent-secondary: #9c5aff;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(10, 10, 12, 0.7);
+}
+
+.transparent body {
+  background: transparent !important;
+}
+
+.transparent .glass {
+  background: rgba(10, 10, 12, 0.6) !important;
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -103,20 +128,34 @@ select option {
   .drag-region {
     -webkit-app-region: drag;
   }
-  
+
   .no-drag {
     -webkit-app-region: no-drag;
   }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .animate-fade-in {
@@ -129,8 +168,16 @@ select option {
 
 /* Typing indicator animation */
 @keyframes bounce {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-4px); }
+
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+
+  30% {
+    transform: translateY(-4px);
+  }
 }
 
 .typing-dot {
@@ -142,9 +189,17 @@ select option {
   animation: bounce 1.4s ease-in-out infinite;
 }
 
-.typing-dot:nth-child(1) { animation-delay: 0s; }
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 /* Markdown content styles */
 .markdown-content p {

@@ -5,13 +5,21 @@ import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
 
+function applyThemeClasses(currentTheme: string) {
+  const html = document.documentElement;
+  html.classList.remove("dark", "transparent");
+  if (currentTheme === "dark" || currentTheme === "transparent") {
+    html.classList.add("dark");
+  }
+  if (currentTheme === "transparent") {
+    html.classList.add("transparent");
+  }
+}
+
 export function App() {
   useEffect(() => {
-    // Apply theme
-    const applyTheme = () => {
-      document.documentElement.classList.toggle("dark", theme.value === "dark");
-    };
-    applyTheme();
+    // Apply theme on mount
+    applyThemeClasses(theme.value);
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Settings shortcut
@@ -42,11 +50,11 @@ export function App() {
 
   // Watch theme changes
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme.value === "dark");
+    applyThemeClasses(theme.value);
   }, [theme.value]);
 
   return (
-    <div className={`h-full w-full ${viewMode.value === "spotlight" ? "bg-transparent" : "bg-bg-primary"}`}>
+    <div className={`h-full w-full ${viewMode.value === "spotlight" || theme.value === "transparent" ? "bg-transparent" : "bg-bg-primary"}`}>
       {viewMode.value === "spotlight" ? <Spotlight /> : <Dashboard />}
       {isSettingsOpen.value && <Settings />}
     </div>
