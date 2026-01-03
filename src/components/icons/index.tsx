@@ -668,3 +668,14 @@ export function EyeOffIcon({ size = 20, className = "" }: IconProps) {
     </svg>
   );
 }
+
+// Typing indicator with animated dots
+export function TypingIndicator({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex items-center gap-1 ${className}`}>
+      <span className="typing-dot"></span>
+      <span className="typing-dot"></span>
+      <span className="typing-dot"></span>
+    </div>
+  );
+}

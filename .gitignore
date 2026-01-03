@@ -13,6 +13,7 @@ build/
 src-tauri/target/
 src-tauri/WixTools/
 src-tauri/Cargo.lock
+src-tauri/gen/
 
 # IDE
 .idea/
@@ -74,6 +75,8 @@ debug/
 # Package manager locks (keep package-lock.json)
 yarn.lock
 pnpm-lock.yaml
+bun.lock
+bun.lockb
 
 # TypeScript
 *.tsbuildinfo

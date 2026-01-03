@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved Settings UI with responsive layout for small windows
 - Better window behavior: Spotlight hides on focus loss, Dashboard stays open
-- Updated Gemini model to `gemini-2.0-flash`
+- Updated Gemini models to latest: `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`
 
 ### Fixed
 - Document upload dialog now properly opens file picker

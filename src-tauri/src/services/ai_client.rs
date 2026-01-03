@@ -57,7 +57,7 @@ impl AiClient {
         );
         let response = self.client.get(&url).send().await?;
         if response.status().is_success() {
-            Ok(vec!["gemini-2.0-flash".to_string(), "gemini-1.5-flash".to_string(), "gemini-1.5-pro".to_string()])
+            Ok(vec!["gemini-3-flash-preview".to_string(), "gemini-2.5-flash".to_string(), "gemini-2.5-pro".to_string()])
         } else if response.status() == 401 || response.status() == 400 {
             Err(AppError::InvalidApiKey)
         } else {

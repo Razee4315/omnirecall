@@ -58,7 +58,7 @@
 ### Multi-Provider AI
 | Provider | Models | Free Tier |
 |----------|--------|-----------|
-| **Google Gemini** | gemini-2.0-flash, gemini-1.5-pro | Generous |
+| **Google Gemini** | gemini-3-flash-preview, gemini-2.5-flash, gemini-2.5-pro | Generous |
 | **OpenAI** | GPT-4o, GPT-4-turbo | No |
 | **Anthropic** | Claude 3.5 Sonnet, Haiku | No |
 | **Ollama** | Llama 3.2, Mistral, any local | 100% Local |

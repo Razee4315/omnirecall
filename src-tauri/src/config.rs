@@ -20,7 +20,7 @@ impl Default for AppConfig {
             theme: "dark".to_string(),
             hotkey: "Alt+Space".to_string(),
             default_provider: "gemini".to_string(),
-            default_model: "gemini-2.0-flash-exp".to_string(),
+            default_model: "gemini-2.5-flash".to_string(),
             max_context_chunks: 5,
             show_token_count: true,
             hybrid_search: false,

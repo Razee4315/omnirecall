@@ -34,9 +34,8 @@ export function Settings() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
-      <div className={`relative w-full bg-bg-primary rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in ${
-        isCompact ? "max-w-sm max-h-[90vh]" : "max-w-2xl max-h-[85vh]"
-      }`}>
+      <div className={`relative w-full bg-bg-primary rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in ${isCompact ? "max-w-sm max-h-[90vh]" : "max-w-2xl max-h-[85vh]"
+        }`}>
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-bg-secondary">
           <h2 className={`font-semibold text-text-primary ${isCompact ? "text-sm" : "text-base"}`}>Settings</h2>
@@ -54,11 +53,10 @@ export function Settings() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as SettingsTab)}
-                  className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                    activeTab === tab
-                      ? "text-accent-primary border-b-2 border-accent-primary"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
+                  className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === tab
+                    ? "text-accent-primary border-b-2 border-accent-primary"
+                    : "text-text-secondary hover:text-text-primary"
+                    }`}
                 >
                   {tab === "providers" ? "AI" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -83,11 +81,10 @@ export function Settings() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as SettingsTab)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                      activeTab === tab.id
-                        ? "bg-accent-primary/10 text-accent-primary"
-                        : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-                    }`}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === tab.id
+                      ? "bg-accent-primary/10 text-accent-primary"
+                      : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
+                      }`}
                   >
                     {tab.label}
                   </button>
@@ -122,21 +119,32 @@ function ProviderCardCompact({ provider }: { provider: any }) {
   const [apiKey, setApiKey] = useState(provider.apiKey);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(provider.isConnected ? "success" : null);
+  const [testMessage, setTestMessage] = useState<string | null>(provider.isConnected ? "Connected" : null);
 
   const handleTest = async () => {
     if (!apiKey && provider.id !== "ollama") return;
     setTesting(true);
     setTestResult(null);
+    setTestMessage(null);
     try {
       await invoke("test_api_key", { provider: provider.id, apiKey, baseUrl: provider.baseUrl });
       setTestResult("success");
+      setTestMessage("✓ Connected!");
       setProviderConnected(provider.id, true);
       if (!providers.value.some(p => p.isConnected)) {
         activeProvider.value = provider.id;
         activeModel.value = provider.models[0];
       }
-    } catch {
+    } catch (err: any) {
       setTestResult("error");
+      const msg = err?.message || err?.toString() || "Connection failed";
+      if (msg.includes("InvalidApiKey")) {
+        setTestMessage("Invalid API key");
+      } else if (msg.includes("Network")) {
+        setTestMessage("Network error");
+      } else {
+        setTestMessage("Failed to connect");
+      }
       setProviderConnected(provider.id, false);
     } finally {
       setTesting(false);
@@ -164,39 +172,57 @@ function ProviderCardCompact({ provider }: { provider: any }) {
         </div>
       </div>
       {provider.id !== "ollama" ? (
-        <div className="flex gap-1">
-          <div className="relative flex-1">
-            <input
-              type={showKey ? "text" : "password"}
-              value={apiKey}
-              onInput={(e) => setApiKey((e.target as HTMLInputElement).value)}
-              onBlur={handleSave}
-              placeholder="API key..."
-              className="w-full px-2 py-1.5 pr-7 bg-bg-tertiary border border-border rounded text-text-primary text-xs outline-none focus:border-accent-primary"
-            />
-            <button onClick={() => setShowKey(!showKey)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary">
-              {showKey ? <EyeOffIcon size={12} /> : <EyeIcon size={12} />}
+        <div className="space-y-1.5">
+          <div className="flex gap-1">
+            <div className="relative flex-1">
+              <input
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onInput={(e) => setApiKey((e.target as HTMLInputElement).value)}
+                onBlur={handleSave}
+                placeholder="API key..."
+                className="w-full px-2 py-1.5 pr-7 bg-bg-tertiary border border-border rounded text-text-primary text-xs outline-none focus:border-accent-primary"
+              />
+              <button onClick={() => setShowKey(!showKey)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary">
+                {showKey ? <EyeOffIcon size={12} /> : <EyeIcon size={12} />}
+              </button>
+            </div>
+            <button
+              onClick={handleTest}
+              disabled={testing || !apiKey}
+              className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all duration-200 min-w-[50px] ${testing ? "bg-bg-tertiary text-text-tertiary" :
+                testResult === "success" ? "bg-success/20 text-success border border-success/30" :
+                  testResult === "error" ? "bg-error/20 text-error border border-error/30" :
+                    !apiKey ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed" :
+                      "bg-accent-primary text-white hover:bg-accent-primary/90"
+                }`}
+            >
+              {testing ? <SpinnerIcon size={12} className="mx-auto animate-spin" /> :
+                testResult === "success" ? "OK" :
+                  testResult === "error" ? "!" : "Test"}
             </button>
           </div>
-          <button
-            onClick={handleTest}
-            disabled={testing || !apiKey}
-            className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
-              testing || !apiKey ? "bg-bg-tertiary text-text-tertiary" : 
-              testResult === "success" ? "bg-success/20 text-success" :
-              testResult === "error" ? "bg-error/20 text-error" :
-              "bg-accent-primary text-white"
-            }`}
-          >
-            {testing ? <SpinnerIcon size={12} /> : testResult === "success" ? "OK" : testResult === "error" ? "!" : "Test"}
-          </button>
+          {testMessage && (
+            <p className={`text-xs ${testResult === "success" ? "text-success" : "text-error"}`}>
+              {testMessage}
+            </p>
+          )}
+          <a href={getUrl()} target="_blank" className="text-xs text-accent-primary hover:underline block">Get key →</a>
         </div>
       ) : (
-        <button onClick={handleTest} disabled={testing} className="w-full px-2 py-1.5 bg-accent-primary text-white rounded text-xs">
-          {testing ? "Testing..." : "Test Ollama"}
-        </button>
+        <div className="space-y-1.5">
+          <button onClick={handleTest} disabled={testing} className={`w-full px-2 py-1.5 rounded text-xs font-medium transition-all ${testing ? "bg-bg-tertiary text-text-tertiary" :
+            testResult === "success" ? "bg-success/20 text-success" :
+              testResult === "error" ? "bg-error/20 text-error" :
+                "bg-accent-primary text-white hover:bg-accent-primary/90"
+            }`}>
+            {testing ? "Testing..." : testResult === "success" ? "✓ Connected" : testResult === "error" ? "Connection Failed" : "Test Ollama"}
+          </button>
+          {testMessage && testResult === "error" && (
+            <p className="text-xs text-error">{testMessage}</p>
+          )}
+        </div>
       )}
-      <a href={getUrl()} target="_blank" className="text-xs text-accent-primary hover:underline mt-1 block">Get key →</a>
     </div>
   );
 }
@@ -213,9 +239,8 @@ function AppearanceTabCompact() {
           <button
             key={t}
             onClick={() => handleTheme(t)}
-            className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium capitalize ${
-              theme.value === t ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border text-text-secondary"
-            }`}
+            className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium capitalize ${theme.value === t ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border text-text-secondary"
+              }`}
           >
             {t}
           </button>
@@ -266,21 +291,32 @@ function ProviderCard({ provider }: { provider: any }) {
   const [apiKey, setApiKey] = useState(provider.apiKey);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(provider.isConnected ? "success" : null);
+  const [testMessage, setTestMessage] = useState<string | null>(provider.isConnected ? "API key verified" : null);
 
   const handleTest = async () => {
     if (!apiKey && provider.id !== "ollama") return;
     setTesting(true);
     setTestResult(null);
+    setTestMessage(null);
     try {
       await invoke("test_api_key", { provider: provider.id, apiKey, baseUrl: provider.baseUrl });
       setTestResult("success");
+      setTestMessage("✓ Connection successful! API key is valid.");
       setProviderConnected(provider.id, true);
       if (!providers.value.some(p => p.isConnected)) {
         activeProvider.value = provider.id;
         activeModel.value = provider.models[0];
       }
-    } catch {
+    } catch (err: any) {
       setTestResult("error");
+      const msg = err?.message || err?.toString() || "Connection failed";
+      if (msg.includes("InvalidApiKey")) {
+        setTestMessage("✗ Invalid API key. Please check and try again.");
+      } else if (msg.includes("Network")) {
+        setTestMessage("✗ Network error. Check your internet connection.");
+      } else {
+        setTestMessage("✗ Connection failed. Please verify your API key.");
+      }
       setProviderConnected(provider.id, false);
     } finally {
       setTesting(false);
@@ -300,7 +336,9 @@ function ProviderCard({ provider }: { provider: any }) {
   };
 
   return (
-    <div className="p-3 bg-bg-secondary rounded-lg border border-border">
+    <div className={`p-3 bg-bg-secondary rounded-lg border transition-colors ${testResult === "success" ? "border-success/30" :
+        testResult === "error" ? "border-error/30" : "border-border"
+      }`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <KeyIcon size={16} className="text-text-secondary" />
@@ -318,35 +356,65 @@ function ProviderCard({ provider }: { provider: any }) {
                 onInput={(e) => setApiKey((e.target as HTMLInputElement).value)}
                 onBlur={handleSave}
                 placeholder="Enter API key..."
-                className="w-full px-3 py-2 pr-9 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm outline-none focus:border-accent-primary"
+                className="w-full px-3 py-2 pr-9 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm outline-none focus:border-accent-primary transition-colors"
               />
-              <button onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary">
+              <button onClick={() => setShowKey(!showKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary transition-colors">
                 {showKey ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
               </button>
             </div>
             <button
               onClick={handleTest}
               disabled={testing || !apiKey}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors min-w-[60px] ${
-                testing || !apiKey ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed" :
-                testResult === "success" ? "bg-success/20 text-success" :
-                testResult === "error" ? "bg-error/20 text-error" :
-                "bg-accent-primary text-white hover:bg-accent-primary/90"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 min-w-[80px] flex items-center justify-center gap-2 ${testing ? "bg-bg-tertiary text-text-tertiary" :
+                  testResult === "success" ? "bg-success/20 text-success border border-success/30" :
+                    testResult === "error" ? "bg-error/20 text-error border border-error/30" :
+                      !apiKey ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed" :
+                        "bg-accent-primary text-white hover:bg-accent-primary/90"
+                }`}
             >
-              {testing ? <SpinnerIcon size={14} /> : testResult === "success" ? <CheckIcon size={14} /> : testResult === "error" ? <AlertIcon size={14} /> : "Test"}
+              {testing ? (
+                <>
+                  <SpinnerIcon size={14} className="animate-spin" />
+                  <span>Testing</span>
+                </>
+              ) : testResult === "success" ? (
+                <>
+                  <CheckIcon size={14} />
+                  <span>Valid</span>
+                </>
+              ) : testResult === "error" ? (
+                <>
+                  <AlertIcon size={14} />
+                  <span>Failed</span>
+                </>
+              ) : "Test"}
             </button>
           </div>
-          {testResult === "error" && <p className="text-xs text-error">Invalid API key</p>}
+          {testMessage && (
+            <p className={`text-xs px-1 ${testResult === "success" ? "text-success" : "text-error"}`}>
+              {testMessage}
+            </p>
+          )}
           <a href={getUrl()} target="_blank" className="text-xs text-accent-primary hover:underline">Get your API key →</a>
         </div>
       ) : (
         <div className="space-y-2">
-          <input type="text" defaultValue={provider.baseUrl} placeholder="http://localhost:11434" 
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm outline-none focus:border-accent-primary" />
-          <button onClick={handleTest} disabled={testing} className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm hover:bg-accent-primary/90">
-            {testing ? "Testing..." : "Test Connection"}
+          <input type="text" defaultValue={provider.baseUrl} placeholder="http://localhost:11434"
+            className="w-full px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm outline-none focus:border-accent-primary transition-colors" />
+          <button
+            onClick={handleTest}
+            disabled={testing}
+            className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${testing ? "bg-bg-tertiary text-text-tertiary" :
+                testResult === "success" ? "bg-success/20 text-success" :
+                  testResult === "error" ? "bg-error/20 text-error" :
+                    "bg-accent-primary text-white hover:bg-accent-primary/90"
+              }`}
+          >
+            {testing ? "Testing..." : testResult === "success" ? "✓ Connected" : testResult === "error" ? "Connection Failed" : "Test Connection"}
           </button>
+          {testMessage && testResult === "error" && (
+            <p className="text-xs text-error px-1">{testMessage}</p>
+          )}
         </div>
       )}
     </div>
@@ -370,9 +438,8 @@ function AppearanceTab() {
             <button
               key={t}
               onClick={() => handleTheme(t)}
-              className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium capitalize ${
-                theme.value === t ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border bg-bg-secondary text-text-secondary hover:border-text-tertiary"
-              }`}
+              className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium capitalize ${theme.value === t ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border bg-bg-secondary text-text-secondary hover:border-text-tertiary"
+                }`}
             >
               {t}
             </button>
