@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "preact/hooks";
+import { useState, useRef, useEffect, useMemo } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -54,7 +54,7 @@ export function Spotlight() {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [currentMessages.value]);
 
   // Load document contents in parallel for speed
@@ -214,7 +214,11 @@ export function Spotlight() {
     setShowModelSelect(false);
   };
 
-  const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
+  // Memoized to prevent recalculation on every render
+  const totalDocsLoaded = useMemo(
+    () => docsWithContent.filter(d => d.content && d.content.length > 0).length,
+    [docsWithContent]
+  );
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -316,8 +320,8 @@ export function Spotlight() {
               {currentMessages.value.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs ${msg.role === "user"
-                      ? "bg-accent-primary text-white"
-                      : "bg-bg-tertiary text-text-primary"
+                    ? "bg-accent-primary text-white"
+                    : "bg-bg-tertiary text-text-primary"
                     }`}>
                     {msg.role === "user" ? (
                       <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
@@ -363,8 +367,8 @@ export function Spotlight() {
               onClick={handleSubmit}
               disabled={!currentQuery.value.trim() || isGenerating.value}
               className={`p-2 rounded-lg transition-all flex-shrink-0 ${currentQuery.value.trim() && !isGenerating.value
-                  ? "bg-accent-primary text-white hover:bg-accent-primary/90"
-                  : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                ? "bg-accent-primary text-white hover:bg-accent-primary/90"
+                : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
                 }`}
             >
               {isGenerating.value ? <SpinnerIcon size={14} /> : <SendIcon size={14} />}

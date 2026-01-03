@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "preact/hooks";
+import { useState, useRef, useEffect, useMemo } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -53,13 +53,19 @@ export function Dashboard() {
   const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
+  // Memoized docs count
+  const totalLoadedDocs = useMemo(
+    () => docsWithContent.filter(d => d.content && d.content.length > 0).length,
+    [docsWithContent]
+  );
+
   // Load persisted data on mount
   useEffect(() => {
     loadPersistedData();
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [currentMessages.value]);
 
   // Load document content when documents change (parallel for speed)
@@ -440,8 +446,8 @@ export function Dashboard() {
                 >
                   <div
                     className={`max-w-[80%] rounded-xl px-4 py-3 ${message.role === "user"
-                        ? "bg-accent-primary text-white"
-                        : "bg-bg-secondary text-text-primary border border-border"
+                      ? "bg-accent-primary text-white"
+                      : "bg-bg-secondary text-text-primary border border-border"
                       }`}
                   >
                     {message.role === "user" ? (
@@ -493,8 +499,8 @@ export function Dashboard() {
                 onClick={handleSubmit}
                 disabled={!currentQuery.value.trim() || isGenerating.value}
                 className={`p-2 rounded-lg transition-all flex-shrink-0 ${currentQuery.value.trim() && !isGenerating.value
-                    ? "bg-accent-primary text-white hover:bg-accent-primary/90"
-                    : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                  ? "bg-accent-primary text-white hover:bg-accent-primary/90"
+                  : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
                   }`}
               >
                 {isGenerating.value ? <SpinnerIcon size={18} /> : <SendIcon size={18} />}

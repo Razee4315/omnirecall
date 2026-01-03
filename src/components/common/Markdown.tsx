@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useState, useMemo, memo } from "preact/compat";
 import { CopyIcon, CheckIcon } from "../icons";
 
 interface MarkdownProps {
@@ -6,15 +6,17 @@ interface MarkdownProps {
   className?: string;
 }
 
-export function Markdown({ content, className = "" }: MarkdownProps) {
-  const elements = parseMarkdown(content);
-  
+// Memoized Markdown component - prevents re-parsing when content hasn't changed
+export const Markdown = memo(function Markdown({ content, className = "" }: MarkdownProps) {
+  // Memoize parsed elements to avoid re-parsing on every render
+  const elements = useMemo(() => parseMarkdown(content), [content]);
+
   return (
     <div className={`markdown-content ${className}`}>
       {elements}
     </div>
   );
-}
+});
 
 function parseMarkdown(text: string): preact.JSX.Element[] {
   const lines = text.split('\n');
@@ -157,8 +159,8 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
     const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (linkMatch) {
       parts.push(
-        <a key={key++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" 
-           className="text-accent-primary hover:underline">
+        <a key={key++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
+          className="text-accent-primary hover:underline">
           {linkMatch[1]}
         </a>
       );

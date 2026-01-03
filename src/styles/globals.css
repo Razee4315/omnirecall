@@ -118,6 +118,19 @@ select option {
   color: var(--text-primary);
 }
 
+/* GPU acceleration for interactive elements */
+button,
+input,
+textarea,
+select,
+[role="button"] {
+  will-change: transform, opacity, background-color;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
