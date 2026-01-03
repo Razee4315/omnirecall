@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   viewMode,
@@ -101,13 +102,59 @@ export function Spotlight() {
     isGenerating.value = true;
     setError(null);
 
+    // Create placeholder for assistant message
+    const assistantId = crypto.randomUUID();
+    const assistantMessage: ChatMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+    };
+    currentMessages.value = [...newMessages, assistantMessage];
+
     try {
-      const history = currentMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
+      const history = newMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
       const documentContext = docsWithContent
         .filter(d => d.content && d.content.length > 0)
         .map(d => ({ name: d.name, content: d.content! }));
 
-      const result = await invoke<string>("send_message", {
+      // Setup event listener for streaming chunks
+      let unlisten: UnlistenFn | null = null;
+      let fullResponse = "";
+
+      unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
+        if (!event.payload.done) {
+          fullResponse += event.payload.chunk;
+          // Update the assistant message in place
+          const msgs = [...currentMessages.value];
+          const idx = msgs.findIndex(m => m.id === assistantId);
+          if (idx !== -1) {
+            msgs[idx] = { ...msgs[idx], content: fullResponse };
+            currentMessages.value = msgs;
+          }
+        } else {
+          // Stream complete
+          isGenerating.value = false;
+          if (unlisten) unlisten();
+
+          // Save to persistent chat history
+          const updatedMessages = currentMessages.value;
+          if (!activeSessionId.value) {
+            const newSession: ChatSession = {
+              id: crypto.randomUUID(),
+              title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
+              messages: updatedMessages,
+              createdAt: new Date().toISOString(),
+            };
+            addChatSession(newSession);
+            activeSessionId.value = newSession.id;
+          } else {
+            updateChatSession(activeSessionId.value, updatedMessages);
+          }
+        }
+      });
+
+      // Start streaming
+      await invoke("send_message_stream", {
         message: query,
         history,
         documents: documentContext,
@@ -116,31 +163,8 @@ export function Spotlight() {
         apiKey: provider?.apiKey || "",
       });
 
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: result,
-      };
-
-      const updatedMessages = [...newMessages, assistantMessage];
-      currentMessages.value = updatedMessages;
-
-      // Save to persistent chat history
-      if (!activeSessionId.value) {
-        const newSession: ChatSession = {
-          id: crypto.randomUUID(),
-          title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
-          messages: updatedMessages,
-          createdAt: new Date().toISOString(),
-        };
-        addChatSession(newSession);
-        activeSessionId.value = newSession.id;
-      } else {
-        updateChatSession(activeSessionId.value, updatedMessages);
-      }
     } catch (err: any) {
       setError(err?.message || err?.toString() || "Failed to get response");
-    } finally {
       isGenerating.value = false;
     }
   };

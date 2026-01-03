@@ -157,6 +157,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::chat::send_message,
+            commands::chat::send_message_stream,
             commands::chat::stop_generation,
             commands::providers::test_api_key,
             commands::providers::get_providers,

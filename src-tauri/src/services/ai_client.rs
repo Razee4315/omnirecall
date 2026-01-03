@@ -50,6 +50,28 @@ impl AiClient {
         }
     }
 
+    /// Streaming chat with Tauri event emitter
+    pub async fn chat_stream_with_emitter(
+        &self,
+        app: &tauri::AppHandle,
+        model: &str,
+        message: &str,
+        history: &[ChatMessage],
+        context: Option<&str>,
+    ) -> Result<()> {
+        match self.provider.as_str() {
+            "gemini" => self.stream_gemini_with_emitter(app, model, message, history, context).await,
+            // Fallback to non-streaming for other providers
+            _ => {
+                use tauri::Emitter;
+                let response = self.chat_with_history(model, message, history, context).await?;
+                let _ = app.emit("chat-stream", serde_json::json!({ "chunk": response, "done": false }));
+                let _ = app.emit("chat-stream", serde_json::json!({ "chunk": "", "done": true }));
+                Ok(())
+            }
+        }
+    }
+
     async fn test_gemini(&self) -> Result<Vec<String>> {
         let url = format!(
             "https://generativelanguage.googleapis.com/v1beta/models?key={}",
@@ -177,6 +199,109 @@ impl AiClient {
             .as_str()
             .map(|s| s.to_string())
             .ok_or_else(|| AppError::Api("No response from Gemini".to_string()))
+    }
+
+    /// Stream response from Gemini using SSE with direct event emission
+    async fn stream_gemini_with_emitter(
+        &self,
+        app: &tauri::AppHandle,
+        model: &str,
+        message: &str,
+        history: &[ChatMessage],
+        context: Option<&str>,
+    ) -> Result<()> {
+        use futures::StreamExt;
+        use tauri::Emitter;
+        
+        let url = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
+            model, self.api_key
+        );
+
+        let mut contents = Vec::new();
+
+        // Add document context as first message if provided
+        if let Some(ctx) = context {
+            contents.push(serde_json::json!({
+                "role": "user",
+                "parts": [{"text": format!("{}\n\nPlease use this context to answer my questions accurately.", ctx)}]
+            }));
+            contents.push(serde_json::json!({
+                "role": "model",
+                "parts": [{"text": "I'll use the provided document context to answer your questions. Please go ahead with your question."}]
+            }));
+        }
+
+        // Add conversation history
+        for msg in history {
+            let role = if msg.role == "assistant" { "model" } else { "user" };
+            contents.push(serde_json::json!({
+                "role": role,
+                "parts": [{"text": &msg.content}]
+            }));
+        }
+
+        // Add current message
+        contents.push(serde_json::json!({
+            "role": "user",
+            "parts": [{"text": message}]
+        }));
+
+        let body = serde_json::json!({
+            "contents": contents,
+            "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 8192,
+            }
+        });
+
+        let response = self.client.post(&url)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Api(format!("Gemini stream error {}: {}", status, error_text)));
+        }
+
+        // Stream the response
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+        
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| AppError::Network(e.to_string()))?;
+            let text = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&text);
+            
+            // Process lines - SSE format uses "data: " prefix
+            for line in buffer.lines().collect::<Vec<_>>() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(text) = json["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                            let _ = app.emit("chat-stream", serde_json::json!({
+                                "chunk": text,
+                                "done": false
+                            }));
+                        }
+                    }
+                }
+            }
+            
+            // Keep only incomplete line in buffer
+            if let Some(last_newline) = buffer.rfind('\n') {
+                buffer = buffer[last_newline + 1..].to_string();
+            }
+        }
+        
+        // Signal completion
+        let _ = app.emit("chat-stream", serde_json::json!({
+            "chunk": "",
+            "done": true
+        }));
+        Ok(())
     }
 
     async fn chat_openai_with_history(
