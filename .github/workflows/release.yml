@@ -2,14 +2,10 @@ name: Build and Release
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag to release (e.g., v1.0.1)'
-        required: false
-        default: ''
 
 permissions:
   contents: write
@@ -30,6 +26,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get version from tauri.conf.json
+        id: version
+        run: |
+          echo "version=$(cat src-tauri/tauri.conf.json | grep -o '"version": "[^"]*"' | head -1 | cut -d'"' -f4)" >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -56,16 +58,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
-          releaseName: 'OmniRecall ${{ github.ref_name || inputs.version || "Development Build" }}'
+          tagName: v${{ steps.version.outputs.version }}
+          releaseName: 'OmniRecall v${{ steps.version.outputs.version }}'
           releaseBody: |
-            ## OmniRecall ${{ github.ref_name || inputs.version }}
+            ## OmniRecall v${{ steps.version.outputs.version }}
+            
+            Automated release from commit ${{ github.sha }}
             
             See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
             
             ### Downloads
             - **Windows**: Download `.exe` (installer) or `.msi`
             - **Linux**: Download `.deb` or `.AppImage`
-          releaseDraft: ${{ github.event_name == 'workflow_dispatch' }}
-          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          releaseDraft: false
+          prerelease: false
           args: --target ${{ matrix.target }}
