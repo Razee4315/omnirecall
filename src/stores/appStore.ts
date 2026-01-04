@@ -75,7 +75,7 @@ export const providers = signal<AIProvider[]>([
   {
     id: "ollama",
     name: "Ollama (Local)",
-    models: ["llama3.2", "mistral", "codellama"],
+    models: ["llama3.2", "mistral", "codellama", "gemma3:1b", "qwen3-vl:8b", "qwen3-vl:4b"],
     apiKey: "",
     isConnected: false,
     baseUrl: "http://localhost:11434",
