@@ -108,6 +108,9 @@ pub fn run() {
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
+                #[cfg(target_os = "linux")]
+                .tooltip("OmniRecall - Press Ctrl+Alt+Space")
+                #[cfg(not(target_os = "linux"))]
                 .tooltip("OmniRecall - Press Alt+Space")
                 .on_menu_event(move |app, event| {
                     match event.id.as_ref() {
@@ -130,8 +133,11 @@ pub fn run() {
                 })
                 .build(app)?;
             
-            // Register global shortcut (Alt+Space)
+            // Register global shortcut (OS-specific to avoid WM conflicts on Linux)
             let window_for_shortcut = window.clone();
+            #[cfg(target_os = "linux")]
+            let shortcut: Shortcut = "Ctrl+Alt+Space".parse().unwrap();
+            #[cfg(not(target_os = "linux"))]
             let shortcut: Shortcut = "Alt+Space".parse().unwrap();
             app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
