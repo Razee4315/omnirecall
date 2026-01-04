@@ -103,15 +103,18 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Show/Hide", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             
-            // Setup tray icon
+            
+            // Setup tray icon with OS-specific tooltip
+            #[cfg(target_os = "linux")]
+            let tray_tooltip = "OmniRecall - Press Ctrl+Alt+Space";
+            #[cfg(not(target_os = "linux"))]
+            let tray_tooltip = "OmniRecall - Press Alt+Space";
+            
             let window_clone = window.clone();
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                #[cfg(target_os = "linux")]
-                .tooltip("OmniRecall - Press Ctrl+Alt+Space")
-                #[cfg(not(target_os = "linux"))]
-                .tooltip("OmniRecall - Press Alt+Space")
+                .tooltip(tray_tooltip)
                 .on_menu_event(move |app, event| {
                     match event.id.as_ref() {
                         "quit" => {
