@@ -398,6 +398,25 @@ export function Dashboard() {
                           {model}
                         </button>
                       ))}
+                      {provider.id === "ollama" && (
+                        <div className="px-3 py-2 border-t border-border mt-1">
+                          <input
+                            type="text"
+                            placeholder="Enter custom model name..."
+                            className="w-full px-2 py-1.5 bg-bg-tertiary border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const value = (e.target as HTMLInputElement).value.trim();
+                                if (value) {
+                                  selectModel("ollama", value);
+                                  (e.target as HTMLInputElement).value = "";
+                                }
+                              }
+                            }}
+                          />
+                          <p className="text-xs text-text-tertiary mt-1">Press Enter to use custom model</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
