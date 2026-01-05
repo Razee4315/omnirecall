@@ -73,6 +73,19 @@ export const providers = signal<AIProvider[]>([
     isConnected: false,
   },
   {
+    id: "glm",
+    name: "Z AI GLM",
+    models: [
+      "glm-4.7",
+      "glm-4.6",
+      "glm-4.5",
+      "glm-4.5-air",
+      "glm-4.5-flash",
+    ],
+    apiKey: "",
+    isConnected: false,
+  },
+  {
     id: "ollama",
     name: "Ollama (Local)",
     models: ["llama3.2", "mistral", "codellama", "gemma3:1b", "qwen3-vl:8b", "qwen3-vl:4b"],

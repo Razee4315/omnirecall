@@ -58,6 +58,7 @@ https://github.com/user-attachments/assets/demo.mp4
 - **Google Gemini** — Fast, generous free tier
 - **OpenAI GPT-4o** — Industry standard
 - **Anthropic Claude** — Best for reasoning
+- **Z AI GLM** — Chinese optimized, multimodal support
 - **Ollama** — 100% local, fully private
 
 </td>
@@ -151,6 +152,7 @@ https://github.com/user-attachments/assets/demo.mp4
 | **Google Gemini** | [aistudio.google.com](https://aistudio.google.com/apikey) | ⭐ **Recommended** — Free tier |
 | **OpenAI** | [platform.openai.com](https://platform.openai.com/api-keys) | Requires payment |
 | **Anthropic** | [console.anthropic.com](https://console.anthropic.com/) | Requires payment |
+| **Z AI** | [api.z.ai](https://api.z.ai/) | Supports GLM-4.5, GLM-4.6, GLM-4.7 |
 | **Ollama** | [ollama.ai](https://ollama.ai) | Local install, no API key needed |
 
 ---
@@ -211,7 +213,7 @@ omnirecall/
 
 ## 🗺️ Roadmap
 
-- [x] Multi-provider AI (Gemini, OpenAI, Claude, Ollama)
+- [x] Multi-provider AI (Gemini, OpenAI, Claude, GLM, Ollama)
 - [x] Document RAG with persistent storage
 - [x] Streaming responses
 - [x] Markdown rendering with code blocks

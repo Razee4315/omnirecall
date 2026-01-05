@@ -37,6 +37,17 @@ pub async fn get_providers() -> Result<Vec<serde_json::Value>> {
             "models": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
         }),
         serde_json::json!({
+            "id": "glm",
+            "name": "Z AI GLM",
+            "models": [
+                "glm-4.7",
+                "glm-4.6",
+                "glm-4.5",
+                "glm-4.5-air",
+                "glm-4.5-flash"
+            ],
+        }),
+        serde_json::json!({
             "id": "ollama",
             "name": "Ollama (Local)",
             "models": ["llama3.2", "mistral", "codellama"],
