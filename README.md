@@ -1,263 +1,110 @@
 <div align="center">
 
-# 🧠 OmniRecall
+# OmniRecall
 
-### AI-Powered Knowledge Assistant for Desktop
+AI-powered desktop knowledge assistant.
 
-*Instant access to AI chat with document context—right at your cursor.*
+Instant AI chat with document context at your cursor.
 
-[![Release](https://img.shields.io/github/v/release/Razee4315/omnirecall?style=for-the-badge&logo=github&color=0d1117)](https://github.com/Razee4315/omnirecall/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/Razee4315/omnirecall/release.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=Build)](https://github.com/Razee4315/omnirecall/actions)
-[![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-3b82f6?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/Razee4315/omnirecall/releases)
-
-<br/>
-
-[**📥 Download**](#-installation) &nbsp;•&nbsp; [**✨ Features**](#-features) &nbsp;•&nbsp; [**📖 Usage**](#-usage) &nbsp;•&nbsp; [**🛠️ Build**](#️-development)
-
-<br/>
-
-<img src="demo/dashboard.png" alt="OmniRecall Dashboard" width="800"/>
+[Release](https://github.com/Razee4315/omnirecall/releases) · [Build](https://github.com/Razee4315/omnirecall/actions) · [License](LICENSE) · Windows | Linux
 
 </div>
 
 ---
 
-## 🎬 Demo
+## Overview
 
-https://github.com/user-attachments/assets/demo.mp4
+OmniRecall is a lightweight desktop app that gives you fast AI chat with document-aware context. It runs quietly in the background and appears instantly at your cursor when you need it.
 
-<details>
-<summary><strong>📸 Screenshots</strong></summary>
-<br/>
-
-| Spotlight Mode | Dashboard Mode |
-|:--------------:|:--------------:|
-| ![Spotlight](demo/spotlight.png) | ![Dashboard](demo/dashboard.png) |
-| *Appears at cursor, quick queries* | *Full interface, chat history* |
-
-</details>
+<img src="demo/dashboard.png" alt="OmniRecall Dashboard" width="800" />
 
 ---
 
-## ✨ Features
+## Features
 
-<table>
-<tr>
-<td width="50%">
+- Cursor-based quick access (Spotlight-style)
+- Multiple AI providers (Gemini, OpenAI, Claude, GLM, Ollama)
+- Document-based Q&A (PDF, TXT, Markdown, code)
+- Persistent local document storage
+- Dark and light themes
+- Local-first and private by design
 
-### ⚡ Instant Access
-- **Cursor-positioned** — Press `Alt+Space` (Windows) or `Ctrl+Alt+Space` (Linux)
-- **Spotlight-style UI** — Clean, minimal interface
-- **System tray** — Always ready in background
-
-</td>
-<td width="50%">
-
-### 🤖 Multi-Provider AI
-- **Google Gemini** — Fast, generous free tier
-- **OpenAI GPT-4o** — Industry standard
-- **Anthropic Claude** — Best for reasoning
-- **Z AI GLM** — Chinese optimized, multimodal support
-- **Ollama** — 100% local, fully private
-
-</td>
-</tr>
-<tr>
-<td>
-
-### 📄 Document RAG
-- **Load documents** — PDF, TXT, Markdown, code files
-- **Context-aware** — AI answers based on your files
-- **Persistent** — Documents stay between sessions
-
-</td>
-<td>
-
-### 🎨 Beautiful Design
-- **Dark & Light themes** — Easy on the eyes
-- **Glassmorphism** — Modern transparent design
-- **Markdown rendering** — Code blocks with syntax highlighting
-
-</td>
-</tr>
-</table>
-
-<details>
-<summary><strong>🔒 Privacy & Security</strong></summary>
-
-- **Local-first** — All data stays on your device
-- **Secure credentials** — API keys in OS credential manager
-- **Zero telemetry** — No data collection, ever
-
-</details>
+<img src="demo/spotlight.png" alt="Spotlight Mode" width="800" />
 
 ---
 
-## 📥 Installation
+## Installation
 
-### Download Latest Release
+Download the latest release:
 
-| Platform | Installer | Portable |
-|:--------:|:---------:|:--------:|
-| **Windows** | [`.exe`](https://github.com/Razee4315/omnirecall/releases/latest) | [`.msi`](https://github.com/Razee4315/omnirecall/releases/latest) |
-| **Linux** | [`.deb`](https://github.com/Razee4315/omnirecall/releases/latest) | [`.AppImage`](https://github.com/Razee4315/omnirecall/releases/latest) |
+- Windows: `.exe`, `.msi`
+- Linux: `.deb`, `.AppImage`
 
-> **Note:** macOS support coming soon.
-
-### Quick Setup
-
-1. **Download & Install** the appropriate package for your OS
-2. **Launch OmniRecall** from Start Menu (Windows) or Applications (Linux)
-3. **Press `Alt+Space`** (Windows) or `Ctrl+Alt+Space` (Linux) to invoke
-4. **Add API Key** — Click ⚙️ → Enter your Gemini/OpenAI key
-5. **Start chatting!**
+macOS support coming soon.
 
 ---
 
-## 📖 Usage
+## Usage
 
-### Keyboard Shortcuts
+**Keyboard shortcuts**
 
-| Shortcut | Action |
-|:---------|:-------|
-| `Alt + Space` / `Ctrl+Alt+Space` | Toggle window at cursor |
-| `Ctrl + ,` | Open Settings |
-| `Escape` | Hide window |
-| `Enter` | Send message |
-| `Shift + Enter` | New line in message |
+- `Alt + Space` (Windows) / `Ctrl + Alt + Space` (Linux): Open at cursor
+- `Ctrl + ,`: Settings
+- `Esc`: Hide
 
-### Two Modes
+**Documents**
 
-| Spotlight Mode | Dashboard Mode |
-|:---------------|:---------------|
-| Appears at cursor | Full-screen interface |
-| Quick questions & lookups | Manage chat history |
-| Auto-hides on focus loss | Document management panel |
-| Press shortcut to toggle | Click expand icon (↗) |
-
-### Adding Documents
-
-1. Click the **📁 folder icon** in the header
-2. Select files: `.pdf`, `.txt`, `.md`, `.docx`, or code files
-3. Documents load automatically
-4. Ask: *"Summarize this document"* or *"What does section 3 say?"*
+- Add PDFs, text, markdown, or code files
+- Ask questions based on loaded documents
+- Files persist between sessions
 
 ---
 
-## 🔑 API Keys
+## API Providers
 
-| Provider | Get Key | Notes |
-|:---------|:--------|:------|
-| **Google Gemini** | [aistudio.google.com](https://aistudio.google.com/apikey) | ⭐ **Recommended** — Free tier |
-| **OpenAI** | [platform.openai.com](https://platform.openai.com/api-keys) | Requires payment |
-| **Anthropic** | [console.anthropic.com](https://console.anthropic.com/) | Requires payment |
-| **Z AI** | [api.z.ai](https://api.z.ai/) | Supports GLM-4.5, GLM-4.6, GLM-4.7 |
-| **Ollama** | [ollama.ai](https://ollama.ai) | Local install, no API key needed |
+- Google Gemini (recommended, free tier)
+- OpenAI
+- Anthropic Claude
+- Z AI (GLM models)
+- Ollama (fully local)
 
 ---
 
-## 🛠️ Development
+## Development
 
-### Prerequisites
+**Requirements**
 
-- **Node.js** 18+
-- **Rust** 1.70+
-- **Platform tools**: See [Tauri prerequisites](https://tauri.app/start/prerequisites/)
+- Node.js 18+
+- Rust 1.70+
+- Tauri system dependencies
 
-### Build from Source
+**Run locally**
 
 ```bash
-# Clone repository
 git clone https://github.com/Razee4315/omnirecall.git
 cd omnirecall
-
-# Install dependencies
 npm install
-
-# Run in development mode
 npm run tauri dev
+```
 
-# Build production release
+**Build**
+
+```bash
 npm run tauri build
 ```
 
-### Project Structure
+---
 
-```
-omnirecall/
-├── src/                    # Frontend (Preact + TypeScript)
-│   ├── components/         # UI components
-│   │   ├── spotlight/      # Spotlight mode
-│   │   ├── dashboard/      # Dashboard mode
-│   │   └── settings/       # Settings panel
-│   └── stores/             # State management (Signals)
-├── src-tauri/              # Backend (Rust)
-│   └── src/
-│       ├── commands/       # Tauri IPC commands
-│       └── services/       # AI client, document processing
-└── demo/                   # Screenshots & demo video
-```
+## License
 
-### Tech Stack
-
-| Component | Technology |
-|:----------|:-----------|
-| Framework | [Tauri v2](https://tauri.app/) |
-| Frontend | [Preact](https://preactjs.com/) + TypeScript |
-| Styling | [Tailwind CSS](https://tailwindcss.com/) |
-| Backend | [Rust](https://www.rust-lang.org/) |
-| State | [Preact Signals](https://preactjs.com/guide/v10/signals/) |
+MIT License. See [LICENSE](LICENSE).
 
 ---
 
-## 🗺️ Roadmap
+## Author
 
-- [x] Multi-provider AI (Gemini, OpenAI, Claude, GLM, Ollama)
-- [x] Document RAG with persistent storage
-- [x] Streaming responses
-- [x] Markdown rendering with code blocks
-- [x] Windows & Linux builds
-- [ ] Image support (vision models)
-- [ ] Web search integration
-- [ ] Voice input
-- [ ] macOS support
+Saqlain Razee
 
----
+GitHub: https://github.com/Razee4315
+LinkedIn: https://linkedin.com/in/saqlainrazee
 
-## 🤝 Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-```bash
-# Create a feature branch
-git checkout -b feature/amazing-feature
-
-# Make your changes and commit
-git commit -m "Add amazing feature"
-
-# Push and create a Pull Request
-git push origin feature/amazing-feature
-```
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-
-### Built with ❤️ by [Saqlain Razee](https://github.com/Razee4315)
-
-[GitHub](https://github.com/Razee4315) &nbsp;•&nbsp; [LinkedIn](https://linkedin.com/in/saqlainrazee) &nbsp;•&nbsp; [Email](mailto:saqlainrazee@gmail.com)
-
-<br/>
-
-**⭐ Star this repository if you find it useful!**
-
-[![GitHub Stars](https://img.shields.io/github/stars/Razee4315/omnirecall?style=social)](https://github.com/Razee4315/omnirecall/stargazers)
-
-</div>
