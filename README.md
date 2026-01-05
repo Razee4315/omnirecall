@@ -29,7 +29,7 @@ OmniRecall is a lightweight desktop app that gives you fast AI chat with documen
 - Dark and light themes
 - Local-first and private by design
 
-<img src="demo/spotlight.png" alt="Spotlight Mode" width="800" />
+<img src="demo/spotlight.png" alt="Spotlight Mode" width="200" />
 
 ---
 
