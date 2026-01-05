@@ -26,6 +26,7 @@ impl AiClient {
             "openai" => self.test_openai().await,
             "anthropic" => self.test_anthropic().await,
             "ollama" => self.test_ollama().await,
+            "glm" => self.test_glm().await,
             _ => Err(AppError::Config("Unknown provider".to_string())),
         }
     }
@@ -46,6 +47,7 @@ impl AiClient {
             "openai" => self.chat_openai_with_history(model, message, history, context).await,
             "anthropic" => self.chat_anthropic_with_history(model, message, history, context).await,
             "ollama" => self.chat_ollama_with_history(model, message, history, context).await,
+            "glm" => self.chat_glm_with_history(model, message, history, context).await,
             _ => Err(AppError::Config("Unknown provider".to_string())),
         }
     }
@@ -61,6 +63,7 @@ impl AiClient {
     ) -> Result<()> {
         match self.provider.as_str() {
             "gemini" => self.stream_gemini_with_emitter(app, model, message, history, context).await,
+            "glm" => self.stream_glm_with_emitter(app, model, message, history, context).await,
             // Fallback to non-streaming for other providers
             _ => {
                 use tauri::Emitter;
@@ -130,6 +133,27 @@ impl AiClient {
             }
             Ok(resp) => Err(AppError::Api(format!("Ollama error: {}", resp.status()))),
             Err(_) => Err(AppError::Network("Cannot connect to Ollama".to_string())),
+        }
+    }
+
+    async fn test_glm(&self) -> Result<Vec<String>> {
+        let response = self.client.get("https://api.z.ai/api/paas/v4/models")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            Ok(vec![
+                "glm-4.7".to_string(),
+                "glm-4.6".to_string(),
+                "glm-4.5".to_string(),
+                "glm-4.5-air".to_string(),
+                "glm-4.5-flash".to_string(),
+            ])
+        } else if response.status() == 401 || response.status() == 400 {
+            Err(AppError::InvalidApiKey)
+        } else {
+            Err(AppError::Api(format!("GLM API error: {}", response.status())))
         }
     }
 
@@ -412,7 +436,7 @@ impl AiClient {
         let base_url = self.base_url.as_deref().unwrap_or("http://localhost:11434");
 
         let mut messages = Vec::new();
-        
+
         // Add context as system message
         if let Some(ctx) = context {
             messages.push(serde_json::json!({
@@ -452,5 +476,149 @@ impl AiClient {
             .as_str()
             .map(|s| s.to_string())
             .ok_or_else(|| AppError::Api("No response from Ollama".to_string()))
+    }
+
+    async fn chat_glm_with_history(
+        &self,
+        model: &str,
+        message: &str,
+        history: &[ChatMessage],
+        context: Option<&str>,
+    ) -> Result<String> {
+        let mut messages = Vec::new();
+
+        // System message with document context
+        let system_msg = if let Some(ctx) = context {
+            format!("You are a helpful assistant. Use the following document context to answer questions accurately:\n\n{}", ctx)
+        } else {
+            "You are a helpful assistant.".to_string()
+        };
+        messages.push(serde_json::json!({"role": "system", "content": system_msg}));
+
+        // Add conversation history
+        for msg in history {
+            messages.push(serde_json::json!({"role": &msg.role, "content": &msg.content}));
+        }
+
+        // Add current message
+        messages.push(serde_json::json!({"role": "user", "content": message}));
+
+        let body = serde_json::json!({
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": false,
+        });
+
+        let response = self.client.post("https://api.z.ai/api/paas/v4/chat/completions")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Api(format!("GLM error {}: {}", status, error_text)));
+        }
+
+        let json: serde_json::Value = response.json().await?;
+        json["choices"][0]["message"]["content"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| AppError::Api("No response from GLM".to_string()))
+    }
+
+    /// Stream response from GLM using SSE with direct event emission
+    async fn stream_glm_with_emitter(
+        &self,
+        app: &tauri::AppHandle,
+        model: &str,
+        message: &str,
+        history: &[ChatMessage],
+        context: Option<&str>,
+    ) -> Result<()> {
+        use futures::StreamExt;
+        use tauri::Emitter;
+
+        let mut messages = Vec::new();
+
+        // System message with document context
+        let system_msg = if let Some(ctx) = context {
+            format!("You are a helpful assistant. Use the following document context to answer questions accurately:\n\n{}", ctx)
+        } else {
+            "You are a helpful assistant.".to_string()
+        };
+        messages.push(serde_json::json!({"role": "system", "content": system_msg}));
+
+        // Add conversation history
+        for msg in history {
+            messages.push(serde_json::json!({"role": &msg.role, "content": &msg.content}));
+        }
+
+        // Add current message
+        messages.push(serde_json::json!({"role": "user", "content": message}));
+
+        let body = serde_json::json!({
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": true,
+        });
+
+        let response = self.client.post("https://api.z.ai/api/paas/v4/chat/completions")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Api(format!("GLM stream error {}: {}", status, error_text)));
+        }
+
+        // Stream the response
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| AppError::Network(e.to_string()))?;
+            let text = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&text);
+
+            // Process lines - SSE format uses "data: " prefix
+            for line in buffer.lines().collect::<Vec<_>>() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if data == "[DONE]" {
+                        continue;
+                    }
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                        if let Some(delta) = json["choices"][0]["delta"].as_object() {
+                            if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
+                                let _ = app.emit("chat-stream", serde_json::json!({
+                                    "chunk": content,
+                                    "done": false
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Keep only incomplete line in buffer
+            if let Some(last_newline) = buffer.rfind('\n') {
+                buffer = buffer[last_newline + 1..].to_string();
+            }
+        }
+
+        // Signal completion
+        let _ = app.emit("chat-stream", serde_json::json!({
+            "chunk": "",
+            "done": true
+        }));
+        Ok(())
     }
 }

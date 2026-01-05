@@ -158,6 +158,7 @@ function ProviderCardCompact({ provider }: { provider: any }) {
       gemini: "https://aistudio.google.com/apikey",
       openai: "https://platform.openai.com/api-keys",
       anthropic: "https://console.anthropic.com/",
+      glm: "https://api.z.ai/",
       ollama: "https://ollama.ai",
     };
     return urls[provider.id];
@@ -332,6 +333,7 @@ function ProviderCard({ provider }: { provider: any }) {
       gemini: "https://aistudio.google.com/apikey",
       openai: "https://platform.openai.com/api-keys",
       anthropic: "https://console.anthropic.com/",
+      glm: "https://api.z.ai/",
       ollama: "https://ollama.ai",
     };
     return urls[provider.id];
