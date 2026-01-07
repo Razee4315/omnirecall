@@ -10,6 +10,7 @@ import {
   activeProvider,
   activeModel,
   viewMode,
+  globalHotkey,
 } from "../../stores/appStore";
 import {
   CloseIcon,
@@ -254,15 +255,123 @@ function AppearanceTabCompact() {
 }
 
 function ShortcutsTabCompact() {
-  const shortcuts = [
-    { action: "Toggle", keys: "Alt+Space" },
-    { action: "Settings", keys: "Ctrl+," },
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedKeys, setRecordedKeys] = useState("");
+  const [displayKeys, setDisplayKeys] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const modifiers: string[] = [];
+    const displayParts: string[] = [];
+
+    if (e.ctrlKey) { modifiers.push("Ctrl"); displayParts.push("Ctrl"); }
+    if (e.altKey) { modifiers.push("Alt"); displayParts.push("Alt"); }
+    if (e.shiftKey) { modifiers.push("Shift"); displayParts.push("Shift"); }
+    if (e.metaKey) { modifiers.push("Super"); displayParts.push("Win"); }
+
+    // Only accept when non-modifier key is pressed with at least one modifier
+    if (!["Control", "Alt", "Shift", "Meta"].includes(e.key) && modifiers.length > 0) {
+      let tauriKey = e.key;
+      let displayKey = e.key.toUpperCase();
+
+      // Convert to Tauri format
+      if (e.key === " ") {
+        tauriKey = "Space";
+        displayKey = "Space";
+      } else if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+        tauriKey = `Key${e.key.toUpperCase()}`;
+        displayKey = e.key.toUpperCase();
+      } else if (e.key.length === 1 && /[0-9]/.test(e.key)) {
+        tauriKey = `Digit${e.key}`;
+        displayKey = e.key;
+      }
+
+      setRecordedKeys([...modifiers, tauriKey].join("+"));
+      setDisplayKeys([...displayParts, displayKey].join(" + "));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!recordedKeys) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await invoke<string>("update_hotkey", { newHotkey: recordedKeys });
+      globalHotkey.value = result;
+      setSuccess(true);
+      setIsRecording(false);
+      setRecordedKeys("");
+      setDisplayKeys("");
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      const msg = err?.message || err?.toString() || "Failed";
+      setError(msg.includes("Invalid") ? "Invalid shortcut" : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsRecording(false);
+    setRecordedKeys("");
+    setDisplayKeys("");
+    setError(null);
+  };
+
+  // Format stored hotkey for display
+  const formatDisplay = (hotkey: string) =>
+    hotkey.replace(/Key([A-Z])/g, "$1").replace(/Digit(\d)/g, "$1").replace(/\+/g, " + ");
+
+  const fixedShortcuts = [
+    { action: "Settings", keys: "Ctrl + ," },
     { action: "Hide", keys: "Esc" },
     { action: "Send", keys: "Enter" },
   ];
+
   return (
-    <div className="space-y-1">
-      {shortcuts.map((s) => (
+    <div className="space-y-2">
+      {success && (
+        <div className="p-2 bg-success/20 border border-success/30 rounded text-xs text-success text-center">
+          ✓ Updated! Press {formatDisplay(globalHotkey.value)} to toggle.
+        </div>
+      )}
+
+      <div className={`p-2 bg-bg-secondary rounded border transition-colors ${isRecording ? "border-accent-primary" : "border-border"}`}>
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-xs text-text-primary font-medium">Toggle Window</span>
+            {isRecording && <p className="text-[10px] text-accent-primary">Press shortcut...</p>}
+          </div>
+          {isRecording ? (
+            <div className="flex items-center gap-1">
+              <kbd className="px-2 py-1 bg-accent-primary/20 border border-accent-primary rounded text-xs text-accent-primary font-mono min-w-[70px] text-center">
+                {displayKeys || "..."}
+              </kbd>
+              <button onClick={handleSave} disabled={!recordedKeys || saving}
+                className="px-2 py-1 bg-success/20 text-success rounded text-xs disabled:opacity-50">
+                {saving ? "..." : "Save"}
+              </button>
+              <button onClick={handleCancel} className="px-2 py-1 bg-error/20 text-error rounded text-xs">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => { setIsRecording(true); setError(null); setSuccess(false); }}
+              className="px-2 py-1 bg-bg-tertiary hover:bg-accent-primary/10 rounded text-xs text-text-secondary font-mono transition-colors">
+              {formatDisplay(globalHotkey.value)}
+            </button>
+          )}
+        </div>
+        {error && <p className="text-[10px] text-error mt-1">⚠ {error}</p>}
+        {isRecording && (
+          <input type="text" className="sr-only" autoFocus onKeyDown={handleKeyDown} onBlur={() => setTimeout(handleCancel, 150)} />
+        )}
+      </div>
+
+      {fixedShortcuts.map((s) => (
         <div key={s.action} className="flex justify-between px-2 py-1.5 bg-bg-secondary rounded text-xs">
           <span className="text-text-primary">{s.action}</span>
           <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-secondary font-mono">{s.keys}</kbd>
@@ -271,6 +380,7 @@ function ShortcutsTabCompact() {
     </div>
   );
 }
+
 
 // Full versions for Dashboard mode
 function ProvidersTab() {
@@ -458,21 +568,128 @@ function AppearanceTab() {
 }
 
 function ShortcutsTab() {
-  const shortcuts = [
-    { action: "Toggle Window", keys: "Alt + Space" },
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedKeys, setRecordedKeys] = useState("");
+  const [displayKeys, setDisplayKeys] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const modifiers: string[] = [];
+    const displayParts: string[] = [];
+
+    if (e.ctrlKey) { modifiers.push("Ctrl"); displayParts.push("Ctrl"); }
+    if (e.altKey) { modifiers.push("Alt"); displayParts.push("Alt"); }
+    if (e.shiftKey) { modifiers.push("Shift"); displayParts.push("Shift"); }
+    if (e.metaKey) { modifiers.push("Super"); displayParts.push("Win"); }
+
+    if (!["Control", "Alt", "Shift", "Meta"].includes(e.key) && modifiers.length > 0) {
+      let tauriKey = e.key;
+      let displayKey = e.key.toUpperCase();
+
+      if (e.key === " ") {
+        tauriKey = "Space";
+        displayKey = "Space";
+      } else if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+        tauriKey = `Key${e.key.toUpperCase()}`;
+        displayKey = e.key.toUpperCase();
+      } else if (e.key.length === 1 && /[0-9]/.test(e.key)) {
+        tauriKey = `Digit${e.key}`;
+        displayKey = e.key;
+      }
+
+      setRecordedKeys([...modifiers, tauriKey].join("+"));
+      setDisplayKeys([...displayParts, displayKey].join(" + "));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!recordedKeys) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await invoke<string>("update_hotkey", { newHotkey: recordedKeys });
+      globalHotkey.value = result;
+      setSuccess(true);
+      setIsRecording(false);
+      setRecordedKeys("");
+      setDisplayKeys("");
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      const msg = err?.message || err?.toString() || "Failed";
+      setError(msg.includes("Invalid") ? "Invalid shortcut" : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsRecording(false);
+    setRecordedKeys("");
+    setDisplayKeys("");
+    setError(null);
+  };
+
+  const formatDisplay = (hotkey: string) =>
+    hotkey.replace(/Key([A-Z])/g, "$1").replace(/Digit(\d)/g, "$1").replace(/\+/g, " + ");
+
+  const fixedShortcuts = [
     { action: "Open Settings", keys: "Ctrl + ," },
     { action: "Close/Hide", keys: "Escape" },
     { action: "Send Message", keys: "Enter" },
     { action: "New Line", keys: "Shift + Enter" },
   ];
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-base font-medium text-text-primary mb-1">Keyboard Shortcuts</h3>
-        <p className="text-xs text-text-secondary">Quick access shortcuts.</p>
+        <p className="text-xs text-text-secondary">Customize your quick access shortcuts.</p>
       </div>
-      <div className="space-y-1">
-        {shortcuts.map((s) => (
+
+      {success && (
+        <div className="p-3 bg-success/20 border border-success/30 rounded-lg text-sm text-success text-center">
+          ✓ Shortcut updated! Press {formatDisplay(globalHotkey.value)} to toggle the window.
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <div className={`flex justify-between items-center px-3 py-2 bg-bg-secondary rounded-lg border transition-colors ${isRecording ? "border-accent-primary" : "border-border"}`}>
+          <div>
+            <span className="text-sm text-text-primary font-medium">Toggle Window</span>
+            {isRecording && <p className="text-xs text-accent-primary">Press your shortcut...</p>}
+          </div>
+          {isRecording ? (
+            <div className="flex items-center gap-2">
+              <kbd className="px-3 py-1.5 bg-accent-primary/20 border border-accent-primary rounded-lg text-sm text-accent-primary font-mono min-w-[100px] text-center">
+                {displayKeys || "..."}
+              </kbd>
+              <button onClick={handleSave} disabled={!recordedKeys || saving}
+                className="px-3 py-1.5 bg-success/20 text-success rounded-lg text-sm font-medium disabled:opacity-50">
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <button onClick={handleCancel}
+                className="px-3 py-1.5 bg-error/20 text-error rounded-lg text-sm font-medium">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => { setIsRecording(true); setError(null); setSuccess(false); }}
+              className="px-3 py-1.5 bg-bg-tertiary hover:bg-accent-primary/10 rounded-lg text-sm text-text-secondary font-mono transition-colors border border-border hover:border-accent-primary">
+              {formatDisplay(globalHotkey.value)}
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-error px-3">⚠ {error}</p>}
+        {isRecording && (
+          <input type="text" className="sr-only" autoFocus onKeyDown={handleKeyDown} onBlur={() => setTimeout(handleCancel, 150)} />
+        )}
+
+        {fixedShortcuts.map((s) => (
           <div key={s.action} className="flex justify-between px-3 py-2 bg-bg-secondary rounded-lg text-sm">
             <span className="text-text-primary">{s.action}</span>
             <kbd className="px-2 py-1 bg-bg-tertiary rounded text-xs text-text-secondary font-mono">{s.keys}</kbd>
@@ -482,3 +699,4 @@ function ShortcutsTab() {
     </div>
   );
 }
+

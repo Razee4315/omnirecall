@@ -42,6 +42,7 @@ export const isLoading = signal(false);
 export const currentQuery = signal("");
 export const isGenerating = signal(false);
 export const isSettingsOpen = signal(false);
+export const globalHotkey = signal<string>("Alt+Space");
 
 // AI Provider State
 export const providers = signal<AIProvider[]>([
@@ -148,6 +149,17 @@ export async function loadPersistedData() {
     const savedDocs = await s.get<Document[]>("documents");
     if (savedDocs) {
       documents.value = savedDocs;
+    }
+
+    // Load current hotkey from backend
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const currentHotkey = await invoke<string>("get_current_hotkey");
+      if (currentHotkey) {
+        globalHotkey.value = currentHotkey;
+      }
+    } catch (e) {
+      console.error("Failed to load hotkey:", e);
     }
   } catch (e) {
     console.error("Failed to load persisted data:", e);

@@ -6,18 +6,23 @@ mod services;
 mod config;
 mod error;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
+use std::fs;
 use tauri::{
-    Manager, 
+    Manager, AppHandle,
     tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent},
     menu::{Menu, MenuItem},
     WindowEvent,
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use crate::config::{AppConfig, get_config_path};
 
 // Track if we're in dashboard mode (don't hide on focus loss)
 static IS_DASHBOARD_MODE: AtomicBool = AtomicBool::new(false);
+
+// Track the current hotkey string for re-registration
+static CURRENT_HOTKEY: Mutex<String> = Mutex::new(String::new());
 
 fn position_window_at_cursor(window: &tauri::WebviewWindow) {
     // Get cursor position
@@ -72,6 +77,46 @@ fn toggle_window(window: &tauri::WebviewWindow) {
     }
 }
 
+/// Load the hotkey from config, with OS-specific defaults
+fn load_hotkey_from_config() -> String {
+    let config_path = get_config_path();
+    if config_path.exists() {
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+                return config.hotkey;
+            }
+        }
+    }
+    // Default based on OS
+    #[cfg(target_os = "linux")]
+    return "Ctrl+Alt+Space".to_string();
+    #[cfg(not(target_os = "linux"))]
+    return "Alt+Space".to_string();
+}
+
+/// Register the global shortcut with the given hotkey string
+fn register_global_shortcut(app: &AppHandle, hotkey: &str) -> Result<(), String> {
+    let shortcut: Shortcut = hotkey.parse()
+        .map_err(|e| format!("Invalid shortcut format: {}", e))?;
+    
+    let window = app.get_webview_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
+    
+    let window_clone = window.clone();
+    app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+        if event.state == ShortcutState::Pressed {
+            toggle_window(&window_clone);
+        }
+    }).map_err(|e| format!("Failed to register shortcut: {}", e))?;
+    
+    // Update the stored hotkey
+    if let Ok(mut current) = CURRENT_HOTKEY.lock() {
+        *current = hotkey.to_string();
+    }
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Note: "Unicode mismatch" warnings from pdf-extract are harmless
@@ -103,18 +148,17 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "Show/Hide", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             
+            // Load hotkey from config
+            let hotkey = load_hotkey_from_config();
             
-            // Setup tray icon with OS-specific tooltip
-            #[cfg(target_os = "linux")]
-            let tray_tooltip = "OmniRecall - Press Ctrl+Alt+Space";
-            #[cfg(not(target_os = "linux"))]
-            let tray_tooltip = "OmniRecall - Press Alt+Space";
+            // Setup tray icon with dynamic tooltip
+            let tray_tooltip = format!("OmniRecall - Press {}", hotkey);
             
             let window_clone = window.clone();
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                .tooltip(tray_tooltip)
+                .tooltip(&tray_tooltip)
                 .on_menu_event(move |app, event| {
                     match event.id.as_ref() {
                         "quit" => {
@@ -136,17 +180,14 @@ pub fn run() {
                 })
                 .build(app)?;
             
-            // Register global shortcut (OS-specific to avoid WM conflicts on Linux)
-            let window_for_shortcut = window.clone();
-            #[cfg(target_os = "linux")]
-            let shortcut: Shortcut = "Ctrl+Alt+Space".parse().unwrap();
-            #[cfg(not(target_os = "linux"))]
-            let shortcut: Shortcut = "Alt+Space".parse().unwrap();
-            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                if event.state == ShortcutState::Pressed {
-                    toggle_window(&window_for_shortcut);
-                }
-            })?;
+            // Register global shortcut from config
+            let app_handle = app.handle().clone();
+            if let Err(e) = register_global_shortcut(&app_handle, &hotkey) {
+                tracing::error!("Failed to register hotkey '{}': {}", hotkey, e);
+                // Fallback to default
+                let default = if cfg!(target_os = "linux") { "Ctrl+Alt+Space" } else { "Alt+Space" };
+                let _ = register_global_shortcut(&app_handle, default);
+            }
             
             // Handle window events - only hide on focus loss in Spotlight mode
             let window_for_events = window.clone();
@@ -183,6 +224,8 @@ pub fn run() {
             show_window,
             hide_window,
             toggle_dashboard,
+            update_hotkey,
+            get_current_hotkey,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -221,3 +264,73 @@ async fn toggle_dashboard(window: tauri::WebviewWindow, is_dashboard: bool) {
         let _ = window.set_skip_taskbar(true);
     }
 }
+
+#[tauri::command]
+async fn update_hotkey(app: AppHandle, new_hotkey: String) -> Result<String, String> {
+    // Validate the new hotkey format first
+    let new_shortcut: Shortcut = new_hotkey.parse()
+        .map_err(|e| format!("Invalid shortcut format: {}", e))?;
+    
+    // Get the current hotkey and unregister it
+    let old_hotkey = {
+        let current = CURRENT_HOTKEY.lock()
+            .map_err(|_| "Failed to lock hotkey state".to_string())?;
+        current.clone()
+    };
+    
+    if !old_hotkey.is_empty() {
+        if let Ok(old_shortcut) = old_hotkey.parse::<Shortcut>() {
+            let _ = app.global_shortcut().unregister(old_shortcut);
+        }
+    }
+    
+    // Register the new shortcut
+    let window = app.get_webview_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
+    
+    let window_clone = window.clone();
+    app.global_shortcut().on_shortcut(new_shortcut, move |_app, _shortcut, event| {
+        if event.state == ShortcutState::Pressed {
+            toggle_window(&window_clone);
+        }
+    }).map_err(|e| format!("Failed to register shortcut: {}", e))?;
+    
+    // Update the stored hotkey
+    {
+        let mut current = CURRENT_HOTKEY.lock()
+            .map_err(|_| "Failed to lock hotkey state".to_string())?;
+        *current = new_hotkey.clone();
+    }
+    
+    // Save to config file
+    let config_path = get_config_path();
+    let mut config = if config_path.exists() {
+        fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|c| serde_json::from_str::<AppConfig>(&c).ok())
+            .unwrap_or_default()
+    } else {
+        AppConfig::default()
+    };
+    
+    config.hotkey = new_hotkey.clone();
+    
+    if let Some(parent) = config_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    
+    let content = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+    fs::write(&config_path, content)
+        .map_err(|e| format!("Failed to save config: {}", e))?;
+    
+    Ok(new_hotkey)
+}
+
+#[tauri::command]
+async fn get_current_hotkey() -> String {
+    CURRENT_HOTKEY.lock()
+        .map(|h| h.clone())
+        .unwrap_or_else(|_| load_hotkey_from_config())
+}
+
