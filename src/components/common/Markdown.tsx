@@ -195,29 +195,35 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const CopyButton = ({ className = "" }: { className?: string }) => (
+    <button
+      onClick={handleCopy}
+      className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors ${className}`}
+    >
+      {copied ? (
+        <>
+          <CheckIcon size={12} className="text-success" />
+          <span className="text-success">Copied!</span>
+        </>
+      ) : (
+        <>
+          <CopyIcon size={12} />
+          <span>Copy</span>
+        </>
+      )}
+    </button>
+  );
+
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-border bg-[#1a1a2e]">
+    <div className="my-2 rounded-lg overflow-hidden border border-border bg-[#1a1a2e] relative">
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border">
         <span className="text-xs text-text-tertiary font-mono">{language || 'code'}</span>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
-        >
-          {copied ? (
-            <>
-              <CheckIcon size={12} className="text-success" />
-              <span className="text-success">Copied!</span>
-            </>
-          ) : (
-            <>
-              <CopyIcon size={12} />
-              <span>Copy</span>
-            </>
-          )}
-        </button>
+        <CopyButton />
       </div>
-      <pre className="p-3 overflow-x-auto">
+      <pre className="code-block-pre p-3 overflow-x-auto overflow-y-auto max-h-[400px]">
         <code className="text-xs font-mono text-gray-300 leading-relaxed">{code}</code>
+        {/* Sticky copy button - floats at bottom-right while scrolling */}
+        <CopyButton className="sticky-copy-btn" />
       </pre>
     </div>
   );

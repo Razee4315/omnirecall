@@ -267,3 +267,20 @@ button:active {
 .markdown-content h3:first-child {
   margin-top: 0;
 }
+
+/* Sticky copy button inside code blocks */
+.code-block-pre {
+  position: relative;
+}
+
+.sticky-copy-btn {
+  position: sticky;
+  bottom: 8px;
+  float: right;
+  margin-top: -20px;
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  z-index: 10;
+}
