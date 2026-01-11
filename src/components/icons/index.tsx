@@ -8,46 +8,21 @@ export function LogoIcon({ size = 32, className = "" }: IconProps) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 100 100"
       fill="none"
       className={className}
     >
-      <rect
-        x="2"
-        y="2"
-        width="28"
-        height="28"
-        rx="8"
-        fill="currentColor"
-        fillOpacity="0.1"
-      />
       <path
-        d="M16 6C10.477 6 6 10.477 6 16C6 21.523 10.477 26 16 26C21.523 26 26 21.523 26 16C26 10.477 21.523 6 16 6ZM16 8C20.418 8 24 11.582 24 16C24 20.418 20.418 24 16 24C11.582 24 8 20.418 8 16C8 11.582 11.582 8 16 8Z"
-        fill="currentColor"
-      />
-      <circle cx="16" cy="16" r="4" fill="currentColor" />
-      <path
-        d="M16 10V14"
+        d="M65 35L50 50L65 65"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="8"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <path
-        d="M16 18V22"
+        d="M50 50H70C81.0457 50 90 41.0457 90 30C90 18.9543 81.0457 10 70 10H50C27.9086 10 10 27.9086 10 50C10 72.0914 27.9086 90 50 90C72.0914 90 90 72.0914 90 50"
         stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M10 16H14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M18 16H22"
-        stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="8"
         strokeLinecap="round"
       />
     </svg>

@@ -155,8 +155,13 @@ pub fn run() {
             let tray_tooltip = format!("OmniRecall - Press {}", hotkey);
             
             let window_clone = window.clone();
+            
+            // Load icon - the default_window_icon is embedded from bundle icons at compile time
+            // For development, this references the icons specified in tauri.conf.json bundle.icon
+            let icon = app.default_window_icon().unwrap().clone();
+            
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(icon)
                 .menu(&menu)
                 .tooltip(&tray_tooltip)
                 .on_menu_event(move |app, event| {

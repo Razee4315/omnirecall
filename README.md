@@ -1,12 +1,16 @@
 <div align="center">
 
+<img src="src-tauri/icons/icon.png" alt="OmniRecall Logo" width="120" />
+
 # OmniRecall
 
-AI-powered desktop knowledge assistant.
+**AI-powered desktop knowledge assistant**
 
 Instant AI chat with document context at your cursor.
 
-[Release](https://github.com/Razee4315/omnirecall/releases) · [Build](https://github.com/Razee4315/omnirecall/actions) · [License](LICENSE) · Windows | Linux
+[![Release](https://img.shields.io/github/v/release/Razee4315/omnirecall)](https://github.com/Razee4315/omnirecall/releases) [![Build](https://img.shields.io/github/actions/workflow/status/Razee4315/omnirecall/ci.yml)](https://github.com/Razee4315/omnirecall/actions) [![License](https://img.shields.io/badge/license-Source%20Available-blue)](LICENSE)
+
+**Windows** · **Linux**
 
 </div>
 
@@ -97,14 +101,18 @@ npm run tauri build
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+This project uses a **Source Available** license. See [LICENSE](LICENSE) for details.
+
+- ✅ Free for personal and educational use
+- ✅ Free to modify for personal use
+- ❌ Commercial use requires permission
+- ❌ Redistribution for profit requires a license
 
 ---
 
 ## Author
 
-Saqlain Razee
+**Saqlain Razee**
 
-GitHub: https://github.com/Razee4315
-LinkedIn: https://linkedin.com/in/saqlainrazee
-
+- GitHub: [Razee4315](https://github.com/Razee4315)
+- LinkedIn: [saqlainrazee](https://linkedin.com/in/saqlainrazee)

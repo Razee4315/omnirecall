@@ -1,21 +1,62 @@
-MIT License
+OmniRecall Source Available License
 
 Copyright (c) 2025 Saqlain Razee
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+TERMS AND CONDITIONS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. DEFINITIONS
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   "Software" refers to OmniRecall and all associated source code, documentation,
+   and assets.
+
+   "Commercial Use" means any use of the Software intended for or directed toward
+   commercial advantage or monetary compensation, including but not limited to:
+   - Selling the Software or derivatives
+   - Using the Software in a commercial product or service
+   - Using the Software to provide paid services to third parties
+
+   "Non-Commercial Use" means personal, educational, research, or non-profit use
+   where no monetary compensation is received.
+
+2. GRANT OF RIGHTS
+
+   Subject to the terms of this license, you are granted a non-exclusive,
+   worldwide, royalty-free license to:
+
+   a) Use the Software for Non-Commercial purposes
+   b) View, study, and modify the source code for personal use
+   c) Fork and contribute to the Software on the original repository
+
+3. RESTRICTIONS
+
+   You may NOT, without prior written permission from the copyright holder:
+
+   a) Use the Software for any Commercial Use
+   b) Sell, sublicense, or distribute the Software for profit
+   c) Include the Software in a commercial product or service
+   d) Remove or alter any copyright notices or this license
+
+4. COMMERCIAL LICENSING
+
+   For Commercial Use, you must obtain a commercial license from the copyright
+   holder. Contact: https://github.com/Razee4315
+
+5. CONTRIBUTIONS
+
+   By submitting contributions to this project, you agree that your contributions
+   will be licensed under the same terms as this license.
+
+6. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+7. TERMINATION
+
+   This license automatically terminates if you violate any of its terms. Upon
+   termination, you must destroy all copies of the Software in your possession.
