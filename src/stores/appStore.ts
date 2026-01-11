@@ -3,7 +3,7 @@ import { Store } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 
 export type ViewMode = "spotlight" | "dashboard";
-export type Theme = "dark" | "light" | "transparent";
+export type Theme = "dark" | "light" | "transparent" | "paper" | "rose" | "ocean";
 
 export interface AIProvider {
   id: string;

@@ -45,6 +45,57 @@
   --glass-bg: rgba(10, 10, 12, 0.7);
 }
 
+/* Paper/Cream Theme - T3 Chat Inspired */
+.paper {
+  --bg-primary: #faf8f5;
+  --bg-secondary: #f5f2ed;
+  --bg-tertiary: #ece8e1;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #7a7a7a;
+  --accent-primary: #e85a6b;
+  --accent-secondary: #d14d5c;
+  --border-color: #e0dbd4;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --glass-bg: rgba(250, 248, 245, 0.95);
+}
+
+/* Rose/Pink Theme */
+.rose {
+  --bg-primary: #1a1520;
+  --bg-secondary: #241e2a;
+  --bg-tertiary: #2e2835;
+  --text-primary: #f8f0f5;
+  --text-secondary: #c8b8c8;
+  --text-tertiary: #9888a0;
+  --accent-primary: #f472b6;
+  --accent-secondary: #ec4899;
+  --border-color: #3d3548;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --glass-bg: rgba(26, 21, 32, 0.92);
+}
+
+/* Ocean Theme */
+.ocean {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --accent-primary: #38bdf8;
+  --accent-secondary: #0ea5e9;
+  --border-color: #334155;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --glass-bg: rgba(15, 23, 42, 0.92);
+}
+
 .transparent body {
   background: transparent !important;
 }
@@ -80,6 +131,20 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Disable text selection on UI elements */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Allow selection in inputs, textareas, and content areas */
+input,
+textarea,
+[contenteditable="true"],
+.selectable,
+pre,
+code {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 ::-webkit-scrollbar {
@@ -291,6 +356,7 @@ button:active {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -307,6 +373,7 @@ button:active {
     opacity: 0;
     transform: translateX(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);

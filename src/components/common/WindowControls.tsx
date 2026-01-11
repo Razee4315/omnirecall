@@ -86,15 +86,6 @@ export function WindowControls({
 
     return (
         <div className={`flex items-center gap-0.5 no-drag ${className}`}>
-            {showFullscreen && (
-                <button
-                    onClick={handleFullscreen}
-                    className="p-1.5 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
-                    title={isFullscreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)"}
-                >
-                    {isFullscreen ? <ExitFullscreenIcon size={14} /> : <FullscreenIcon size={14} />}
-                </button>
-            )}
             {showMinimize && (
                 <button
                     onClick={handleMinimize}
@@ -111,6 +102,15 @@ export function WindowControls({
                     title={isMaximized ? "Restore" : "Maximize"}
                 >
                     {isMaximized ? <RestoreIcon size={14} /> : <MaximizeIcon size={14} />}
+                </button>
+            )}
+            {showFullscreen && (
+                <button
+                    onClick={handleFullscreen}
+                    className="p-1.5 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
+                    title={isFullscreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)"}
+                >
+                    {isFullscreen ? <ExitFullscreenIcon size={14} /> : <FullscreenIcon size={14} />}
                 </button>
             )}
             {showClose && (

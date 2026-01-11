@@ -21,12 +21,27 @@ import { ModelCompare } from "./components/common/ModelCompare";
 
 function applyThemeClasses(currentTheme: string) {
   const html = document.documentElement;
-  html.classList.remove("dark", "transparent");
-  if (currentTheme === "dark" || currentTheme === "transparent") {
-    html.classList.add("dark");
-  }
-  if (currentTheme === "transparent") {
-    html.classList.add("transparent");
+  // Remove all theme classes
+  html.classList.remove("dark", "transparent", "paper", "rose", "ocean");
+
+  // Apply the appropriate theme class
+  switch (currentTheme) {
+    case "dark":
+      html.classList.add("dark");
+      break;
+    case "transparent":
+      html.classList.add("dark", "transparent");
+      break;
+    case "paper":
+      html.classList.add("paper");
+      break;
+    case "rose":
+      html.classList.add("dark", "rose");
+      break;
+    case "ocean":
+      html.classList.add("dark", "ocean");
+      break;
+    // light theme is default (no class needed)
   }
 }
 

@@ -393,35 +393,68 @@ export function Dashboard() {
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="p-2">
-                  <div className="text-xs text-text-tertiary px-2 py-1 mb-1">Recent Chats</div>
-                  {chatHistory.value.length === 0 ? (
-                    <div className="text-xs text-text-tertiary px-2 py-4 text-center">No chats yet</div>
-                  ) : (
-                    <div className="space-y-1">
-                      {chatHistory.value.map(session => (
-                        <div
-                          key={session.id}
-                          className={`group flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${activeSessionId.value === session.id
-                            ? "bg-accent-primary/10 text-accent-primary"
-                            : "hover:bg-bg-tertiary text-text-primary"
-                            }`}
-                          onClick={() => handleLoadSession(session)}
-                        >
-                          <span className="text-sm truncate flex-1">{session.title}</span>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-bg-tertiary rounded transition-opacity"
-                          >
-                            <CloseIcon size={12} />
-                          </button>
+              ) : (() => {
+                // Group chats by date
+                const getDateGroup = (dateStr: string) => {
+                  const date = new Date(dateStr);
+                  const today = new Date();
+                  const yesterday = new Date(today);
+                  yesterday.setDate(yesterday.getDate() - 1);
+
+                  if (date.toDateString() === today.toDateString()) return "Today";
+                  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                };
+
+                const grouped = chatHistory.value.reduce((acc, session) => {
+                  const group = getDateGroup(session.createdAt);
+                  if (!acc[group]) acc[group] = [];
+                  acc[group].push(session);
+                  return acc;
+                }, {} as Record<string, typeof chatHistory.value>);
+
+                const groupOrder = ["Today", "Yesterday"];
+                const sortedGroups = Object.keys(grouped).sort((a, b) => {
+                  const aIdx = groupOrder.indexOf(a);
+                  const bIdx = groupOrder.indexOf(b);
+                  if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+                  if (aIdx !== -1) return -1;
+                  if (bIdx !== -1) return 1;
+                  return 0;
+                });
+
+                return (
+                  <div className="space-y-2">
+                    {chatHistory.value.length === 0 ? (
+                      <div className="text-xs text-text-tertiary px-2 py-4 text-center">No chats yet</div>
+                    ) : sortedGroups.map(group => (
+                      <div key={group}>
+                        <div className="text-xs text-text-tertiary px-2 py-1 uppercase tracking-wide">{group}</div>
+                        <div className="space-y-0.5">
+                          {grouped[group].map(session => (
+                            <div
+                              key={session.id}
+                              className={`group flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${activeSessionId.value === session.id
+                                ? "bg-accent-primary/10 text-accent-primary"
+                                : "hover:bg-bg-tertiary text-text-primary"
+                                }`}
+                              onClick={() => handleLoadSession(session)}
+                            >
+                              <span className="text-sm truncate flex-1">{session.title}</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/20 hover:text-error rounded transition-opacity"
+                              >
+                                <CloseIcon size={12} />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </>
           )}
 
@@ -671,13 +704,13 @@ export function Dashboard() {
                       <Markdown content={message.content} className="text-sm leading-relaxed" />
                     )}
 
-                    {/* Message Actions */}
-                    <div className={`flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity ${message.role === "user" ? "justify-end" : "justify-start"
+                    {/* Message Actions - Always visible */}
+                    <div className={`flex items-center gap-1 mt-2 ${message.role === "user" ? "justify-end" : "justify-start"
                       }`}>
                       <button
                         onClick={() => handleCopyMessage(message.content, message.id)}
                         className={`p-1 rounded text-xs ${message.role === "user"
-                          ? "text-white/70 hover:text-white hover:bg-white/10"
+                          ? "text-white/60 hover:text-white hover:bg-white/10"
                           : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
                           }`}
                         title="Copy"
