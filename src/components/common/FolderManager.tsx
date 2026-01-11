@@ -44,6 +44,7 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
     const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
     const [editingName, setEditingName] = useState("");
     const [draggedSessionId, setDraggedSessionId] = useState<string | null>(null);
+    const [dragOverFolderId, setDragOverFolderId] = useState<string | null | undefined>(undefined);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -81,12 +82,24 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
         setEditingName("");
     };
 
-    const handleDragStart = (sessionId: string) => {
+    const handleDragStart = (sessionId: string, e: DragEvent) => {
         setDraggedSessionId(sessionId);
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", sessionId);
+        }
     };
 
-    const handleDragOver = (e: DragEvent) => {
+    const handleDragOver = (e: DragEvent, folderId: string | null) => {
         e.preventDefault();
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = "move";
+        }
+        setDragOverFolderId(folderId);
+    };
+
+    const handleDragLeave = () => {
+        setDragOverFolderId(undefined);
     };
 
     const handleDropOnFolder = (folderId: string | null) => {
@@ -94,6 +107,7 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
             updateSessionFolder(draggedSessionId, folderId);
             setDraggedSessionId(null);
         }
+        setDragOverFolderId(undefined);
     };
 
     const folderSessions = sessionsByFolder.value;
@@ -162,16 +176,19 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
                         onDelete={() => deleteChatFolder(folder.id)}
                         onToggleCollapse={() => toggleFolderCollapse(folder.id)}
                         onSelectSession={onSelectSession}
-                        onDragOver={handleDragOver}
+                        onDragOver={(e) => handleDragOver(e, folder.id)}
+                        onDragLeave={handleDragLeave}
                         onDrop={() => handleDropOnFolder(folder.id)}
                         onSessionDragStart={handleDragStart}
+                        isDragOver={dragOverFolderId === folder.id}
                     />
                 ))}
 
                 {/* Uncategorized Section */}
                 <div
-                    className="border-t border-border"
-                    onDragOver={handleDragOver}
+                    className={`border-t border-border transition-colors ${dragOverFolderId === null ? "bg-accent-primary/10" : ""}`}
+                    onDragOver={(e) => handleDragOver(e, null)}
+                    onDragLeave={handleDragLeave}
                     onDrop={() => handleDropOnFolder(null)}
                 >
                     <div className="flex items-center gap-2 px-2 py-2 text-text-tertiary">
@@ -186,15 +203,15 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
                             <div
                                 key={session.id}
                                 draggable
-                                onDragStart={() => handleDragStart(session.id)}
+                                onDragStart={(e) => handleDragStart(session.id, e)}
                                 onClick={() => {
                                     currentMessages.value = session.messages;
                                     activeSessionId.value = session.id;
                                     onSelectSession(session.id);
                                 }}
-                                className={`px-3 py-2 cursor-pointer transition-colors ${activeSessionId.value === session.id
-                                        ? "bg-accent-primary/10 text-accent-primary"
-                                        : "hover:bg-bg-tertiary text-text-primary"
+                                className={`px-3 py-2 cursor-grab active:cursor-grabbing transition-colors ${activeSessionId.value === session.id
+                                    ? "bg-accent-primary/10 text-accent-primary"
+                                    : "hover:bg-bg-tertiary text-text-primary"
                                     }`}
                             >
                                 <span className="text-sm truncate block">{session.title}</span>
@@ -224,8 +241,10 @@ interface FolderItemProps {
     onToggleCollapse: () => void;
     onSelectSession: (sessionId: string) => void;
     onDragOver: (e: DragEvent) => void;
+    onDragLeave: () => void;
     onDrop: () => void;
-    onSessionDragStart: (sessionId: string) => void;
+    onSessionDragStart: (sessionId: string, e: DragEvent) => void;
+    isDragOver: boolean;
 }
 
 function FolderItem({
@@ -242,8 +261,10 @@ function FolderItem({
     onToggleCollapse,
     onSelectSession,
     onDragOver,
+    onDragLeave,
     onDrop,
     onSessionDragStart,
+    isDragOver,
 }: FolderItemProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -256,8 +277,9 @@ function FolderItem({
 
     return (
         <div
-            className="border-b border-border/50"
+            className={`border-b border-border/50 transition-colors ${isDragOver ? "bg-accent-primary/10" : ""}`}
             onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
             onDrop={onDrop}
         >
             {/* Folder Header */}
@@ -331,15 +353,14 @@ function FolderItem({
                             <div
                                 key={session.id}
                                 draggable
-                                onDragStart={() => onSessionDragStart(session.id)}
+                                onDragStart={(e) => onSessionDragStart(session.id, e)}
                                 onClick={() => {
                                     currentMessages.value = session.messages;
-                                    activeSessionId;
                                     onSelectSession(session.id);
                                 }}
                                 className={`px-2 py-1.5 rounded cursor-pointer transition-colors ${activeSessionId === session.id
-                                        ? "bg-accent-primary/10 text-accent-primary"
-                                        : "hover:bg-bg-tertiary text-text-primary"
+                                    ? "bg-accent-primary/10 text-accent-primary"
+                                    : "hover:bg-bg-tertiary text-text-primary"
                                     }`}
                             >
                                 <span className="text-sm truncate block">{session.title}</span>

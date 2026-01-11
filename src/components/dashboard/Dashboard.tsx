@@ -31,7 +31,6 @@ import {
   stopGeneration,
   isCommandPaletteOpen,
   isMaximized,
-  isFullscreen,
 } from "../../stores/appStore";
 import {
   LogoIcon,
@@ -58,6 +57,7 @@ import { TokenCounter } from "../common/TokenCounter";
 import { ExportImport } from "../common/ExportImport";
 import { FolderManager } from "../common/FolderManager";
 import { WindowControls, DragRegion } from "../common/WindowControls";
+import { RagDebugPanel } from "../common/RagDebugPanel";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -76,6 +76,7 @@ export function Dashboard() {
   const [showExport, setShowExport] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState("");
+  const [showIndexPanel, setShowIndexPanel] = useState(false);
 
   // Load persisted data on mount
   useEffect(() => {
@@ -434,7 +435,15 @@ export function Dashboard() {
                           {grouped[group].map(session => (
                             <div
                               key={session.id}
-                              className={`group flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${activeSessionId.value === session.id
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer?.setData("text/plain", session.id);
+                                (e.target as HTMLElement).style.opacity = "0.5";
+                              }}
+                              onDragEnd={(e) => {
+                                (e.target as HTMLElement).style.opacity = "1";
+                              }}
+                              className={`group flex items-center justify-between px-2 py-2 rounded-lg cursor-grab transition-colors ${activeSessionId.value === session.id
                                 ? "bg-accent-primary/10 text-accent-primary"
                                 : "hover:bg-bg-tertiary text-text-primary"
                                 }`}
@@ -516,6 +525,15 @@ export function Dashboard() {
                   })}
                 </div>
               )}
+
+              {/* Index Status Button */}
+              <button
+                onClick={() => setShowIndexPanel(true)}
+                className="w-full mt-3 px-3 py-2 text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary rounded-lg border border-border transition-colors flex items-center justify-between"
+              >
+                <span>Index Status</span>
+                <span className="text-text-tertiary">→</span>
+              </button>
             </div>
           )}
         </div>
@@ -649,8 +667,7 @@ export function Dashboard() {
             <div className="ml-2 border-l border-border pl-2">
               <WindowControls
                 isMaximized={isMaximized.value}
-                isFullscreen={isFullscreen.value}
-                showClose={false}
+                showFullscreen={false}
               />
             </div>
           </div>
@@ -658,7 +675,20 @@ export function Dashboard() {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4">
-          {currentMessages.value.length === 0 ? (
+          {showIndexPanel ? (
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-text-primary">Index Status</h2>
+                <button
+                  onClick={() => setShowIndexPanel(false)}
+                  className="p-1.5 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+              <RagDebugPanel />
+            </div>
+          ) : currentMessages.value.length === 0 ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
                 <LogoIcon size={48} className="text-text-tertiary mx-auto mb-4" />
@@ -760,16 +790,17 @@ export function Dashboard() {
         {/* Input Area */}
         <div className="border-t border-border bg-bg-secondary p-4">
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-end gap-3 bg-bg-primary rounded-xl border border-border p-3">
+            <div className="flex items-center gap-3 bg-bg-primary rounded-xl border border-border px-4 py-3">
               <textarea
                 ref={inputRef}
                 value={currentQuery.value}
                 onInput={(e) => (currentQuery.value = (e.target as HTMLTextAreaElement).value)}
                 onKeyDown={handleKeyDown}
                 placeholder={totalDocsLoaded > 0 ? "Ask about your documents..." : "Type your message..."}
-                className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-relaxed min-h-[24px] max-h-[200px]"
+                className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"
                 rows={1}
                 disabled={isGenerating.value}
+                style={{ lineHeight: '24px' }}
               />
               {isGenerating.value ? (
                 <button

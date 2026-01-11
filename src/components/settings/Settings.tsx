@@ -21,8 +21,9 @@ import {
   EyeOffIcon,
   SpinnerIcon,
 } from "../icons";
+import { RagDebugPanel } from "../common/RagDebugPanel";
 
-type SettingsTab = "providers" | "appearance" | "shortcuts";
+type SettingsTab = "providers" | "appearance" | "shortcuts" | "developer";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("providers");
@@ -78,6 +79,7 @@ export function Settings() {
                   { id: "providers", label: "AI Providers" },
                   { id: "appearance", label: "Appearance" },
                   { id: "shortcuts", label: "Shortcuts" },
+                  { id: "developer", label: "Developer" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -96,6 +98,7 @@ export function Settings() {
               {activeTab === "providers" && <ProvidersTab />}
               {activeTab === "appearance" && <AppearanceTab />}
               {activeTab === "shortcuts" && <ShortcutsTab />}
+              {activeTab === "developer" && <DeveloperTab />}
             </div>
           </div>
         )}
@@ -708,3 +711,14 @@ function ShortcutsTab() {
   );
 }
 
+function DeveloperTab() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-base font-medium text-text-primary mb-1">Developer Tools</h3>
+        <p className="text-xs text-text-secondary">Advanced tools for developers and power users.</p>
+      </div>
+      <RagDebugPanel />
+    </div>
+  );
+}

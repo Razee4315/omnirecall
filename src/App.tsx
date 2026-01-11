@@ -50,6 +50,12 @@ export function App() {
     // Apply theme on mount
     applyThemeClasses(theme.value);
 
+    // Disable right-click context menu (hide devtools option)
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", handleContextMenu);
+
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Command Palette (Ctrl+K)
       if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
