@@ -41,37 +41,40 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
             isLoading: true,
         })));
 
-        // Send requests to all models in parallel
-        const promises = selectedModels.map(async (model, index) => {
+        // Process models sequentially to avoid event listener conflicts
+        // (the backend emits to "chat-stream" for all requests)
+        for (let index = 0; index < selectedModels.length; index++) {
+            const model = selectedModels[index];
             const provider = providers.value.find(p => p.id === model.provider);
+
             if (!provider?.apiKey && provider?.id !== "ollama") {
                 setResponses(prev => prev.map((r, i) =>
                     i === index ? { ...r, isLoading: false, error: "No API key" } : r
                 ));
-                return;
+                continue;
             }
 
             try {
                 let fullResponse = "";
                 let unlisten: UnlistenFn | null = null;
+                let isDone = false;
 
-                // Create a unique event name for this model
-                const eventName = `compare-stream-${index}`;
-
-                unlisten = await listen<{ chunk: string; done: boolean }>(eventName, (event) => {
+                // Listen for the chat-stream event
+                unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
                     if (!event.payload.done) {
                         fullResponse += event.payload.chunk;
                         setResponses(prev => prev.map((r, i) =>
                             i === index ? { ...r, content: fullResponse } : r
                         ));
                     } else {
+                        isDone = true;
                         setResponses(prev => prev.map((r, i) =>
                             i === index ? { ...r, isLoading: false } : r
                         ));
-                        if (unlisten) unlisten();
                     }
                 });
 
+                // Send the message
                 await invoke("send_message_stream", {
                     message: prompt,
                     history: [],
@@ -81,14 +84,23 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                     apiKey: provider?.apiKey || "",
                 });
 
+                // Wait a bit for the stream to finish if not already done
+                let waitCount = 0;
+                while (!isDone && waitCount < 100) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    waitCount++;
+                }
+
+                // Clean up listener
+                if (unlisten) unlisten();
+
             } catch (err: any) {
                 setResponses(prev => prev.map((r, i) =>
                     i === index ? { ...r, isLoading: false, error: err?.message || "Failed" } : r
                 ));
             }
-        });
+        }
 
-        await Promise.all(promises);
         setIsComparing(false);
     };
 

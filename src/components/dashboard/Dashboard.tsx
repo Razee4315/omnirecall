@@ -30,6 +30,8 @@ import {
   searchResults,
   stopGeneration,
   isCommandPaletteOpen,
+  isMaximized,
+  isFullscreen,
 } from "../../stores/appStore";
 import {
   LogoIcon,
@@ -55,6 +57,7 @@ import { Markdown } from "../common/Markdown";
 import { TokenCounter } from "../common/TokenCounter";
 import { ExportImport } from "../common/ExportImport";
 import { FolderManager } from "../common/FolderManager";
+import { WindowControls, DragRegion } from "../common/WindowControls";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -501,9 +504,9 @@ export function Dashboard() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-secondary">
-          <div className="flex items-center gap-3">
+        {/* Header with Drag Region */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-secondary drag-region">
+          <div className="flex items-center gap-3 no-drag">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
@@ -581,7 +584,10 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Drag Area - invisible but draggable */}
+          <DragRegion className="h-full" />
+
+          <div className="flex items-center gap-1 no-drag">
             {currentSession && (
               <button
                 onClick={() => setShowExport(true)}
@@ -594,16 +600,26 @@ export function Dashboard() {
             <button
               onClick={() => (isSettingsOpen.value = true)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              title="Settings"
             >
               <SettingsIcon size={18} />
             </button>
             <button
               onClick={handleBackToSpotlight}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-              title="Back to Spotlight (Esc)"
+              title="Back to Spotlight"
             >
-              <CloseIcon size={18} />
+              <CloseIcon size={16} />
             </button>
+
+            {/* Window Controls */}
+            <div className="ml-2 border-l border-border pl-2">
+              <WindowControls
+                isMaximized={isMaximized.value}
+                isFullscreen={isFullscreen.value}
+                showClose={false}
+              />
+            </div>
           </div>
         </div>
 

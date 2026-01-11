@@ -11,6 +11,7 @@ import {
   chatHistory,
   stopGeneration,
   isGenerating,
+  isFullscreen,
 } from "./stores/appStore";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
@@ -73,6 +74,14 @@ export function App() {
       if (e.key === "M" && (e.ctrlKey || e.metaKey) && e.shiftKey) {
         e.preventDefault();
         isCompareMode.value = !isCompareMode.value;
+        return;
+      }
+
+      // Fullscreen toggle (F11)
+      if (e.key === "F11") {
+        e.preventDefault();
+        const newState = await invoke<boolean>("toggle_fullscreen");
+        isFullscreen.value = newState;
         return;
       }
 

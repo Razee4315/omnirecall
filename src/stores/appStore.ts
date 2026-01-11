@@ -1,5 +1,6 @@
 import { signal, computed } from "@preact/signals";
 import { Store } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 
 export type ViewMode = "spotlight" | "dashboard";
 export type Theme = "dark" | "light" | "transparent";
@@ -89,6 +90,10 @@ export const isCompareMode = signal(false);
 export const compareModels = signal<{ provider: string; model: string }[]>([]);
 export const compareResponses = signal<{ model: string; content: string; isLoading: boolean }[]>([]);
 
+// Window State
+export const isMaximized = signal(false);
+export const isFullscreen = signal(false);
+
 // AI Provider State
 export const providers = signal<AIProvider[]>([
   {
@@ -160,18 +165,18 @@ export const chatFolders = signal<ChatFolder[]>([]);
 export const sessionsByFolder = computed(() => {
   const folders = new Map<string | null, ChatSession[]>();
   folders.set(null, []); // Uncategorized
-  
+
   for (const folder of chatFolders.value) {
     folders.set(folder.id, []);
   }
-  
+
   for (const session of chatHistory.value) {
     const folderId = session.folderId || null;
     const existing = folders.get(folderId) || [];
     existing.push(session);
     folders.set(folderId, existing);
   }
-  
+
   return folders;
 });
 
@@ -202,10 +207,10 @@ export function searchChatHistory(query: string): SearchResult[] {
     searchResults.value = [];
     return [];
   }
-  
+
   const results: SearchResult[] = [];
   const lowerQuery = query.toLowerCase();
-  
+
   for (const session of chatHistory.value) {
     for (const msg of session.messages) {
       const lowerContent = msg.content.toLowerCase();
@@ -222,7 +227,7 @@ export function searchChatHistory(query: string): SearchResult[] {
       }
     }
   }
-  
+
   searchResults.value = results;
   return results;
 }
@@ -384,6 +389,46 @@ export function updateSessionFolder(sessionId: string, folderId: string | null) 
 export function addDocument(doc: Document) {
   documents.value = [...documents.value, doc];
   saveDocuments();
+
+  // Auto-index the document for semantic search (async, non-blocking)
+  indexDocumentAsync(doc.id, doc.name, doc.path);
+}
+
+// Index a document for semantic search
+export async function indexDocumentAsync(docId: string, docName: string, filePath: string) {
+  const provider = providers.value.find(p => p.id === "gemini" && p.apiKey);
+  if (!provider) return; // Skip if no Gemini API key for embeddings
+
+  try {
+    await invoke("index_document", {
+      documentId: docId,
+      documentName: docName,
+      filePath: filePath,
+      provider: "gemini",
+      apiKey: provider.apiKey,
+    });
+  } catch (e) {
+    console.error("Failed to index document:", e);
+  }
+}
+
+// Get relevant context for a query using semantic search
+export async function getSemanticContext(query: string): Promise<string> {
+  const provider = providers.value.find(p => p.id === "gemini" && p.apiKey);
+  if (!provider) return "";
+
+  try {
+    const context = await invoke<string>("get_relevant_context", {
+      query,
+      provider: "gemini",
+      apiKey: provider.apiKey,
+      maxTokens: 4000,
+    });
+    return context;
+  } catch (e) {
+    console.error("Failed to get semantic context:", e);
+    return "";
+  }
 }
 
 export function removeDocument(docId: string) {
@@ -410,7 +455,7 @@ export function deleteChatFolder(folderId: string) {
     s.folderId === folderId ? { ...s, folderId: null } : s
   );
   saveChatHistory();
-  
+
   // Delete the folder
   chatFolders.value = chatFolders.value.filter(f => f.id !== folderId);
   saveChatFolders();
@@ -427,10 +472,10 @@ export function toggleFolderCollapse(folderId: string) {
 export function branchFromMessage(sessionId: string, messageId: string, branchName?: string) {
   const session = chatHistory.value.find(s => s.id === sessionId);
   if (!session) return null;
-  
+
   const messageIndex = session.messages.findIndex(m => m.id === messageId);
   if (messageIndex === -1) return null;
-  
+
   const branchId = crypto.randomUUID();
   const newBranch: Branch = {
     id: branchId,
@@ -438,14 +483,14 @@ export function branchFromMessage(sessionId: string, messageId: string, branchNa
     fromMessageId: messageId,
     createdAt: new Date().toISOString(),
   };
-  
+
   // Copy messages up to and including the branch point
   const branchedMessages = session.messages.slice(0, messageIndex + 1).map(m => ({
     ...m,
     id: crypto.randomUUID(),
     branchIndex: session.branches.length,
   }));
-  
+
   // Update the session with the new branch
   chatHistory.value = chatHistory.value.map(s => {
     if (s.id === sessionId) {
@@ -457,12 +502,12 @@ export function branchFromMessage(sessionId: string, messageId: string, branchNa
     }
     return s;
   });
-  
+
   // Set the branched messages as current
   currentMessages.value = branchedMessages;
   activeBranchId.value = branchId;
   saveChatHistory();
-  
+
   return branchId;
 }
 
@@ -471,17 +516,17 @@ export function exportSession(session: ChatSession, format: 'json' | 'md'): stri
   if (format === 'json') {
     return JSON.stringify(session, null, 2);
   }
-  
+
   // Markdown format
   let md = `# ${session.title}\n\n`;
   md += `*Created: ${new Date(session.createdAt).toLocaleString()}*\n\n`;
   md += `---\n\n`;
-  
+
   for (const msg of session.messages) {
     const roleLabel = msg.role === 'user' ? '**You**' : '**Assistant**';
     md += `${roleLabel}:\n\n${msg.content}\n\n---\n\n`;
   }
-  
+
   return md;
 }
 

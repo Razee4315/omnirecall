@@ -221,6 +221,11 @@ pub fn run() {
             commands::documents::remove_document,
             commands::documents::list_documents,
             commands::documents::read_document_content,
+            commands::documents::index_document,
+            commands::documents::semantic_search,
+            commands::documents::get_relevant_context,
+            commands::documents::clear_index,
+            commands::documents::get_index_stats,
             commands::spaces::create_space,
             commands::spaces::list_spaces,
             commands::spaces::delete_space,
@@ -231,6 +236,10 @@ pub fn run() {
             toggle_dashboard,
             update_hotkey,
             get_current_hotkey,
+            minimize_window,
+            toggle_maximize,
+            toggle_fullscreen,
+            get_window_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -339,3 +348,41 @@ async fn get_current_hotkey() -> String {
         .unwrap_or_else(|_| load_hotkey_from_config())
 }
 
+#[tauri::command]
+async fn minimize_window(window: tauri::WebviewWindow) {
+    let _ = window.minimize();
+}
+
+#[tauri::command]
+async fn toggle_maximize(window: tauri::WebviewWindow) -> bool {
+    let is_maximized = window.is_maximized().unwrap_or(false);
+    if is_maximized {
+        let _ = window.unmaximize();
+    } else {
+        let _ = window.maximize();
+    }
+    !is_maximized
+}
+
+#[tauri::command]
+async fn toggle_fullscreen(window: tauri::WebviewWindow) -> bool {
+    let is_fullscreen = window.is_fullscreen().unwrap_or(false);
+    let _ = window.set_fullscreen(!is_fullscreen);
+    !is_fullscreen
+}
+
+#[derive(serde::Serialize)]
+struct WindowState {
+    is_maximized: bool,
+    is_fullscreen: bool,
+    is_focused: bool,
+}
+
+#[tauri::command]
+async fn get_window_state(window: tauri::WebviewWindow) -> WindowState {
+    WindowState {
+        is_maximized: window.is_maximized().unwrap_or(false),
+        is_fullscreen: window.is_fullscreen().unwrap_or(false),
+        is_focused: window.is_focused().unwrap_or(false),
+    }
+}
