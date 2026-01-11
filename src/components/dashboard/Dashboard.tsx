@@ -23,6 +23,13 @@ import {
   ChatMessage,
   ChatSession,
   Document,
+  estimateTokens,
+  branchFromMessage,
+  searchQuery,
+  searchChatHistory,
+  searchResults,
+  stopGeneration,
+  isCommandPaletteOpen,
 } from "../../stores/appStore";
 import {
   LogoIcon,
@@ -37,8 +44,17 @@ import {
   MenuIcon,
   CheckIcon,
   TypingIndicator,
+  SearchIcon,
+  BranchIcon,
+  CopyIcon,
+  StopIcon,
+  DownloadIcon,
+  CommandIcon,
 } from "../icons";
 import { Markdown } from "../common/Markdown";
+import { TokenCounter } from "../common/TokenCounter";
+import { ExportImport } from "../common/ExportImport";
+import { FolderManager } from "../common/FolderManager";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -51,8 +67,12 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<"chats" | "folders" | "docs">("chats");
   const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
 
   // Load persisted data on mount
   useEffect(() => {
@@ -91,6 +111,15 @@ export function Dashboard() {
     loadDocumentContents();
   }, [documents.value]);
 
+  // Search handler
+  useEffect(() => {
+    if (localSearchQuery.trim()) {
+      searchChatHistory(localSearchQuery);
+    } else {
+      searchQuery.value = "";
+    }
+  }, [localSearchQuery]);
+
   const handleSubmit = async () => {
     if (!currentQuery.value.trim() || isGenerating.value) return;
 
@@ -104,6 +133,7 @@ export function Dashboard() {
       id: crypto.randomUUID(),
       role: "user",
       content: currentQuery.value,
+      tokenCount: estimateTokens(currentQuery.value),
     };
 
     const newMessages = [...currentMessages.value, userMessage];
@@ -119,6 +149,7 @@ export function Dashboard() {
       id: assistantId,
       role: "assistant",
       content: "",
+      tokenCount: 0,
     };
     currentMessages.value = [...newMessages, assistantMessage];
 
@@ -139,7 +170,7 @@ export function Dashboard() {
           const msgs = [...currentMessages.value];
           const idx = msgs.findIndex(m => m.id === assistantId);
           if (idx !== -1) {
-            msgs[idx] = { ...msgs[idx], content: fullResponse };
+            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
             currentMessages.value = msgs;
           }
         } else {
@@ -154,7 +185,9 @@ export function Dashboard() {
               id: crypto.randomUUID(),
               title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
               messages: updatedMessages,
+              branches: [],
               createdAt: new Date().toISOString(),
+              folderId: null,
             };
             addChatSession(newSession);
             activeSessionId.value = newSession.id;
@@ -257,13 +290,26 @@ export function Dashboard() {
     setShowModelSelect(false);
   };
 
+  const handleCopyMessage = async (content: string, messageId: string) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedMessageId(messageId);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  const handleBranch = (messageId: string) => {
+    if (!activeSessionId.value) return;
+    branchFromMessage(activeSessionId.value, messageId);
+  };
+
   const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
+  const currentSession = chatHistory.value.find(s => s.id === activeSessionId.value);
 
   return (
     <div className="h-full w-full flex bg-bg-primary">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? "w-64" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border bg-bg-secondary flex flex-col`}>
-        <div className="p-3 border-b border-border">
+      <div className={`${sidebarOpen ? "w-72" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border bg-bg-secondary flex flex-col`}>
+        {/* Sidebar Header */}
+        <div className="p-3 border-b border-border space-y-2">
           <button
             onClick={handleNewChat}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-accent-primary text-white text-sm hover:bg-accent-primary/90 transition-colors"
@@ -271,86 +317,185 @@ export function Dashboard() {
             <PlusIcon size={16} />
             New Chat
           </button>
-        </div>
 
-        {/* Chat History */}
-        <div className="flex-1 overflow-y-auto p-2">
-          <div className="text-xs text-text-tertiary px-2 py-1 mb-1">Chat History</div>
-          {chatHistory.value.length === 0 ? (
-            <div className="text-xs text-text-tertiary px-2 py-4 text-center">No chats yet</div>
-          ) : (
-            <div className="space-y-1">
-              {chatHistory.value.map(session => (
-                <div
-                  key={session.id}
-                  className={`group flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${activeSessionId.value === session.id ? "bg-accent-primary/10 text-accent-primary" : "hover:bg-bg-tertiary text-text-primary"
-                    }`}
-                  onClick={() => handleLoadSession(session)}
-                >
-                  <span className="text-sm truncate flex-1">{session.title}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-bg-tertiary rounded transition-opacity"
-                  >
-                    <CloseIcon size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Documents Section */}
-        <div className="border-t border-border p-2">
-          <div className="flex items-center justify-between px-2 py-1 mb-1">
-            <span className="text-xs text-text-tertiary">
-              Documents {totalDocsLoaded > 0 && `(${totalDocsLoaded})`}
-            </span>
+          {/* Sidebar Tabs */}
+          <div className="flex rounded-lg overflow-hidden border border-border">
             <button
-              onClick={handleAddDocuments}
-              className="p-1 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
-              title="Add Documents"
+              onClick={() => setSidebarTab("chats")}
+              className={`flex-1 px-2 py-1.5 text-xs ${sidebarTab === "chats" ? "bg-accent-primary/10 text-accent-primary" : "text-text-secondary hover:bg-bg-tertiary"
+                }`}
             >
-              <PlusIcon size={14} />
+              Chats
+            </button>
+            <button
+              onClick={() => setSidebarTab("folders")}
+              className={`flex-1 px-2 py-1.5 text-xs ${sidebarTab === "folders" ? "bg-accent-primary/10 text-accent-primary" : "text-text-secondary hover:bg-bg-tertiary"
+                }`}
+            >
+              Folders
+            </button>
+            <button
+              onClick={() => setSidebarTab("docs")}
+              className={`flex-1 px-2 py-1.5 text-xs ${sidebarTab === "docs" ? "bg-accent-primary/10 text-accent-primary" : "text-text-secondary hover:bg-bg-tertiary"
+                }`}
+            >
+              Docs
             </button>
           </div>
+        </div>
 
-          {loadingDocs && (
-            <div className="flex items-center gap-2 px-2 py-2 text-xs text-text-tertiary">
-              <SpinnerIcon size={12} />
-              Loading...
-            </div>
-          )}
-
-          {documents.value.length === 0 ? (
-            <button
-              onClick={handleAddDocuments}
-              className="w-full flex flex-col items-center gap-2 px-3 py-4 rounded-lg border border-dashed border-border hover:border-accent-primary hover:bg-accent-primary/5 transition-colors"
-            >
-              <FolderIcon size={20} className="text-text-tertiary" />
-              <span className="text-xs text-text-tertiary">Add documents</span>
-            </button>
-          ) : (
-            <div className="space-y-1 max-h-40 overflow-y-auto">
-              {documents.value.map(doc => {
-                const docWithContent = docsWithContent.find(d => d.id === doc.id);
-                const hasContent = docWithContent?.content && docWithContent.content.length > 0;
-                return (
-                  <div key={doc.id} className="group flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-tertiary">
-                    <DocumentIcon size={14} className="text-text-tertiary flex-shrink-0" />
-                    <span className="text-xs text-text-primary truncate flex-1">{doc.name}</span>
-                    {hasContent && <CheckIcon size={12} className="text-success flex-shrink-0" />}
-                    <button
-                      onClick={() => handleRemoveDocument(doc.id)}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-bg-secondary rounded transition-opacity"
-                    >
-                      <CloseIcon size={10} />
+        {/* Sidebar Content */}
+        <div className="flex-1 overflow-y-auto">
+          {sidebarTab === "chats" && (
+            <>
+              {/* Search */}
+              <div className="p-2">
+                <div className="flex items-center gap-2 px-2 py-1.5 bg-bg-tertiary rounded-lg border border-border">
+                  <SearchIcon size={14} className="text-text-tertiary" />
+                  <input
+                    type="text"
+                    value={localSearchQuery}
+                    onInput={(e) => setLocalSearchQuery((e.target as HTMLInputElement).value)}
+                    placeholder="Search chats..."
+                    className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
+                  />
+                  {localSearchQuery && (
+                    <button onClick={() => setLocalSearchQuery("")} className="text-text-tertiary hover:text-text-primary">
+                      <CloseIcon size={12} />
                     </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Search Results or Chat History */}
+              {localSearchQuery && searchResults.value.length > 0 ? (
+                <div className="p-2">
+                  <div className="text-xs text-text-tertiary px-2 py-1 mb-1">
+                    {searchResults.value.length} result{searchResults.value.length !== 1 ? "s" : ""}
                   </div>
-                );
-              })}
+                  {searchResults.value.slice(0, 10).map((result) => (
+                    <div
+                      key={`${result.sessionId}-${result.messageId}`}
+                      onClick={() => {
+                        const session = chatHistory.value.find(s => s.id === result.sessionId);
+                        if (session) handleLoadSession(session);
+                        setLocalSearchQuery("");
+                      }}
+                      className="px-2 py-2 rounded-lg cursor-pointer hover:bg-bg-tertiary"
+                    >
+                      <div className="text-xs text-text-tertiary truncate">{result.sessionTitle}</div>
+                      <div className="text-sm text-text-primary line-clamp-2 mt-0.5">
+                        {result.content.slice(Math.max(0, result.matchIndex - 20), result.matchIndex + 50)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-2">
+                  <div className="text-xs text-text-tertiary px-2 py-1 mb-1">Recent Chats</div>
+                  {chatHistory.value.length === 0 ? (
+                    <div className="text-xs text-text-tertiary px-2 py-4 text-center">No chats yet</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {chatHistory.value.map(session => (
+                        <div
+                          key={session.id}
+                          className={`group flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${activeSessionId.value === session.id
+                            ? "bg-accent-primary/10 text-accent-primary"
+                            : "hover:bg-bg-tertiary text-text-primary"
+                            }`}
+                          onClick={() => handleLoadSession(session)}
+                        >
+                          <span className="text-sm truncate flex-1">{session.title}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-bg-tertiary rounded transition-opacity"
+                          >
+                            <CloseIcon size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {sidebarTab === "folders" && (
+            <FolderManager onSelectSession={(sessionId) => {
+              const session = chatHistory.value.find(s => s.id === sessionId);
+              if (session) handleLoadSession(session);
+            }} />
+          )}
+
+          {sidebarTab === "docs" && (
+            <div className="p-2">
+              <div className="flex items-center justify-between px-2 py-1 mb-1">
+                <span className="text-xs text-text-tertiary">
+                  Documents {totalDocsLoaded > 0 && `(${totalDocsLoaded})`}
+                </span>
+                <button
+                  onClick={handleAddDocuments}
+                  className="p-1 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
+                  title="Add Documents"
+                >
+                  <PlusIcon size={14} />
+                </button>
+              </div>
+
+              {loadingDocs && (
+                <div className="flex items-center gap-2 px-2 py-2 text-xs text-text-tertiary">
+                  <SpinnerIcon size={12} />
+                  Loading...
+                </div>
+              )}
+
+              {documents.value.length === 0 ? (
+                <button
+                  onClick={handleAddDocuments}
+                  className="w-full flex flex-col items-center gap-2 px-3 py-4 rounded-lg border border-dashed border-border hover:border-accent-primary hover:bg-accent-primary/5 transition-colors"
+                >
+                  <FolderIcon size={20} className="text-text-tertiary" />
+                  <span className="text-xs text-text-tertiary">Add documents</span>
+                </button>
+              ) : (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {documents.value.map(doc => {
+                    const docWithContent = docsWithContent.find(d => d.id === doc.id);
+                    const hasContent = docWithContent?.content && docWithContent.content.length > 0;
+                    return (
+                      <div key={doc.id} className="group flex items-center gap-2 px-2 py-1.5 rounded hover:bg-bg-tertiary">
+                        <DocumentIcon size={14} className="text-text-tertiary flex-shrink-0" />
+                        <span className="text-xs text-text-primary truncate flex-1">{doc.name}</span>
+                        {hasContent && <CheckIcon size={12} className="text-success flex-shrink-0" />}
+                        <button
+                          onClick={() => handleRemoveDocument(doc.id)}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-bg-secondary rounded transition-opacity"
+                        >
+                          <CloseIcon size={10} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
+        </div>
+
+        {/* Keyboard Shortcuts Hint */}
+        <div className="p-2 border-t border-border">
+          <button
+            onClick={() => (isCommandPaletteOpen.value = true)}
+            className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-bg-tertiary text-text-tertiary text-xs"
+          >
+            <div className="flex items-center gap-2">
+              <CommandIcon size={12} />
+              <span>Command Palette</span>
+            </div>
+            <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs">Ctrl+K</kbd>
+          </button>
         </div>
       </div>
 
@@ -423,6 +568,11 @@ export function Dashboard() {
               )}
             </div>
 
+            {/* Token Counter */}
+            {currentMessages.value.length > 0 && (
+              <TokenCounter className="ml-2" />
+            )}
+
             {totalDocsLoaded > 0 && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-accent-primary/10 rounded-lg">
                 <DocumentIcon size={14} className="text-accent-primary" />
@@ -432,6 +582,15 @@ export function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            {currentSession && (
+              <button
+                onClick={() => setShowExport(true)}
+                className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+                title="Export Chat"
+              >
+                <DownloadIcon size={18} />
+              </button>
+            )}
             <button
               onClick={() => (isSettingsOpen.value = true)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
@@ -460,10 +619,14 @@ export function Dashboard() {
                     ? `${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''} loaded. Ask questions!`
                     : "Add documents to enable RAG, or just chat."}
                 </p>
+                <div className="flex items-center justify-center gap-4 text-xs text-text-tertiary">
+                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded">Ctrl+K</kbd> Command</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded">Ctrl+N</kbd> New Chat</span>
+                </div>
                 {totalDocsLoaded === 0 && (
                   <button
                     onClick={handleAddDocuments}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-bg-tertiary transition-colors text-sm text-text-secondary"
+                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-bg-tertiary transition-colors text-sm text-text-secondary"
                   >
                     <FolderIcon size={16} />
                     Add Documents
@@ -473,13 +636,13 @@ export function Dashboard() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
-              {currentMessages.value.map((message) => (
+              {currentMessages.value.map((message, index) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`group flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-xl px-4 py-3 ${message.role === "user"
+                    className={`max-w-[80%] rounded-xl px-4 py-3 relative ${message.role === "user"
                       ? "bg-accent-primary text-white"
                       : "bg-bg-secondary text-text-primary border border-border"
                       }`}
@@ -491,6 +654,36 @@ export function Dashboard() {
                     ) : (
                       <Markdown content={message.content} className="text-sm leading-relaxed" />
                     )}
+
+                    {/* Message Actions */}
+                    <div className={`flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity ${message.role === "user" ? "justify-end" : "justify-start"
+                      }`}>
+                      <button
+                        onClick={() => handleCopyMessage(message.content, message.id)}
+                        className={`p-1 rounded text-xs ${message.role === "user"
+                          ? "text-white/70 hover:text-white hover:bg-white/10"
+                          : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+                          }`}
+                        title="Copy"
+                      >
+                        {copiedMessageId === message.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+                      </button>
+                      {message.role === "assistant" && index < currentMessages.value.length - 1 && (
+                        <button
+                          onClick={() => handleBranch(message.id)}
+                          className="p-1 rounded text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+                          title="Branch from here"
+                        >
+                          <BranchIcon size={12} />
+                        </button>
+                      )}
+                      {message.tokenCount && message.tokenCount > 10 && (
+                        <span className={`text-xs px-1 ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
+                          }`}>
+                          ~{message.tokenCount} tokens
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -529,20 +722,35 @@ export function Dashboard() {
                 rows={1}
                 disabled={isGenerating.value}
               />
-              <button
-                onClick={handleSubmit}
-                disabled={!currentQuery.value.trim() || isGenerating.value}
-                className={`p-2 rounded-lg transition-all flex-shrink-0 ${currentQuery.value.trim() && !isGenerating.value
-                  ? "bg-accent-primary text-white hover:bg-accent-primary/90"
-                  : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                  }`}
-              >
-                {isGenerating.value ? <SpinnerIcon size={18} /> : <SendIcon size={18} />}
-              </button>
+              {isGenerating.value ? (
+                <button
+                  onClick={stopGeneration}
+                  className="p-2 rounded-lg bg-error text-white hover:bg-error/90 transition-all flex-shrink-0"
+                  title="Stop generating (Ctrl+.)"
+                >
+                  <StopIcon size={18} />
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={!currentQuery.value.trim()}
+                  className={`p-2 rounded-lg transition-all flex-shrink-0 ${currentQuery.value.trim()
+                    ? "bg-accent-primary text-white hover:bg-accent-primary/90"
+                    : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                    }`}
+                >
+                  <SendIcon size={18} />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Export Modal */}
+      {showExport && currentSession && (
+        <ExportImport session={currentSession} onClose={() => setShowExport(false)} />
+      )}
     </div>
   );
 }
