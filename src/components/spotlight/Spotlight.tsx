@@ -20,21 +20,27 @@ import {
   ChatMessage,
   ChatSession,
   Document,
+  estimateTokens,
+  stopGeneration,
+  isCommandPaletteOpen,
 } from "../../stores/appStore";
 import {
   LogoIcon,
   SendIcon,
   SettingsIcon,
   ExpandIcon,
-  SpinnerIcon,
   CopyIcon,
   RefreshIcon,
   ChevronDownIcon,
   CloseIcon,
   FolderIcon,
   TypingIndicator,
+  CheckIcon,
+  StopIcon,
+  CommandIcon,
 } from "../icons";
 import { Markdown } from "../common/Markdown";
+import { TokenCounter } from "../common/TokenCounter";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -47,6 +53,7 @@ export function Spotlight() {
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   // Load persisted data on mount
   useEffect(() => {
@@ -93,6 +100,7 @@ export function Spotlight() {
       id: crypto.randomUUID(),
       role: "user",
       content: currentQuery.value,
+      tokenCount: estimateTokens(currentQuery.value),
     };
 
     const newMessages = [...currentMessages.value, userMessage];
@@ -108,6 +116,7 @@ export function Spotlight() {
       id: assistantId,
       role: "assistant",
       content: "",
+      tokenCount: 0,
     };
     currentMessages.value = [...newMessages, assistantMessage];
 
@@ -128,7 +137,7 @@ export function Spotlight() {
           const msgs = [...currentMessages.value];
           const idx = msgs.findIndex(m => m.id === assistantId);
           if (idx !== -1) {
-            msgs[idx] = { ...msgs[idx], content: fullResponse };
+            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
             currentMessages.value = msgs;
           }
         } else {
@@ -143,7 +152,9 @@ export function Spotlight() {
               id: crypto.randomUUID(),
               title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
               messages: updatedMessages,
+              branches: [],
               createdAt: new Date().toISOString(),
+              folderId: null,
             };
             addChatSession(newSession);
             activeSessionId.value = newSession.id;
@@ -186,6 +197,12 @@ export function Spotlight() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleCopyMessage = async (content: string, messageId: string) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedMessageId(messageId);
+    setTimeout(() => setCopiedMessageId(null), 2000);
   };
 
   const handleClear = () => {
@@ -303,6 +320,11 @@ export function Spotlight() {
               )}
             </div>
 
+            {/* Token Counter */}
+            {currentMessages.value.length > 0 && (
+              <TokenCounter className="ml-1" />
+            )}
+
             {totalDocsLoaded > 0 && (
               <span className="px-1.5 py-0.5 bg-accent-primary/10 rounded text-xs text-accent-primary">
                 {totalDocsLoaded} doc{totalDocsLoaded > 1 ? 's' : ''}
@@ -311,6 +333,13 @@ export function Spotlight() {
           </div>
 
           <div className="flex items-center gap-0.5 no-drag">
+            <button
+              onClick={() => (isCommandPaletteOpen.value = true)}
+              className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              title="Command Palette (Ctrl+K)"
+            >
+              <CommandIcon size={14} />
+            </button>
             <button
               onClick={handleAddDocuments}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
@@ -352,17 +381,18 @@ export function Spotlight() {
                     ? `Ask about your ${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''}`
                     : "Ask anything or add documents"}
                 </p>
-                <p className="text-xs text-text-tertiary">
+                <div className="flex items-center justify-center gap-2 text-xs text-text-tertiary">
                   <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> send ·
-                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded ml-1">Esc</kbd> hide
-                </p>
+                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Ctrl+K</kbd> commands ·
+                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Esc</kbd> hide
+                </div>
               </div>
             </div>
           ) : (
             <div className="p-3 space-y-3">
               {currentMessages.value.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs ${msg.role === "user"
+                <div key={msg.id} className={`group flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs relative ${msg.role === "user"
                     ? "bg-accent-primary text-white"
                     : "bg-bg-tertiary text-text-primary"
                     }`}>
@@ -370,6 +400,29 @@ export function Spotlight() {
                       <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                     ) : (
                       <Markdown content={msg.content} className="text-xs leading-relaxed" />
+                    )}
+
+                    {/* Message Actions */}
+                    {msg.content && (
+                      <div className={`flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === "user" ? "justify-end" : "justify-start"
+                        }`}>
+                        <button
+                          onClick={() => handleCopyMessage(msg.content, msg.id)}
+                          className={`p-0.5 rounded ${msg.role === "user"
+                            ? "text-white/70 hover:text-white"
+                            : "text-text-tertiary hover:text-text-primary"
+                            }`}
+                          title="Copy"
+                        >
+                          {copiedMessageId === msg.id ? <CheckIcon size={10} /> : <CopyIcon size={10} />}
+                        </button>
+                        {msg.tokenCount && msg.tokenCount > 10 && (
+                          <span className={`text-[10px] ${msg.role === "user" ? "text-white/50" : "text-text-tertiary/60"
+                            }`}>
+                            ~{msg.tokenCount}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -406,16 +459,26 @@ export function Spotlight() {
               rows={1}
               disabled={isGenerating.value}
             />
-            <button
-              onClick={handleSubmit}
-              disabled={!currentQuery.value.trim() || isGenerating.value}
-              className={`p-2 rounded-lg transition-all flex-shrink-0 ${currentQuery.value.trim() && !isGenerating.value
-                ? "bg-accent-primary text-white hover:bg-accent-primary/90"
-                : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                }`}
-            >
-              {isGenerating.value ? <SpinnerIcon size={14} /> : <SendIcon size={14} />}
-            </button>
+            {isGenerating.value ? (
+              <button
+                onClick={stopGeneration}
+                className="p-2 rounded-lg bg-error text-white hover:bg-error/90 transition-all flex-shrink-0"
+                title="Stop generating (Ctrl+.)"
+              >
+                <StopIcon size={14} />
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!currentQuery.value.trim()}
+                className={`p-2 rounded-lg transition-all flex-shrink-0 ${currentQuery.value.trim()
+                  ? "bg-accent-primary text-white hover:bg-accent-primary/90"
+                  : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                  }`}
+              >
+                <SendIcon size={14} />
+              </button>
+            )}
           </div>
         </div>
 

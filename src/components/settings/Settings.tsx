@@ -21,8 +21,9 @@ import {
   EyeOffIcon,
   SpinnerIcon,
 } from "../icons";
+import { RagDebugPanel } from "../common/RagDebugPanel";
 
-type SettingsTab = "providers" | "appearance" | "shortcuts";
+type SettingsTab = "providers" | "appearance" | "shortcuts" | "developer";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("providers");
@@ -78,6 +79,7 @@ export function Settings() {
                   { id: "providers", label: "AI Providers" },
                   { id: "appearance", label: "Appearance" },
                   { id: "shortcuts", label: "Shortcuts" },
+                  { id: "developer", label: "Developer" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -96,6 +98,7 @@ export function Settings() {
               {activeTab === "providers" && <ProvidersTab />}
               {activeTab === "appearance" && <AppearanceTab />}
               {activeTab === "shortcuts" && <ShortcutsTab />}
+              {activeTab === "developer" && <DeveloperTab />}
             </div>
           </div>
         )}
@@ -231,22 +234,26 @@ function ProviderCardCompact({ provider }: { provider: any }) {
 
 function AppearanceTabCompact() {
   const themes = [
-    { id: "dark" as const, label: "Dark" },
-    { id: "light" as const, label: "Light" },
-    { id: "transparent" as const, label: "Glass" },
+    { id: "dark" as const, label: "Dark", color: "#0d0d0f" },
+    { id: "light" as const, label: "Light", color: "#ffffff" },
+    { id: "transparent" as const, label: "Glass", color: "#1a1a1f" },
+    { id: "paper" as const, label: "Paper", color: "#faf8f5" },
+    { id: "rose" as const, label: "Rose", color: "#f472b6" },
+    { id: "ocean" as const, label: "Ocean", color: "#38bdf8" },
   ];
   return (
     <div>
       <label className="text-xs font-medium text-text-primary mb-2 block">Theme</label>
-      <div className="flex gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {themes.map((t) => (
           <button
             key={t.id}
             onClick={() => setTheme(t.id)}
-            className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium ${theme.value === t.id ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border text-text-secondary"
+            className={`px-2 py-2 rounded-lg border text-xs font-medium flex flex-col items-center gap-1 ${theme.value === t.id ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border text-text-secondary hover:border-text-tertiary"
               }`}
           >
-            {t.label}
+            <span className="w-4 h-4 rounded-full border border-border" style={{ background: t.color }} />
+            <span>{t.label}</span>
           </button>
         ))}
       </div>
@@ -537,9 +544,12 @@ function ProviderCard({ provider }: { provider: any }) {
 
 function AppearanceTab() {
   const themes = [
-    { id: "dark" as const, label: "Dark", desc: "Easy on the eyes" },
-    { id: "light" as const, label: "Light", desc: "Bright and clean" },
-    { id: "transparent" as const, label: "Glass", desc: "Transparent blur" },
+    { id: "dark" as const, label: "Dark", desc: "Easy on the eyes", color: "#0d0d0f" },
+    { id: "light" as const, label: "Light", desc: "Bright and clean", color: "#ffffff" },
+    { id: "transparent" as const, label: "Glass", desc: "Transparent blur", color: "#1a1a1f" },
+    { id: "paper" as const, label: "Paper", desc: "Warm cream tones", color: "#faf8f5" },
+    { id: "rose" as const, label: "Rose", desc: "Soft pink accent", color: "#f472b6" },
+    { id: "ocean" as const, label: "Ocean", desc: "Deep blue vibes", color: "#38bdf8" },
   ];
   return (
     <div className="space-y-4">
@@ -554,9 +564,10 @@ function AppearanceTab() {
             <button
               key={t.id}
               onClick={() => setTheme(t.id)}
-              className={`px-4 py-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-1 transition-all ${theme.value === t.id ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border bg-bg-secondary text-text-secondary hover:border-text-tertiary"
+              className={`px-4 py-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${theme.value === t.id ? "border-accent-primary bg-accent-primary/10 text-accent-primary" : "border-border bg-bg-secondary text-text-secondary hover:border-text-tertiary"
                 }`}
             >
+              <span className="w-6 h-6 rounded-full border border-border shadow-inner" style={{ background: t.color }} />
               <span>{t.label}</span>
               <span className="text-xs opacity-60">{t.desc}</span>
             </button>
@@ -700,3 +711,14 @@ function ShortcutsTab() {
   );
 }
 
+function DeveloperTab() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-base font-medium text-text-primary mb-1">Developer Tools</h3>
+        <p className="text-xs text-text-secondary">Advanced tools for developers and power users.</p>
+      </div>
+      <RagDebugPanel />
+    </div>
+  );
+}
