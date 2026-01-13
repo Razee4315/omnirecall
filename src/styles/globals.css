@@ -141,6 +141,7 @@ input,
 textarea,
 [contenteditable="true"],
 .selectable,
+.markdown-content,
 pre,
 code {
   user-select: text;
