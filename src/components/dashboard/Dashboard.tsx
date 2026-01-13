@@ -425,7 +425,7 @@ export function Dashboard() {
                 });
 
                 return (
-                  <div className="space-y-2">
+                  <div className="space-y-2 px-2">
                     {chatHistory.value.length === 0 ? (
                       <div className="text-xs text-text-tertiary px-2 py-4 text-center">No chats yet</div>
                     ) : sortedGroups.map(group => (
