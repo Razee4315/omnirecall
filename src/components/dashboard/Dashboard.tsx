@@ -202,7 +202,12 @@ export function Dashboard() {
             addChatSession(newSession);
             activeSessionId.value = newSession.id;
           } else {
-            updateChatSession(activeSessionId.value, updatedMessages);
+            // Save to the correct branch or main
+            if (activeBranchId.value) {
+              updateBranchMessages(activeSessionId.value, activeBranchId.value, updatedMessages);
+            } else {
+              updateChatSession(activeSessionId.value, updatedMessages);
+            }
           }
         }
       });
@@ -233,13 +238,24 @@ export function Dashboard() {
   const handleNewChat = () => {
     currentMessages.value = [];
     activeSessionId.value = null;
+    activeBranchId.value = null; // Reset branch state for new chat
     setError(null);
     currentQuery.value = "";
     inputRef.current?.focus();
   };
 
   const handleLoadSession = (session: ChatSession) => {
-    currentMessages.value = session.messages;
+    // Restore the active branch state
+    const branchId = session.activeBranchId || null;
+    activeBranchId.value = branchId;
+
+    // Load messages from the active branch or main
+    if (branchId && session.branchMessages && session.branchMessages[branchId]) {
+      currentMessages.value = session.branchMessages[branchId];
+    } else {
+      currentMessages.value = session.messages;
+    }
+
     activeSessionId.value = session.id;
     setError(null);
   };
@@ -794,11 +810,18 @@ export function Dashboard() {
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
               {/* Branch Selector - Show at top if there are branches */}
-              {hasBranches && (
-                <div className="flex justify-center">
-                  <BranchSelector />
-                </div>
-              )}
+              {(() => {
+                // Compute inside JSX to ensure reactivity on chatHistory changes
+                const sessionId = activeSessionId.value;
+                if (!sessionId) return null;
+                const session = chatHistory.value.find(s => s.id === sessionId);
+                if (!session || session.branches.length === 0) return null;
+                return (
+                  <div className="flex justify-center">
+                    <BranchSelector />
+                  </div>
+                );
+              })()}
 
               {currentMessages.value.map((message, index) => (
                 <div
