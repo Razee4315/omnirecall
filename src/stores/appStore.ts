@@ -603,18 +603,76 @@ export function updateBranchMessages(sessionId: string, branchId: string | null,
   saveChatHistory();
 }
 
+// Delete a branch
+export function deleteBranch(sessionId: string, branchId: string) {
+  const session = chatHistory.value.find(s => s.id === sessionId);
+  if (!session) return;
+
+  // Remove the branch from branches array and branchMessages
+  const { [branchId]: _, ...remainingBranchMessages } = session.branchMessages;
+
+  chatHistory.value = chatHistory.value.map(s => {
+    if (s.id === sessionId) {
+      return {
+        ...s,
+        branches: s.branches.filter(b => b.id !== branchId),
+        branchMessages: remainingBranchMessages,
+        // Reset activeBranchId if this was the active branch
+        activeBranchId: s.activeBranchId === branchId ? null : s.activeBranchId,
+      };
+    }
+    return s;
+  });
+
+  // If we deleted the active branch, switch to Main
+  if (activeBranchId.value === branchId) {
+    currentMessages.value = session.messages;
+    activeBranchId.value = null;
+  }
+
+  saveChatHistory();
+}
+
+// Rename a branch
+export function renameBranch(sessionId: string, branchId: string, newName: string) {
+  chatHistory.value = chatHistory.value.map(s => {
+    if (s.id === sessionId) {
+      return {
+        ...s,
+        branches: s.branches.map(b =>
+          b.id === branchId ? { ...b, name: newName } : b
+        ),
+      };
+    }
+    return s;
+  });
+  saveChatHistory();
+}
+
 // Export/Import Actions
-export function exportSession(session: ChatSession, format: 'json' | 'md'): string {
+export function exportSession(session: ChatSession, format: 'json' | 'md', branchMessages?: ChatMessage[]): string {
+  // Use branch messages if provided, otherwise use main session messages
+  const messages = branchMessages || session.messages;
+
   if (format === 'json') {
+    // For branch export, create a simplified session object
+    if (branchMessages) {
+      return JSON.stringify({
+        id: session.id,
+        title: session.title + " (Branch)",
+        messages: branchMessages,
+        createdAt: session.createdAt,
+      }, null, 2);
+    }
     return JSON.stringify(session, null, 2);
   }
 
   // Markdown format
-  let md = `# ${session.title}\n\n`;
+  let md = `# ${session.title}${branchMessages ? " (Branch)" : ""}\n\n`;
   md += `*Created: ${new Date(session.createdAt).toLocaleString()}*\n\n`;
   md += `---\n\n`;
 
-  for (const msg of session.messages) {
+  for (const msg of messages) {
     const roleLabel = msg.role === 'user' ? '**You**' : '**Assistant**';
     md += `${roleLabel}:\n\n${msg.content}\n\n---\n\n`;
   }

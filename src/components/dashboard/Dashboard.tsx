@@ -68,6 +68,46 @@ interface DocumentWithContent extends Document {
   isLoading?: boolean;
 }
 
+// Helper to parse and simplify API error messages
+function parseApiError(err: any): string {
+  const rawMessage = err?.message || err?.toString() || "Failed to get response";
+
+  // Rate limit / quota errors (Gemini, OpenAI, etc.)
+  if (rawMessage.includes("429") || rawMessage.includes("quota") || rawMessage.includes("RESOURCE_EXHAUSTED")) {
+    return "Rate limit exceeded. Please wait a moment and try again.";
+  }
+
+  // Authentication errors
+  if (rawMessage.includes("401") || rawMessage.includes("unauthorized") || rawMessage.includes("invalid_api_key")) {
+    return "Invalid API key. Please check your settings.";
+  }
+
+  // Model not found
+  if (rawMessage.includes("404") || rawMessage.includes("model not found")) {
+    return "Model not found. Please select a different model.";
+  }
+
+  // Context too long
+  if (rawMessage.includes("context_length") || rawMessage.includes("too long") || rawMessage.includes("max tokens")) {
+    return "Message too long. Try shortening your input or clearing some context.";
+  }
+
+  // Network/connection errors
+  if (rawMessage.includes("network") || rawMessage.includes("ECONNREFUSED") || rawMessage.includes("timeout")) {
+    return "Connection failed. Check your internet connection.";
+  }
+
+  // If message is super long (like JSON dumps), truncate it
+  if (rawMessage.length > 150) {
+    // Try to extract just the main error message
+    const match = rawMessage.match(/message["']?\s*[:=]\s*["']([^"']+)["']/i);
+    if (match) return match[1].slice(0, 100);
+    return rawMessage.slice(0, 100) + "...";
+  }
+
+  return rawMessage;
+}
+
 export function Dashboard() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -222,7 +262,7 @@ export function Dashboard() {
       });
 
     } catch (err: any) {
-      setError(err?.message || err?.toString() || "Failed to get response");
+      setError(parseApiError(err));
       isGenerating.value = false;
     }
   };
@@ -391,7 +431,8 @@ export function Dashboard() {
         model: activeModel.value,
         apiKey: provider?.apiKey || "",
       });
-    } catch (err) {
+    } catch (err: any) {
+      setError(parseApiError(err));
       isGenerating.value = false;
     }
   };
@@ -541,6 +582,13 @@ export function Dashboard() {
                               onClick={() => handleLoadSession(session)}
                             >
                               <span className="text-sm truncate flex-1">{session.title}</span>
+                              {/* Branch count badge */}
+                              {session.branches.length > 0 && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-text-tertiary bg-bg-tertiary px-1.5 py-0.5 rounded-full">
+                                  <BranchIcon size={8} />
+                                  {session.branches.length + 1}
+                                </span>
+                              )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
                                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/20 hover:text-error rounded transition-opacity"
@@ -830,6 +878,14 @@ export function Dashboard() {
                       : "bg-bg-secondary text-text-primary border border-border"
                       }`}
                   >
+                    {/* Branch indicator - show when viewing a branch */}
+                    {message.role === "assistant" && activeBranchId.value && index === 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-accent-primary/70 mb-1.5">
+                        <BranchIcon size={10} />
+                        <span>Branch</span>
+                      </div>
+                    )}
+
                     {message.role === "user" ? (
                       <div className="whitespace-pre-wrap text-sm leading-relaxed">
                         {message.content}
