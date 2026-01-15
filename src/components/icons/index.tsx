@@ -947,6 +947,53 @@ export function ChevronRightIcon({ size = 20, className = "" }: IconProps) {
   );
 }
 
+export function ChevronLeftIcon({ size = 20, className = "" }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      className={className}
+    >
+      <path
+        d="M12.5 15L7.5 10L12.5 5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function RegenerateIcon({ size = 20, className = "" }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      className={className}
+    >
+      <path
+        d="M1.66667 3.33333V8.33333H6.66667"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.33333 12.5C3.85285 13.8693 4.80657 15.0295 6.04622 15.8052C7.28587 16.5809 8.74547 16.9305 10.2063 16.8012C11.6671 16.6719 13.0468 16.0708 14.1401 15.0886C15.2333 14.1064 15.9826 12.795 16.2716 11.3539C16.5605 9.91282 16.3736 8.41795 15.7351 7.09285C15.0966 5.76776 14.0396 4.68197 12.7302 3.99682C11.4208 3.31168 9.92777 3.06361 8.47491 3.29193C7.02206 3.52024 5.68529 4.21279 4.66667 5.26667L1.66667 8.33333"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function TrashIcon({ size = 20, className = "" }: IconProps) {
   return (
     <svg

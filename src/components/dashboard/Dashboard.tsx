@@ -13,6 +13,7 @@ import {
   documents,
   chatHistory,
   activeSessionId,
+  activeBranchId,
   currentMessages,
   addChatSession,
   updateChatSession,
@@ -25,6 +26,8 @@ import {
   Document,
   estimateTokens,
   branchFromMessage,
+  updateBranchMessages,
+  getBranchesForSession,
   searchQuery,
   searchChatHistory,
   searchResults,
@@ -51,7 +54,9 @@ import {
   StopIcon,
   DownloadIcon,
   CommandIcon,
+  RegenerateIcon,
 } from "../icons";
+import { BranchSelector } from "../common/BranchSelector";
 import { Markdown } from "../common/Markdown";
 import { TokenCounter } from "../common/TokenCounter";
 import { ExportImport } from "../common/ExportImport";
@@ -190,6 +195,7 @@ export function Dashboard() {
               title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
               messages: updatedMessages,
               branches: [],
+              branchMessages: {},
               createdAt: new Date().toISOString(),
               folderId: null,
             };
@@ -305,8 +311,80 @@ export function Dashboard() {
     branchFromMessage(activeSessionId.value, messageId);
   };
 
+  // Regenerate: Create a branch from the user message before this assistant response
+  const handleRegenerate = async (assistantMessageId: string) => {
+    if (!activeSessionId.value || isGenerating.value) return;
+
+    // Find this message and the user message before it
+    const msgIndex = currentMessages.value.findIndex(m => m.id === assistantMessageId);
+    if (msgIndex <= 0) return;
+
+    const userMessage = currentMessages.value[msgIndex - 1];
+    if (userMessage.role !== "user") return;
+
+    // Create a branch from the user message
+    const branchId = branchFromMessage(activeSessionId.value, userMessage.id);
+    if (!branchId) return;
+
+    // Now re-submit to get a new response
+    const provider = providers.value.find(p => p.id === activeProvider.value);
+    if (!provider?.apiKey && provider?.id !== "ollama") return;
+
+    isGenerating.value = true;
+
+    // Create placeholder for assistant message
+    const newAssistantId = crypto.randomUUID();
+    const assistantMessage: ChatMessage = {
+      id: newAssistantId,
+      role: "assistant",
+      content: "",
+      tokenCount: 0,
+    };
+    currentMessages.value = [...currentMessages.value, assistantMessage];
+
+    try {
+      const history = currentMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
+      const documentContext = docsWithContent
+        .filter(d => d.content && d.content.length > 0)
+        .map(d => ({ name: d.name, content: d.content! }));
+
+      let unlisten: UnlistenFn | null = null;
+      let fullResponse = "";
+
+      unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
+        if (!event.payload.done) {
+          fullResponse += event.payload.chunk;
+          const msgs = [...currentMessages.value];
+          const idx = msgs.findIndex(m => m.id === newAssistantId);
+          if (idx !== -1) {
+            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+            currentMessages.value = msgs;
+          }
+        } else {
+          isGenerating.value = false;
+          if (unlisten) unlisten();
+          // Save to branch
+          updateBranchMessages(activeSessionId.value!, activeBranchId.value, currentMessages.value);
+        }
+      });
+
+      await invoke("send_message_stream", {
+        message: userMessage.content,
+        history: history.slice(0, -1), // Exclude the last user message we're re-submitting
+        documents: documentContext,
+        provider: activeProvider.value,
+        model: activeModel.value,
+        apiKey: provider?.apiKey || "",
+      });
+    } catch (err) {
+      isGenerating.value = false;
+    }
+  };
+
   const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
   const currentSession = chatHistory.value.find(s => s.id === activeSessionId.value);
+  const branches = activeSessionId.value ? getBranchesForSession(activeSessionId.value) : [];
+  const hasBranches = branches.length > 1;
 
   return (
     <div className="h-full w-full flex bg-bg-primary">
@@ -715,6 +793,13 @@ export function Dashboard() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
+              {/* Branch Selector - Show at top if there are branches */}
+              {hasBranches && (
+                <div className="flex justify-center">
+                  <BranchSelector />
+                </div>
+              )}
+
               {currentMessages.value.map((message, index) => (
                 <div
                   key={message.id}
@@ -747,6 +832,19 @@ export function Dashboard() {
                       >
                         {copiedMessageId === message.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
                       </button>
+
+                      {/* Regenerate button - only on latest assistant message */}
+                      {message.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && (
+                        <button
+                          onClick={() => handleRegenerate(message.id)}
+                          className="p-1 rounded text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+                          title="Regenerate (creates a new branch)"
+                        >
+                          <RegenerateIcon size={12} />
+                        </button>
+                      )}
+
+                      {/* Branch button - on all assistant messages except the last */}
                       {message.role === "assistant" && index < currentMessages.value.length - 1 && (
                         <button
                           onClick={() => handleBranch(message.id)}
@@ -756,6 +854,7 @@ export function Dashboard() {
                           <BranchIcon size={12} />
                         </button>
                       )}
+
                       {message.tokenCount && message.tokenCount > 10 && (
                         <span className={`text-xs px-1 ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
                           }`}>
