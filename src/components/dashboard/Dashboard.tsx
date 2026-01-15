@@ -27,7 +27,6 @@ import {
   estimateTokens,
   branchFromMessage,
   updateBranchMessages,
-  getBranchesForSession,
   searchQuery,
   searchChatHistory,
   searchResults,
@@ -399,8 +398,6 @@ export function Dashboard() {
 
   const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
   const currentSession = chatHistory.value.find(s => s.id === activeSessionId.value);
-  const branches = activeSessionId.value ? getBranchesForSession(activeSessionId.value) : [];
-  const hasBranches = branches.length > 1;
 
   return (
     <div className="h-full w-full flex bg-bg-primary">
@@ -809,15 +806,14 @@ export function Dashboard() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
-              {/* Branch Selector - Show at top if there are branches */}
+              {/* Branch Selector - Show when there are branches */}
               {(() => {
-                // Compute inside JSX to ensure reactivity on chatHistory changes
                 const sessionId = activeSessionId.value;
                 if (!sessionId) return null;
                 const session = chatHistory.value.find(s => s.id === sessionId);
                 if (!session || session.branches.length === 0) return null;
                 return (
-                  <div className="flex justify-center">
+                  <div className="flex justify-center mb-2">
                     <BranchSelector />
                   </div>
                 );
