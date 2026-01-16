@@ -42,8 +42,9 @@ export interface Branch {
 export interface ChatSession {
   id: string;
   title: string;
-  messages: ChatMessage[];
+  messages: ChatMessage[]; // Main branch messages (branchIndex = 0)
   branches: Branch[];
+  branchMessages: Record<string, ChatMessage[]>; // Messages per branch ID
   createdAt: string;
   folderId?: string | null;
   activeBranchId?: string | null;
@@ -240,10 +241,11 @@ export async function loadPersistedData() {
     // Load chat history
     const savedHistory = await s.get<ChatSession[]>("chatHistory");
     if (savedHistory) {
-      // Migrate old sessions without branches/folders
+      // Migrate old sessions without branches/folders/branchMessages
       chatHistory.value = savedHistory.map(session => ({
         ...session,
         branches: session.branches || [],
+        branchMessages: session.branchMessages || {},
         folderId: session.folderId || null,
       }));
     }
@@ -469,11 +471,16 @@ export function toggleFolderCollapse(folderId: string) {
 }
 
 // Branching Actions
-export function branchFromMessage(sessionId: string, messageId: string, branchName?: string) {
+export function branchFromMessage(sessionId: string, messageId: string, branchName?: string): string | null {
   const session = chatHistory.value.find(s => s.id === sessionId);
   if (!session) return null;
 
-  const messageIndex = session.messages.findIndex(m => m.id === messageId);
+  // Find the message index - look in current messages or main messages
+  const sourceMessages = activeBranchId.value && session.branchMessages[activeBranchId.value]
+    ? session.branchMessages[activeBranchId.value]
+    : session.messages;
+
+  const messageIndex = sourceMessages.findIndex(m => m.id === messageId);
   if (messageIndex === -1) return null;
 
   const branchId = crypto.randomUUID();
@@ -485,18 +492,21 @@ export function branchFromMessage(sessionId: string, messageId: string, branchNa
   };
 
   // Copy messages up to and including the branch point
-  const branchedMessages = session.messages.slice(0, messageIndex + 1).map(m => ({
+  const branchedMessages: ChatMessage[] = sourceMessages.slice(0, messageIndex + 1).map(m => ({
     ...m,
-    id: crypto.randomUUID(),
-    branchIndex: session.branches.length,
+    id: crypto.randomUUID(), // New IDs for the branch copy
   }));
 
-  // Update the session with the new branch
+  // Update the session with the new branch and store branch messages
   chatHistory.value = chatHistory.value.map(s => {
     if (s.id === sessionId) {
       return {
         ...s,
         branches: [...s.branches, newBranch],
+        branchMessages: {
+          ...s.branchMessages,
+          [branchId]: branchedMessages,
+        },
         activeBranchId: branchId,
       };
     }
@@ -511,18 +521,158 @@ export function branchFromMessage(sessionId: string, messageId: string, branchNa
   return branchId;
 }
 
+// Switch to a specific branch
+export function switchToBranch(sessionId: string, branchId: string | null) {
+  const session = chatHistory.value.find(s => s.id === sessionId);
+  if (!session) return;
+
+  if (branchId === null) {
+    // Switch to main branch
+    currentMessages.value = session.messages;
+    activeBranchId.value = null;
+  } else {
+    // Switch to a specific branch
+    const branchMessages = session.branchMessages[branchId];
+    if (branchMessages) {
+      currentMessages.value = branchMessages;
+      activeBranchId.value = branchId;
+    }
+  }
+
+  // Update session's activeBranchId
+  chatHistory.value = chatHistory.value.map(s => {
+    if (s.id === sessionId) {
+      return { ...s, activeBranchId: branchId };
+    }
+    return s;
+  });
+  saveChatHistory();
+}
+
+// Get all branches for a session (including "Main")
+export function getBranchesForSession(sessionId: string): { id: string | null; name: string; isActive: boolean }[] {
+  const session = chatHistory.value.find(s => s.id === sessionId);
+  if (!session) return [];
+
+  const branches: { id: string | null; name: string; isActive: boolean }[] = [
+    { id: null, name: "Main", isActive: activeBranchId.value === null },
+  ];
+
+  for (const branch of session.branches) {
+    branches.push({
+      id: branch.id,
+      name: branch.name,
+      isActive: activeBranchId.value === branch.id,
+    });
+  }
+
+  return branches;
+}
+
+// Get current branch info
+export function getCurrentBranchInfo(sessionId: string): { index: number; total: number; name: string } {
+  const branches = getBranchesForSession(sessionId);
+  const activeIndex = branches.findIndex(b => b.isActive);
+  return {
+    index: activeIndex >= 0 ? activeIndex : 0,
+    total: branches.length,
+    name: branches[activeIndex]?.name || "Main",
+  };
+}
+
+// Update branch messages (for adding new messages to a branch)
+export function updateBranchMessages(sessionId: string, branchId: string | null, messages: ChatMessage[]) {
+  chatHistory.value = chatHistory.value.map(s => {
+    if (s.id === sessionId) {
+      if (branchId === null) {
+        // Update main branch
+        return { ...s, messages };
+      } else {
+        // Update specific branch
+        return {
+          ...s,
+          branchMessages: {
+            ...s.branchMessages,
+            [branchId]: messages,
+          },
+        };
+      }
+    }
+    return s;
+  });
+  saveChatHistory();
+}
+
+// Delete a branch
+export function deleteBranch(sessionId: string, branchId: string) {
+  const session = chatHistory.value.find(s => s.id === sessionId);
+  if (!session) return;
+
+  // Remove the branch from branches array and branchMessages
+  const { [branchId]: _, ...remainingBranchMessages } = session.branchMessages;
+
+  chatHistory.value = chatHistory.value.map(s => {
+    if (s.id === sessionId) {
+      return {
+        ...s,
+        branches: s.branches.filter(b => b.id !== branchId),
+        branchMessages: remainingBranchMessages,
+        // Reset activeBranchId if this was the active branch
+        activeBranchId: s.activeBranchId === branchId ? null : s.activeBranchId,
+      };
+    }
+    return s;
+  });
+
+  // If we deleted the active branch, switch to Main
+  if (activeBranchId.value === branchId) {
+    currentMessages.value = session.messages;
+    activeBranchId.value = null;
+  }
+
+  saveChatHistory();
+}
+
+// Rename a branch
+export function renameBranch(sessionId: string, branchId: string, newName: string) {
+  chatHistory.value = chatHistory.value.map(s => {
+    if (s.id === sessionId) {
+      return {
+        ...s,
+        branches: s.branches.map(b =>
+          b.id === branchId ? { ...b, name: newName } : b
+        ),
+      };
+    }
+    return s;
+  });
+  saveChatHistory();
+}
+
 // Export/Import Actions
-export function exportSession(session: ChatSession, format: 'json' | 'md'): string {
+export function exportSession(session: ChatSession, format: 'json' | 'md', branchMessages?: ChatMessage[]): string {
+  // Use branch messages if provided, otherwise use main session messages
+  const messages = branchMessages || session.messages;
+
   if (format === 'json') {
+    // For branch export, create a simplified session object
+    if (branchMessages) {
+      return JSON.stringify({
+        id: session.id,
+        title: session.title + " (Branch)",
+        messages: branchMessages,
+        createdAt: session.createdAt,
+      }, null, 2);
+    }
     return JSON.stringify(session, null, 2);
   }
 
   // Markdown format
-  let md = `# ${session.title}\n\n`;
+  let md = `# ${session.title}${branchMessages ? " (Branch)" : ""}\n\n`;
   md += `*Created: ${new Date(session.createdAt).toLocaleString()}*\n\n`;
   md += `---\n\n`;
 
-  for (const msg of session.messages) {
+  for (const msg of messages) {
     const roleLabel = msg.role === 'user' ? '**You**' : '**Assistant**';
     md += `${roleLabel}:\n\n${msg.content}\n\n---\n\n`;
   }
@@ -544,6 +694,7 @@ export function importSession(jsonString: string): ChatSession | null {
           tokenCount: estimateTokens(m.content),
         })),
         branches: [],
+        branchMessages: {},
         createdAt: new Date().toISOString(),
         folderId: null,
       };

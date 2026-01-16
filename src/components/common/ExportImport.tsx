@@ -11,6 +11,7 @@ import {
     CloseIcon,
     CheckIcon,
     DocumentIcon,
+    BranchIcon,
 } from "../icons";
 
 interface ExportImportProps {
@@ -25,10 +26,24 @@ export function ExportImport({ session, onClose }: ExportImportProps) {
     const [importResult, setImportResult] = useState<"success" | "error" | null>(null);
     const [exportContent, setExportContent] = useState("");
     const [copied, setCopied] = useState(false);
+    const [selectedBranch, setSelectedBranch] = useState<string | null>(null); // null = main
+
+    // Get branches for current session
+    const getBranches = () => {
+        if (!session || !session.branches) return [];
+        return [
+            { id: null, name: "Main" },
+            ...session.branches.map(b => ({ id: b.id, name: b.name }))
+        ];
+    };
+    const branches = getBranches();
+    const hasBranches = branches.length > 1;
 
     const handleExport = () => {
         if (!session) return;
-        const content = exportSession(session, format);
+        // Get messages for selected branch or main
+        const branchMessages = selectedBranch && session.branchMessages?.[selectedBranch];
+        const content = exportSession(session, format, branchMessages || undefined);
         setExportContent(content);
     };
 
@@ -77,8 +92,8 @@ export function ExportImport({ session, onClose }: ExportImportProps) {
                             <button
                                 onClick={() => setMode("export")}
                                 className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${mode === "export"
-                                        ? "bg-accent-primary text-white"
-                                        : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+                                    ? "bg-accent-primary text-white"
+                                    : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
                                     }`}
                             >
                                 <DownloadIcon size={14} />
@@ -87,8 +102,8 @@ export function ExportImport({ session, onClose }: ExportImportProps) {
                             <button
                                 onClick={() => setMode("import")}
                                 className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${mode === "import"
-                                        ? "bg-accent-primary text-white"
-                                        : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+                                    ? "bg-accent-primary text-white"
+                                    : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
                                     }`}
                             >
                                 <UploadIcon size={14} />
@@ -130,8 +145,8 @@ export function ExportImport({ session, onClose }: ExportImportProps) {
                                     <button
                                         onClick={() => setFormat("json")}
                                         className={`flex-1 px-3 py-2 rounded-lg border text-sm ${format === "json"
-                                                ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                                                : "border-border text-text-secondary hover:bg-bg-tertiary"
+                                            ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
+                                            : "border-border text-text-secondary hover:bg-bg-tertiary"
                                             }`}
                                     >
                                         JSON
@@ -139,14 +154,41 @@ export function ExportImport({ session, onClose }: ExportImportProps) {
                                     <button
                                         onClick={() => setFormat("md")}
                                         className={`flex-1 px-3 py-2 rounded-lg border text-sm ${format === "md"
-                                                ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                                                : "border-border text-text-secondary hover:bg-bg-tertiary"
+                                            ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
+                                            : "border-border text-text-secondary hover:bg-bg-tertiary"
                                             }`}
                                     >
                                         Markdown
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Branch Selection (only when session has branches) */}
+                            {hasBranches && (
+                                <div>
+                                    <label className="text-sm text-text-secondary mb-2 flex items-center gap-1.5">
+                                        <BranchIcon size={12} />
+                                        Export Branch
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {branches.map((branch) => (
+                                            <button
+                                                key={branch.id ?? "main"}
+                                                onClick={() => {
+                                                    setSelectedBranch(branch.id);
+                                                    setExportContent(""); // Reset export when branch changes
+                                                }}
+                                                className={`px-3 py-1.5 rounded-lg border text-xs ${selectedBranch === branch.id
+                                                    ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
+                                                    : "border-border text-text-secondary hover:bg-bg-tertiary"
+                                                    }`}
+                                            >
+                                                {branch.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Export Button */}
                             {session && !exportContent && (
@@ -220,8 +262,8 @@ export function ExportImport({ session, onClose }: ExportImportProps) {
                                 onClick={handleImport}
                                 disabled={!importText.trim()}
                                 className={`w-full px-4 py-2 rounded-lg text-sm font-medium ${importText.trim()
-                                        ? "bg-accent-primary text-white hover:bg-accent-primary/90"
-                                        : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                                    ? "bg-accent-primary text-white hover:bg-accent-primary/90"
+                                    : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
                                     }`}
                             >
                                 Import Chat

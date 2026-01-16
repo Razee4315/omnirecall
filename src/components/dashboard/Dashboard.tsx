@@ -13,6 +13,7 @@ import {
   documents,
   chatHistory,
   activeSessionId,
+  activeBranchId,
   currentMessages,
   addChatSession,
   updateChatSession,
@@ -25,6 +26,7 @@ import {
   Document,
   estimateTokens,
   branchFromMessage,
+  updateBranchMessages,
   searchQuery,
   searchChatHistory,
   searchResults,
@@ -51,7 +53,9 @@ import {
   StopIcon,
   DownloadIcon,
   CommandIcon,
+  RegenerateIcon,
 } from "../icons";
+import { BranchSelector } from "../common/BranchSelector";
 import { Markdown } from "../common/Markdown";
 import { TokenCounter } from "../common/TokenCounter";
 import { ExportImport } from "../common/ExportImport";
@@ -62,6 +66,46 @@ import { RagDebugPanel } from "../common/RagDebugPanel";
 interface DocumentWithContent extends Document {
   content?: string;
   isLoading?: boolean;
+}
+
+// Helper to parse and simplify API error messages
+function parseApiError(err: any): string {
+  const rawMessage = err?.message || err?.toString() || "Failed to get response";
+
+  // Rate limit / quota errors (Gemini, OpenAI, etc.)
+  if (rawMessage.includes("429") || rawMessage.includes("quota") || rawMessage.includes("RESOURCE_EXHAUSTED")) {
+    return "Rate limit exceeded. Please wait a moment and try again.";
+  }
+
+  // Authentication errors
+  if (rawMessage.includes("401") || rawMessage.includes("unauthorized") || rawMessage.includes("invalid_api_key")) {
+    return "Invalid API key. Please check your settings.";
+  }
+
+  // Model not found
+  if (rawMessage.includes("404") || rawMessage.includes("model not found")) {
+    return "Model not found. Please select a different model.";
+  }
+
+  // Context too long
+  if (rawMessage.includes("context_length") || rawMessage.includes("too long") || rawMessage.includes("max tokens")) {
+    return "Message too long. Try shortening your input or clearing some context.";
+  }
+
+  // Network/connection errors
+  if (rawMessage.includes("network") || rawMessage.includes("ECONNREFUSED") || rawMessage.includes("timeout")) {
+    return "Connection failed. Check your internet connection.";
+  }
+
+  // If message is super long (like JSON dumps), truncate it
+  if (rawMessage.length > 150) {
+    // Try to extract just the main error message
+    const match = rawMessage.match(/message["']?\s*[:=]\s*["']([^"']+)["']/i);
+    if (match) return match[1].slice(0, 100);
+    return rawMessage.slice(0, 100) + "...";
+  }
+
+  return rawMessage;
 }
 
 export function Dashboard() {
@@ -190,13 +234,19 @@ export function Dashboard() {
               title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
               messages: updatedMessages,
               branches: [],
+              branchMessages: {},
               createdAt: new Date().toISOString(),
               folderId: null,
             };
             addChatSession(newSession);
             activeSessionId.value = newSession.id;
           } else {
-            updateChatSession(activeSessionId.value, updatedMessages);
+            // Save to the correct branch or main
+            if (activeBranchId.value) {
+              updateBranchMessages(activeSessionId.value, activeBranchId.value, updatedMessages);
+            } else {
+              updateChatSession(activeSessionId.value, updatedMessages);
+            }
           }
         }
       });
@@ -212,7 +262,7 @@ export function Dashboard() {
       });
 
     } catch (err: any) {
-      setError(err?.message || err?.toString() || "Failed to get response");
+      setError(parseApiError(err));
       isGenerating.value = false;
     }
   };
@@ -227,13 +277,24 @@ export function Dashboard() {
   const handleNewChat = () => {
     currentMessages.value = [];
     activeSessionId.value = null;
+    activeBranchId.value = null; // Reset branch state for new chat
     setError(null);
     currentQuery.value = "";
     inputRef.current?.focus();
   };
 
   const handleLoadSession = (session: ChatSession) => {
-    currentMessages.value = session.messages;
+    // Restore the active branch state
+    const branchId = session.activeBranchId || null;
+    activeBranchId.value = branchId;
+
+    // Load messages from the active branch or main
+    if (branchId && session.branchMessages && session.branchMessages[branchId]) {
+      currentMessages.value = session.branchMessages[branchId];
+    } else {
+      currentMessages.value = session.messages;
+    }
+
     activeSessionId.value = session.id;
     setError(null);
   };
@@ -303,6 +364,77 @@ export function Dashboard() {
   const handleBranch = (messageId: string) => {
     if (!activeSessionId.value) return;
     branchFromMessage(activeSessionId.value, messageId);
+  };
+
+  // Regenerate: Create a branch from the user message before this assistant response
+  const handleRegenerate = async (assistantMessageId: string) => {
+    if (!activeSessionId.value || isGenerating.value) return;
+
+    // Find this message and the user message before it
+    const msgIndex = currentMessages.value.findIndex(m => m.id === assistantMessageId);
+    if (msgIndex <= 0) return;
+
+    const userMessage = currentMessages.value[msgIndex - 1];
+    if (userMessage.role !== "user") return;
+
+    // Create a branch from the user message
+    const branchId = branchFromMessage(activeSessionId.value, userMessage.id);
+    if (!branchId) return;
+
+    // Now re-submit to get a new response
+    const provider = providers.value.find(p => p.id === activeProvider.value);
+    if (!provider?.apiKey && provider?.id !== "ollama") return;
+
+    isGenerating.value = true;
+
+    // Create placeholder for assistant message
+    const newAssistantId = crypto.randomUUID();
+    const assistantMessage: ChatMessage = {
+      id: newAssistantId,
+      role: "assistant",
+      content: "",
+      tokenCount: 0,
+    };
+    currentMessages.value = [...currentMessages.value, assistantMessage];
+
+    try {
+      const history = currentMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
+      const documentContext = docsWithContent
+        .filter(d => d.content && d.content.length > 0)
+        .map(d => ({ name: d.name, content: d.content! }));
+
+      let unlisten: UnlistenFn | null = null;
+      let fullResponse = "";
+
+      unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
+        if (!event.payload.done) {
+          fullResponse += event.payload.chunk;
+          const msgs = [...currentMessages.value];
+          const idx = msgs.findIndex(m => m.id === newAssistantId);
+          if (idx !== -1) {
+            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+            currentMessages.value = msgs;
+          }
+        } else {
+          isGenerating.value = false;
+          if (unlisten) unlisten();
+          // Save to branch
+          updateBranchMessages(activeSessionId.value!, activeBranchId.value, currentMessages.value);
+        }
+      });
+
+      await invoke("send_message_stream", {
+        message: userMessage.content,
+        history: history.slice(0, -1), // Exclude the last user message we're re-submitting
+        documents: documentContext,
+        provider: activeProvider.value,
+        model: activeModel.value,
+        apiKey: provider?.apiKey || "",
+      });
+    } catch (err: any) {
+      setError(parseApiError(err));
+      isGenerating.value = false;
+    }
   };
 
   const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
@@ -450,6 +582,13 @@ export function Dashboard() {
                               onClick={() => handleLoadSession(session)}
                             >
                               <span className="text-sm truncate flex-1">{session.title}</span>
+                              {/* Branch count badge */}
+                              {session.branches.length > 0 && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-text-tertiary bg-bg-tertiary px-1.5 py-0.5 rounded-full">
+                                  <BranchIcon size={8} />
+                                  {session.branches.length + 1}
+                                </span>
+                              )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
                                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/20 hover:text-error rounded transition-opacity"
@@ -715,6 +854,19 @@ export function Dashboard() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-4">
+              {/* Branch Selector - Show when there are branches */}
+              {(() => {
+                const sessionId = activeSessionId.value;
+                if (!sessionId) return null;
+                const session = chatHistory.value.find(s => s.id === sessionId);
+                if (!session || session.branches.length === 0) return null;
+                return (
+                  <div className="flex justify-center mb-2">
+                    <BranchSelector />
+                  </div>
+                );
+              })()}
+
               {currentMessages.value.map((message, index) => (
                 <div
                   key={message.id}
@@ -726,6 +878,14 @@ export function Dashboard() {
                       : "bg-bg-secondary text-text-primary border border-border"
                       }`}
                   >
+                    {/* Branch indicator - show when viewing a branch */}
+                    {message.role === "assistant" && activeBranchId.value && index === 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-accent-primary/70 mb-1.5">
+                        <BranchIcon size={10} />
+                        <span>Branch</span>
+                      </div>
+                    )}
+
                     {message.role === "user" ? (
                       <div className="whitespace-pre-wrap text-sm leading-relaxed">
                         {message.content}
@@ -747,6 +907,19 @@ export function Dashboard() {
                       >
                         {copiedMessageId === message.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
                       </button>
+
+                      {/* Regenerate button - only on latest assistant message */}
+                      {message.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && (
+                        <button
+                          onClick={() => handleRegenerate(message.id)}
+                          className="p-1 rounded text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+                          title="Regenerate (creates a new branch)"
+                        >
+                          <RegenerateIcon size={12} />
+                        </button>
+                      )}
+
+                      {/* Branch button - on all assistant messages except the last */}
                       {message.role === "assistant" && index < currentMessages.value.length - 1 && (
                         <button
                           onClick={() => handleBranch(message.id)}
@@ -756,6 +929,7 @@ export function Dashboard() {
                           <BranchIcon size={12} />
                         </button>
                       )}
+
                       {message.tokenCount && message.tokenCount > 10 && (
                         <span className={`text-xs px-1 ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
                           }`}>
