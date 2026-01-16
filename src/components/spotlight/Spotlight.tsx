@@ -153,6 +153,7 @@ export function Spotlight() {
               title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
               messages: updatedMessages,
               branches: [],
+              branchMessages: {},
               createdAt: new Date().toISOString(),
               folderId: null,
             };
