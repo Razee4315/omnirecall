@@ -38,7 +38,6 @@ import {
   LogoIcon,
   SendIcon,
   SettingsIcon,
-  SpinnerIcon,
   PlusIcon,
   ChevronDownIcon,
   CloseIcon,
@@ -62,6 +61,7 @@ import { ExportImport } from "../common/ExportImport";
 import { FolderManager } from "../common/FolderManager";
 import { WindowControls, DragRegion } from "../common/WindowControls";
 import { RagDebugPanel } from "../common/RagDebugPanel";
+import { DocumentListSkeleton } from "../common/Skeleton";
 
 interface DocumentWithContent extends Document {
   content?: string;
@@ -629,10 +629,7 @@ export function Dashboard() {
               </div>
 
               {loadingDocs && (
-                <div className="flex items-center gap-2 px-2 py-2 text-xs text-text-tertiary">
-                  <SpinnerIcon size={12} />
-                  Loading...
-                </div>
+                <DocumentListSkeleton count={3} />
               )}
 
               {documents.value.length === 0 ? (
@@ -870,7 +867,8 @@ export function Dashboard() {
               {currentMessages.value.map((message, index) => (
                 <div
                   key={message.id}
-                  className={`group flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`group flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-message-reveal`}
+                  style={{ animationDelay: `${Math.min(index * 50, 200)}ms` }}
                 >
                   <div
                     className={`max-w-[80%] rounded-xl px-4 py-3 relative ${message.role === "user"

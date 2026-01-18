@@ -391,8 +391,12 @@ export function Spotlight() {
             </div>
           ) : (
             <div className="p-3 space-y-3">
-              {currentMessages.value.map((msg) => (
-                <div key={msg.id} className={`group flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              {currentMessages.value.map((msg, index) => (
+                <div
+                  key={msg.id}
+                  className={`group flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-message-reveal`}
+                  style={{ animationDelay: `${Math.min(index * 50, 200)}ms` }}
+                >
                   <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs relative ${msg.role === "user"
                     ? "bg-accent-primary text-white"
                     : "bg-bg-tertiary text-text-primary"

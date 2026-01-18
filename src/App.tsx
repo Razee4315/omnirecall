@@ -12,12 +12,16 @@ import {
   stopGeneration,
   isGenerating,
   isFullscreen,
+  isShortcutsHelpOpen,
 } from "./stores/appStore";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
 import { CommandPalette } from "./components/common/CommandPalette";
 import { ModelCompare } from "./components/common/ModelCompare";
+import { ToastContainer } from "./components/common/Toast";
+import { KeyboardShortcuts } from "./components/common/KeyboardShortcuts";
+import { Onboarding, checkOnboardingStatus } from "./components/common/Onboarding";
 
 function applyThemeClasses(currentTheme: string) {
   const html = document.documentElement;
@@ -49,6 +53,9 @@ export function App() {
   useEffect(() => {
     // Apply theme on mount
     applyThemeClasses(theme.value);
+
+    // Check onboarding status
+    checkOnboardingStatus();
 
     // Disable right-click context menu (hide devtools option)
     const handleContextMenu = (e: MouseEvent) => {
@@ -154,6 +161,10 @@ export function App() {
 
       // Close settings or hide window on Escape
       if (e.key === "Escape") {
+        if (isShortcutsHelpOpen.value) {
+          isShortcutsHelpOpen.value = false;
+          return;
+        }
         if (isCommandPaletteOpen.value) {
           isCommandPaletteOpen.value = false;
           return;
@@ -170,6 +181,17 @@ export function App() {
           // Switch back to spotlight from dashboard
           viewMode.value = "spotlight";
           await invoke("toggle_dashboard", { isDashboard: false });
+        }
+        return;
+      }
+
+      // Keyboard shortcuts help (?)
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
+        // Only trigger if not typing in an input/textarea
+        const target = e.target as HTMLElement;
+        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
+          e.preventDefault();
+          isShortcutsHelpOpen.value = !isShortcutsHelpOpen.value;
         }
         return;
       }
@@ -190,6 +212,9 @@ export function App() {
       {isSettingsOpen.value && <Settings />}
       <CommandPalette />
       {isCompareMode.value && <ModelCompare onClose={() => (isCompareMode.value = false)} />}
+      <ToastContainer />
+      <KeyboardShortcuts />
+      <Onboarding />
     </div>
   );
 }
