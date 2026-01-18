@@ -23,6 +23,7 @@ import {
   estimateTokens,
   stopGeneration,
   isCommandPaletteOpen,
+  isShortcutsHelpOpen,
 } from "../../stores/appStore";
 import {
   LogoIcon,
@@ -335,9 +336,9 @@ export function Spotlight() {
 
           <div className="flex items-center gap-0.5 no-drag">
             <button
-              onClick={() => (isCommandPaletteOpen.value = true)}
+              onClick={() => (isShortcutsHelpOpen.value = true)}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-              title="Command Palette (Ctrl+K)"
+              title="Keyboard Shortcuts (Ctrl+H)"
             >
               <CommandIcon size={14} />
             </button>

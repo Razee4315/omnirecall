@@ -185,9 +185,15 @@ export function App() {
         return;
       }
 
-      // Keyboard shortcuts help (?)
+      // Keyboard shortcuts help (Ctrl+H)
+      if (e.key === "h" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        isShortcutsHelpOpen.value = !isShortcutsHelpOpen.value;
+        return;
+      }
+
+      // Also support ? when not in input
       if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
-        // Only trigger if not typing in an input/textarea
         const target = e.target as HTMLElement;
         if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
           e.preventDefault();

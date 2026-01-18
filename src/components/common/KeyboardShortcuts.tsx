@@ -119,7 +119,7 @@ export function KeyboardShortcuts() {
 
                     {/* Footer */}
                     <div className="px-2 py-1.5 bg-bg-secondary border-t border-border text-center flex-shrink-0">
-                        <span className="text-[10px] text-text-tertiary">Press ? or Esc to close</span>
+                        <span className="text-[10px] text-text-tertiary">Press Ctrl+H or Esc to close</span>
                     </div>
                 </div>
             </div>
@@ -192,7 +192,7 @@ export function KeyboardShortcuts() {
                 {/* Footer */}
                 <div className="px-5 py-3 border-t border-border bg-bg-secondary text-center">
                     <p className="text-xs text-text-tertiary">
-                        Press <kbd className="px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-xs font-mono">?</kbd> anytime to toggle this overlay
+                        Press <kbd className="px-1.5 py-0.5 bg-bg-tertiary border border-border rounded text-xs font-mono">Ctrl+H</kbd> anytime to toggle this overlay
                     </p>
                 </div>
             </div>
