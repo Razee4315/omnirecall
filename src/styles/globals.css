@@ -368,6 +368,86 @@ button:active {
   animation: scaleIn 0.15s ease-out;
 }
 
+/* Toast slide-in animation */
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.animate-toast-in {
+  animation: toastIn 0.3s ease-out;
+}
+
+.animate-toast-out {
+  animation: toastOut 0.2s ease-in forwards;
+}
+
+/* Smooth theme transitions */
+:root,
+.dark,
+.transparent,
+.paper,
+.rose,
+.ocean {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* Transition for themed elements */
+.glass,
+button,
+input,
+textarea,
+select,
+[class*="bg-"],
+[class*="border-"],
+[class*="text-"] {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+/* Message reveal animation for streaming */
+@keyframes messageReveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-message-reveal {
+  animation: messageReveal 0.2s ease-out;
+}
+
 /* Slide-in animation for sidebar */
 @keyframes slideIn {
   from {
@@ -421,4 +501,15 @@ mark {
 /* Token counter gradient */
 .token-gradient {
   background: linear-gradient(90deg, var(--success) 0%, var(--warning) 50%, var(--error) 100%);
+}
+
+/* Shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
 }

@@ -95,6 +95,13 @@ export const compareResponses = signal<{ model: string; content: string; isLoadi
 export const isMaximized = signal(false);
 export const isFullscreen = signal(false);
 
+// Keyboard Shortcuts Help
+export const isShortcutsHelpOpen = signal(false);
+
+// Onboarding State
+export const isOnboardingActive = signal(false);
+export const hasCompletedOnboarding = signal(false);
+
 // AI Provider State
 export const providers = signal<AIProvider[]>([
   {

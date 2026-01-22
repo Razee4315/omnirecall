@@ -186,8 +186,53 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
   return parts;
 }
 
+// Language icon mapping
+function getLanguageIcon(lang: string): string {
+  const icons: Record<string, string> = {
+    javascript: "JS",
+    typescript: "TS",
+    python: "PY",
+    rust: "RS",
+    go: "GO",
+    java: "JV",
+    cpp: "C++",
+    c: "C",
+    csharp: "C#",
+    ruby: "RB",
+    php: "PHP",
+    swift: "SW",
+    kotlin: "KT",
+    html: "HTML",
+    css: "CSS",
+    json: "JSON",
+    yaml: "YAML",
+    sql: "SQL",
+    bash: "SH",
+    shell: "SH",
+    markdown: "MD",
+    tsx: "TSX",
+    jsx: "JSX",
+  };
+  return icons[lang.toLowerCase()] || lang.toUpperCase().slice(0, 4);
+}
+
+// Detect language from code if not specified
+function detectLanguage(code: string): string {
+  if (code.includes("function") && (code.includes("const") || code.includes("let"))) return "javascript";
+  if (code.includes("def ") && code.includes(":")) return "python";
+  if (code.includes("fn ") && code.includes("->")) return "rust";
+  if (code.includes("func ") && code.includes("package")) return "go";
+  if (code.includes("import React") || code.includes("useState")) return "tsx";
+  if (code.includes("SELECT") || code.includes("FROM")) return "sql";
+  if (code.includes("<!DOCTYPE") || code.includes("<html")) return "html";
+  return "";
+}
+
 function CodeBlock({ code, language }: { code: string; language: string }) {
   const [copied, setCopied] = useState(false);
+  const lines = code.split('\n');
+  const detectedLang = language || detectLanguage(code) || "code";
+  const langIcon = getLanguageIcon(detectedLang);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
@@ -216,15 +261,45 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
 
   return (
     <div className="my-2 rounded-lg overflow-hidden border border-border bg-[#1a1a2e] relative">
+      {/* Header with language badge */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border">
-        <span className="text-xs text-text-tertiary font-mono">{language || 'code'}</span>
-        <CopyButton />
+        <div className="flex items-center gap-2">
+          <span className="px-1.5 py-0.5 bg-accent-primary/20 text-accent-primary rounded text-[10px] font-bold">
+            {langIcon}
+          </span>
+          <span className="text-xs text-text-tertiary font-mono">{detectedLang}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-text-tertiary">{lines.length} lines</span>
+          <CopyButton />
+        </div>
       </div>
-      <pre className="code-block-pre p-3 overflow-x-auto overflow-y-auto max-h-[400px]">
-        <code className="text-xs font-mono text-gray-300 leading-relaxed">{code}</code>
-        {/* Sticky copy button - floats at bottom-right while scrolling */}
-        <CopyButton className="sticky-copy-btn" />
-      </pre>
+
+      {/* Code with line numbers */}
+      <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
+        <table className="w-full border-collapse">
+          <tbody>
+            {lines.map((line, idx) => (
+              <tr key={idx} className="hover:bg-white/5">
+                <td className="px-3 py-0 text-right text-[10px] text-text-tertiary/50 font-mono select-none border-r border-border/30 w-10 align-top leading-relaxed">
+                  {idx + 1}
+                </td>
+                <td className="px-3 py-0 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre">
+                  {line || " "}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Sticky copy button for long code blocks */}
+      {lines.length > 10 && (
+        <div className="absolute bottom-2 right-2">
+          <CopyButton className="bg-bg-tertiary/90 backdrop-blur-sm border border-border" />
+        </div>
+      )}
     </div>
   );
 }
+
