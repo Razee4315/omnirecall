@@ -1,6 +1,6 @@
 [package]
 name = "omnirecall"
-version = "1.0.0"
+version = "1.1.0"
 description = "AI-powered document assistant with RAG"
 authors = ["OmniRecall"]
 edition = "2021"
