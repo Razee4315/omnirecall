@@ -115,7 +115,12 @@ pub async fn read_document_content(file_path: String) -> Result<String> {
     // Truncate if too long (to avoid token limits)
     let max_chars = 100_000;
     if content.len() > max_chars {
-        Ok(format!("{}...\n\n[Content truncated - showing first {} characters]", &content[..max_chars], max_chars))
+        // Find a valid UTF-8 boundary at or before max_chars
+        let truncated = match content.char_indices().nth(max_chars) {
+            Some((byte_idx, _)) => &content[..byte_idx],
+            None => &content, // fewer than max_chars characters
+        };
+        Ok(format!("{}...\n\n[Content truncated - showing first {} characters]", truncated, max_chars))
     } else {
         Ok(content)
     }

@@ -717,12 +717,24 @@ export function importSession(jsonString: string): ChatSession | null {
 
 function applyThemeClasses(newTheme: Theme) {
   const html = document.documentElement;
-  html.classList.remove("dark", "transparent");
-  if (newTheme === "dark" || newTheme === "transparent") {
-    html.classList.add("dark");
-  }
-  if (newTheme === "transparent") {
-    html.classList.add("transparent");
+  html.classList.remove("dark", "transparent", "paper", "rose", "ocean");
+
+  switch (newTheme) {
+    case "dark":
+      html.classList.add("dark");
+      break;
+    case "transparent":
+      html.classList.add("dark", "transparent");
+      break;
+    case "paper":
+      html.classList.add("paper");
+      break;
+    case "rose":
+      html.classList.add("dark", "rose");
+      break;
+    case "ocean":
+      html.classList.add("dark", "ocean");
+      break;
   }
 }
 

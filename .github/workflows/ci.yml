@@ -2,42 +2,39 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   check:
-    runs-on: ubuntu-22.04
-    
+    runs-on: windows-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Rust stable
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies (Ubuntu)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: bun install
 
-      - name: TypeScript check
-        run: npm run build
+      - name: Type check frontend
+        run: bun run build
 
-      - name: Rust check
+      - name: Check Rust
         working-directory: src-tauri
         run: cargo check
-
-      - name: Rust build
-        working-directory: src-tauri
-        run: cargo build

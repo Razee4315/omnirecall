@@ -16,7 +16,6 @@ import {
   addChatSession,
   updateChatSession,
   addDocument,
-  loadPersistedData,
   ChatMessage,
   ChatSession,
   Document,
@@ -55,9 +54,8 @@ export function Spotlight() {
   const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  // Load persisted data on mount
+  // Focus input on mount
   useEffect(() => {
-    loadPersistedData();
     inputRef.current?.focus();
   }, []);
 
@@ -130,16 +128,14 @@ export function Spotlight() {
       let unlisten: UnlistenFn | null = null;
       let fullResponse = "";
 
+      const assistantIdx = currentMessages.value.length - 1;
       unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
         if (!event.payload.done) {
           fullResponse += event.payload.chunk;
-          // Update the assistant message in place
+          // Update the assistant message in place using tracked index
           const msgs = [...currentMessages.value];
-          const idx = msgs.findIndex(m => m.id === assistantId);
-          if (idx !== -1) {
-            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
-            currentMessages.value = msgs;
-          }
+          msgs[assistantIdx] = { ...msgs[assistantIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+          currentMessages.value = msgs;
         } else {
           // Stream complete
           isGenerating.value = false;

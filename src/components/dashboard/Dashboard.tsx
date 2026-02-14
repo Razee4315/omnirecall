@@ -20,7 +20,6 @@ import {
   deleteChatSession,
   addDocument,
   removeDocument,
-  loadPersistedData,
   ChatMessage,
   ChatSession,
   Document,
@@ -122,11 +121,6 @@ export function Dashboard() {
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [showIndexPanel, setShowIndexPanel] = useState(false);
 
-  // Load persisted data on mount
-  useEffect(() => {
-    loadPersistedData();
-  }, []);
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [currentMessages.value]);
@@ -211,16 +205,14 @@ export function Dashboard() {
       let unlisten: UnlistenFn | null = null;
       let fullResponse = "";
 
+      const assistantIdx = currentMessages.value.length - 1;
       unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
         if (!event.payload.done) {
           fullResponse += event.payload.chunk;
-          // Update the assistant message in place
+          // Update the assistant message in place using tracked index
           const msgs = [...currentMessages.value];
-          const idx = msgs.findIndex(m => m.id === assistantId);
-          if (idx !== -1) {
-            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
-            currentMessages.value = msgs;
-          }
+          msgs[assistantIdx] = { ...msgs[assistantIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+          currentMessages.value = msgs;
         } else {
           // Stream complete
           isGenerating.value = false;
@@ -406,15 +398,13 @@ export function Dashboard() {
       let unlisten: UnlistenFn | null = null;
       let fullResponse = "";
 
+      const regenIdx = currentMessages.value.length - 1;
       unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
         if (!event.payload.done) {
           fullResponse += event.payload.chunk;
           const msgs = [...currentMessages.value];
-          const idx = msgs.findIndex(m => m.id === newAssistantId);
-          if (idx !== -1) {
-            msgs[idx] = { ...msgs[idx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
-            currentMessages.value = msgs;
-          }
+          msgs[regenIdx] = { ...msgs[regenIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+          currentMessages.value = msgs;
         } else {
           isGenerating.value = false;
           if (unlisten) unlisten();

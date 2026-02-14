@@ -13,6 +13,7 @@ import {
   isGenerating,
   isFullscreen,
   isShortcutsHelpOpen,
+  loadPersistedData,
 } from "./stores/appStore";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
@@ -51,6 +52,9 @@ function applyThemeClasses(currentTheme: string) {
 
 export function App() {
   useEffect(() => {
+    // Load persisted data once at app level
+    loadPersistedData();
+
     // Apply theme on mount
     applyThemeClasses(theme.value);
 
