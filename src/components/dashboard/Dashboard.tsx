@@ -15,8 +15,6 @@ import {
   activeSessionId,
   activeBranchId,
   currentMessages,
-  addChatSession,
-  updateChatSession,
   deleteChatSession,
   addDocument,
   removeDocument,
@@ -26,13 +24,17 @@ import {
   estimateTokens,
   branchFromMessage,
   updateBranchMessages,
-  searchQuery,
-  searchChatHistory,
+  saveChatHistoryNow,
   searchResults,
   stopGeneration,
   isCommandPaletteOpen,
   isMaximized,
 } from "../../stores/appStore";
+import { useChatSubmit, parseApiError } from "../../hooks/useChatSubmit";
+import { useDocumentLoader } from "../../hooks/useDocumentLoader";
+import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import {
   LogoIcon,
   SendIcon,
@@ -62,51 +64,6 @@ import { WindowControls, DragRegion } from "../common/WindowControls";
 import { RagDebugPanel } from "../common/RagDebugPanel";
 import { DocumentListSkeleton } from "../common/Skeleton";
 
-interface DocumentWithContent extends Document {
-  content?: string;
-  isLoading?: boolean;
-}
-
-// Helper to parse and simplify API error messages
-function parseApiError(err: any): string {
-  const rawMessage = err?.message || err?.toString() || "Failed to get response";
-
-  // Rate limit / quota errors (Gemini, OpenAI, etc.)
-  if (rawMessage.includes("429") || rawMessage.includes("quota") || rawMessage.includes("RESOURCE_EXHAUSTED")) {
-    return "Rate limit exceeded. Please wait a moment and try again.";
-  }
-
-  // Authentication errors
-  if (rawMessage.includes("401") || rawMessage.includes("unauthorized") || rawMessage.includes("invalid_api_key")) {
-    return "Invalid API key. Please check your settings.";
-  }
-
-  // Model not found
-  if (rawMessage.includes("404") || rawMessage.includes("model not found")) {
-    return "Model not found. Please select a different model.";
-  }
-
-  // Context too long
-  if (rawMessage.includes("context_length") || rawMessage.includes("too long") || rawMessage.includes("max tokens")) {
-    return "Message too long. Try shortening your input or clearing some context.";
-  }
-
-  // Network/connection errors
-  if (rawMessage.includes("network") || rawMessage.includes("ECONNREFUSED") || rawMessage.includes("timeout")) {
-    return "Connection failed. Check your internet connection.";
-  }
-
-  // If message is super long (like JSON dumps), truncate it
-  if (rawMessage.length > 150) {
-    // Try to extract just the main error message
-    const match = rawMessage.match(/message["']?\s*[:=]\s*["']([^"']+)["']/i);
-    if (match) return match[1].slice(0, 100);
-    return rawMessage.slice(0, 100) + "...";
-  }
-
-  return rawMessage;
-}
-
 export function Dashboard() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -114,150 +71,26 @@ export function Dashboard() {
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"chats" | "folders" | "docs">("chats");
-  const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [localSearchQuery, setLocalSearchQuery] = useState("");
   const [showIndexPanel, setShowIndexPanel] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Shared hooks - eliminates code duplication with Spotlight
+  const { docsWithContent, loadingDocs, totalDocsLoaded } = useDocumentLoader();
+  const { localSearchQuery, setLocalSearchQuery } = useDebouncedSearch(300);
+  const { handleSubmit, cleanupStream } = useChatSubmit(docsWithContent, setError);
+  const modelSelectorRef = useClickOutside<HTMLDivElement>(() => setShowModelSelect(false), showModelSelect);
+  const handleAutoResize = useAutoResize(200);
+
+  // Clean up stream listener on unmount
+  useEffect(() => cleanupStream, [cleanupStream]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [currentMessages.value]);
-
-  // Load document content when documents change (parallel for speed)
-  useEffect(() => {
-    const loadDocumentContents = async () => {
-      if (documents.value.length === 0) {
-        setDocsWithContent([]);
-        return;
-      }
-
-      setLoadingDocs(true);
-
-      // Parallel loading for 3-5x speed
-      const loadPromises = documents.value.map(async (doc) => {
-        try {
-          const content = await invoke<string>("read_document_content", { filePath: doc.path });
-          return { ...doc, content };
-        } catch {
-          return { ...doc, content: "" };
-        }
-      });
-
-      const docsWithContentArr = await Promise.all(loadPromises);
-      setDocsWithContent(docsWithContentArr);
-      setLoadingDocs(false);
-    };
-
-    loadDocumentContents();
-  }, [documents.value]);
-
-  // Search handler
-  useEffect(() => {
-    if (localSearchQuery.trim()) {
-      searchChatHistory(localSearchQuery);
-    } else {
-      searchQuery.value = "";
-    }
-  }, [localSearchQuery]);
-
-  const handleSubmit = async () => {
-    if (!currentQuery.value.trim() || isGenerating.value) return;
-
-    const provider = providers.value.find(p => p.id === activeProvider.value);
-    if (!provider?.apiKey && provider?.id !== "ollama") {
-      setError("Please add your API key in Settings");
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: currentQuery.value,
-      tokenCount: estimateTokens(currentQuery.value),
-    };
-
-    const newMessages = [...currentMessages.value, userMessage];
-    currentMessages.value = newMessages;
-    const query = currentQuery.value;
-    currentQuery.value = "";
-    isGenerating.value = true;
-    setError(null);
-
-    // Create placeholder for assistant message
-    const assistantId = crypto.randomUUID();
-    const assistantMessage: ChatMessage = {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      tokenCount: 0,
-    };
-    currentMessages.value = [...newMessages, assistantMessage];
-
-    try {
-      const history = newMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
-      const documentContext = docsWithContent
-        .filter(d => d.content && d.content.length > 0)
-        .map(d => ({ name: d.name, content: d.content! }));
-
-      // Setup event listener for streaming chunks
-      let unlisten: UnlistenFn | null = null;
-      let fullResponse = "";
-
-      const assistantIdx = currentMessages.value.length - 1;
-      unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
-        if (!event.payload.done) {
-          fullResponse += event.payload.chunk;
-          // Update the assistant message in place using tracked index
-          const msgs = [...currentMessages.value];
-          msgs[assistantIdx] = { ...msgs[assistantIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
-          currentMessages.value = msgs;
-        } else {
-          // Stream complete
-          isGenerating.value = false;
-          if (unlisten) unlisten();
-
-          // Save to chat history
-          const updatedMessages = currentMessages.value;
-          if (!activeSessionId.value) {
-            const newSession: ChatSession = {
-              id: crypto.randomUUID(),
-              title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
-              messages: updatedMessages,
-              branches: [],
-              branchMessages: {},
-              createdAt: new Date().toISOString(),
-              folderId: null,
-            };
-            addChatSession(newSession);
-            activeSessionId.value = newSession.id;
-          } else {
-            // Save to the correct branch or main
-            if (activeBranchId.value) {
-              updateBranchMessages(activeSessionId.value, activeBranchId.value, updatedMessages);
-            } else {
-              updateChatSession(activeSessionId.value, updatedMessages);
-            }
-          }
-        }
-      });
-
-      // Start streaming
-      await invoke("send_message_stream", {
-        message: query,
-        history,
-        documents: documentContext,
-        provider: activeProvider.value,
-        model: activeModel.value,
-        apiKey: provider?.apiKey || "",
-      });
-
-    } catch (err: any) {
-      setError(parseApiError(err));
-      isGenerating.value = false;
-    }
-  };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -292,10 +125,19 @@ export function Dashboard() {
   };
 
   const handleDeleteSession = (sessionId: string) => {
-    deleteChatSession(sessionId);
-    if (activeSessionId.value === sessionId) {
-      currentMessages.value = [];
-      activeSessionId.value = null;
+    if (deleteConfirmId === sessionId) {
+      // Second click confirms deletion
+      deleteChatSession(sessionId);
+      if (activeSessionId.value === sessionId) {
+        currentMessages.value = [];
+        activeSessionId.value = null;
+      }
+      setDeleteConfirmId(null);
+    } else {
+      // First click shows confirmation
+      setDeleteConfirmId(sessionId);
+      // Auto-reset after 3 seconds if not confirmed
+      setTimeout(() => setDeleteConfirmId(prev => prev === sessionId ? null : prev), 3000);
     }
   };
 
@@ -403,13 +245,19 @@ export function Dashboard() {
         if (!event.payload.done) {
           fullResponse += event.payload.chunk;
           const msgs = [...currentMessages.value];
-          msgs[regenIdx] = { ...msgs[regenIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+          msgs[regenIdx] = { ...msgs[regenIdx], content: fullResponse };
           currentMessages.value = msgs;
         } else {
+          // Final update with token count
+          const msgs = [...currentMessages.value];
+          msgs[regenIdx] = { ...msgs[regenIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
+          currentMessages.value = msgs;
+
           isGenerating.value = false;
           if (unlisten) unlisten();
           // Save to branch
           updateBranchMessages(activeSessionId.value!, activeBranchId.value, currentMessages.value);
+          saveChatHistoryNow();
         }
       });
 
@@ -427,7 +275,6 @@ export function Dashboard() {
     }
   };
 
-  const totalDocsLoaded = docsWithContent.filter(d => d.content && d.content.length > 0).length;
   const currentSession = chatHistory.value.find(s => s.id === activeSessionId.value);
 
   return (
@@ -581,9 +428,19 @@ export function Dashboard() {
                               )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/20 hover:text-error rounded transition-opacity"
+                                className={`p-1 rounded transition-all min-w-[24px] min-h-[24px] flex items-center justify-center ${
+                                  deleteConfirmId === session.id
+                                    ? "opacity-100 bg-error/20 text-error"
+                                    : "opacity-0 group-hover:opacity-100 hover:bg-error/20 hover:text-error"
+                                }`}
+                                aria-label={deleteConfirmId === session.id ? "Click again to confirm delete" : "Delete chat"}
+                                title={deleteConfirmId === session.id ? "Click to confirm" : "Delete"}
                               >
-                                <CloseIcon size={12} />
+                                {deleteConfirmId === session.id ? (
+                                  <span className="text-[10px] font-medium">?</span>
+                                ) : (
+                                  <CloseIcon size={12} />
+                                )}
                               </button>
                             </div>
                           ))}
@@ -687,6 +544,7 @@ export function Dashboard() {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               <MenuIcon size={18} />
             </button>
@@ -694,7 +552,7 @@ export function Dashboard() {
             <span className="font-semibold text-text-primary">OmniRecall</span>
 
             {/* Model Selector */}
-            <div className="relative ml-4">
+            <div className="relative ml-4" ref={modelSelectorRef}>
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-sm text-text-secondary"
@@ -800,7 +658,15 @@ export function Dashboard() {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div
+          className="flex-1 overflow-y-auto p-4 relative"
+          ref={messagesContainerRef}
+          onScroll={(e) => {
+            const el = e.target as HTMLDivElement;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            setShowScrollBottom(!atBottom && currentMessages.value.length > 3);
+          }}
+        >
           {showIndexPanel ? (
             <div className="max-w-2xl mx-auto">
               <div className="flex items-center justify-between mb-4">
@@ -919,7 +785,7 @@ export function Dashboard() {
                       )}
 
                       {message.tokenCount && message.tokenCount > 10 && (
-                        <span className={`text-xs px-1 ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
+                        <span className={`text-xs px-1 opacity-0 group-hover:opacity-100 transition-opacity ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
                           }`}>
                           ~{message.tokenCount} tokens
                         </span>
@@ -940,6 +806,18 @@ export function Dashboard() {
               <div ref={messagesEndRef} />
             </div>
           )}
+
+          {/* Scroll to Bottom Button */}
+          {showScrollBottom && (
+            <button
+              onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+              className="absolute bottom-4 right-6 p-2 rounded-full bg-bg-secondary border border-border shadow-lg hover:bg-bg-tertiary transition-colors z-10"
+              aria-label="Scroll to bottom"
+              title="Scroll to bottom"
+            >
+              <ChevronDownIcon size={16} className="text-text-secondary" />
+            </button>
+          )}
         </div>
 
         {/* Error */}
@@ -956,7 +834,10 @@ export function Dashboard() {
               <textarea
                 ref={inputRef}
                 value={currentQuery.value}
-                onInput={(e) => (currentQuery.value = (e.target as HTMLTextAreaElement).value)}
+                onInput={(e) => {
+                  currentQuery.value = (e.target as HTMLTextAreaElement).value;
+                  handleAutoResize(e);
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={totalDocsLoaded > 0 ? "Ask about your documents..." : "Type your message..."}
                 className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"

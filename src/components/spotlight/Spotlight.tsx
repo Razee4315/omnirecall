@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "preact/hooks";
+import { useState, useRef, useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   viewMode,
@@ -10,19 +9,17 @@ import {
   isGenerating,
   currentQuery,
   isSettingsOpen,
-  documents,
   activeSessionId,
   currentMessages,
-  addChatSession,
-  updateChatSession,
   addDocument,
-  ChatMessage,
-  ChatSession,
   Document,
-  estimateTokens,
   stopGeneration,
   isCommandPaletteOpen,
 } from "../../stores/appStore";
+import { useChatSubmit } from "../../hooks/useChatSubmit";
+import { useDocumentLoader } from "../../hooks/useDocumentLoader";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import {
   LogoIcon,
   SendIcon,
@@ -41,18 +38,22 @@ import {
 import { Markdown } from "../common/Markdown";
 import { TokenCounter } from "../common/TokenCounter";
 
-interface DocumentWithContent extends Document {
-  content?: string;
-}
-
 export function Spotlight() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [docsWithContent, setDocsWithContent] = useState<DocumentWithContent[]>([]);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  // Shared hooks - eliminates code duplication with Dashboard
+  const { docsWithContent, totalDocsLoaded } = useDocumentLoader();
+  const { handleSubmit, cleanupStream } = useChatSubmit(docsWithContent, setError);
+  const modelSelectorRef = useClickOutside<HTMLDivElement>(() => setShowModelSelect(false), showModelSelect);
+  const handleAutoResize = useAutoResize(60);
+
+  // Clean up stream listener on unmount
+  useEffect(() => cleanupStream, [cleanupStream]);
 
   // Focus input on mount
   useEffect(() => {
@@ -62,120 +63,6 @@ export function Spotlight() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [currentMessages.value]);
-
-  // Load document contents in parallel for speed
-  useEffect(() => {
-    const loadDocs = async () => {
-      if (documents.value.length === 0) {
-        setDocsWithContent([]);
-        return;
-      }
-      // Parallel loading for 3-5x speed improvement
-      const loadPromises = documents.value.map(async (doc) => {
-        try {
-          const content = await invoke<string>("read_document_content", { filePath: doc.path });
-          return { ...doc, content };
-        } catch {
-          return { ...doc, content: "" };
-        }
-      });
-      const loaded = await Promise.all(loadPromises);
-      setDocsWithContent(loaded);
-    };
-    loadDocs();
-  }, [documents.value]);
-
-  const handleSubmit = async () => {
-    if (!currentQuery.value.trim() || isGenerating.value) return;
-
-    const provider = providers.value.find(p => p.id === activeProvider.value);
-    if (!provider?.apiKey && provider?.id !== "ollama") {
-      setError("Please add your API key in Settings (click gear icon)");
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: currentQuery.value,
-      tokenCount: estimateTokens(currentQuery.value),
-    };
-
-    const newMessages = [...currentMessages.value, userMessage];
-    currentMessages.value = newMessages;
-    const query = currentQuery.value;
-    currentQuery.value = "";
-    isGenerating.value = true;
-    setError(null);
-
-    // Create placeholder for assistant message
-    const assistantId = crypto.randomUUID();
-    const assistantMessage: ChatMessage = {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      tokenCount: 0,
-    };
-    currentMessages.value = [...newMessages, assistantMessage];
-
-    try {
-      const history = newMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
-      const documentContext = docsWithContent
-        .filter(d => d.content && d.content.length > 0)
-        .map(d => ({ name: d.name, content: d.content! }));
-
-      // Setup event listener for streaming chunks
-      let unlisten: UnlistenFn | null = null;
-      let fullResponse = "";
-
-      const assistantIdx = currentMessages.value.length - 1;
-      unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
-        if (!event.payload.done) {
-          fullResponse += event.payload.chunk;
-          // Update the assistant message in place using tracked index
-          const msgs = [...currentMessages.value];
-          msgs[assistantIdx] = { ...msgs[assistantIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
-          currentMessages.value = msgs;
-        } else {
-          // Stream complete
-          isGenerating.value = false;
-          if (unlisten) unlisten();
-
-          // Save to persistent chat history
-          const updatedMessages = currentMessages.value;
-          if (!activeSessionId.value) {
-            const newSession: ChatSession = {
-              id: crypto.randomUUID(),
-              title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
-              messages: updatedMessages,
-              branches: [],
-              branchMessages: {},
-              createdAt: new Date().toISOString(),
-              folderId: null,
-            };
-            addChatSession(newSession);
-            activeSessionId.value = newSession.id;
-          } else {
-            updateChatSession(activeSessionId.value, updatedMessages);
-          }
-        }
-      });
-
-      // Start streaming
-      await invoke("send_message_stream", {
-        message: query,
-        history,
-        documents: documentContext,
-        provider: activeProvider.value,
-        model: activeModel.value,
-        apiKey: provider?.apiKey || "",
-      });
-
-    } catch (err: any) {
-      setError(err?.message || err?.toString() || "Failed to get response");
-      isGenerating.value = false;
-    }
-  };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -252,12 +139,6 @@ export function Spotlight() {
     setShowModelSelect(false);
   };
 
-  // Memoized to prevent recalculation on every render
-  const totalDocsLoaded = useMemo(
-    () => docsWithContent.filter(d => d.content && d.content.length > 0).length,
-    [docsWithContent]
-  );
-
   return (
     <div className="h-full w-full flex flex-col">
       <div className="glass rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in m-2 flex flex-col flex-1">
@@ -266,7 +147,7 @@ export function Spotlight() {
           <div className="flex items-center gap-2 no-drag">
             <LogoIcon size={18} className="text-accent-primary" />
 
-            <div className="relative">
+            <div className="relative" ref={modelSelectorRef}>
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-xs text-text-secondary"
@@ -334,6 +215,7 @@ export function Spotlight() {
               onClick={() => (isCommandPaletteOpen.value = true)}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Command Palette (Ctrl+K)"
+              aria-label="Command Palette"
             >
               <CommandIcon size={14} />
             </button>
@@ -341,6 +223,7 @@ export function Spotlight() {
               onClick={handleAddDocuments}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Add Documents"
+              aria-label="Add Documents"
             >
               <FolderIcon size={14} />
             </button>
@@ -348,13 +231,15 @@ export function Spotlight() {
               onClick={() => (isSettingsOpen.value = true)}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Settings (Ctrl+,)"
+              aria-label="Settings"
             >
               <SettingsIcon size={14} />
             </button>
             <button
               onClick={handleExpand}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-              title="Expand"
+              title="Expand to Dashboard"
+              aria-label="Expand to Dashboard"
             >
               <ExpandIcon size={14} />
             </button>
@@ -362,6 +247,7 @@ export function Spotlight() {
               onClick={() => invoke("hide_window")}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Close (Esc)"
+              aria-label="Close window"
             >
               <CloseIcon size={14} />
             </button>
@@ -453,7 +339,10 @@ export function Spotlight() {
             <textarea
               ref={inputRef}
               value={currentQuery.value}
-              onInput={(e) => (currentQuery.value = (e.target as HTMLTextAreaElement).value)}
+              onInput={(e) => {
+                currentQuery.value = (e.target as HTMLTextAreaElement).value;
+                handleAutoResize(e);
+              }}
               onKeyDown={handleKeyDown}
               placeholder={totalDocsLoaded > 0 ? "Ask about your docs..." : "Ask anything..."}
               className="flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"

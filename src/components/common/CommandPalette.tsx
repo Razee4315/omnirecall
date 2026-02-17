@@ -215,6 +215,9 @@ export function CommandPalette() {
         <div
             className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/50 backdrop-blur-sm"
             onClick={() => (isCommandPaletteOpen.value = false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command Palette"
         >
             <div
                 className="w-full max-w-xl bg-bg-primary border border-border rounded-xl shadow-2xl overflow-hidden animate-scale-in"
