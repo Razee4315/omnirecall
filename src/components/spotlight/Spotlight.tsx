@@ -18,6 +18,8 @@ import {
 } from "../../stores/appStore";
 import { useChatSubmit } from "../../hooks/useChatSubmit";
 import { useDocumentLoader } from "../../hooks/useDocumentLoader";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import {
   LogoIcon,
   SendIcon,
@@ -47,6 +49,8 @@ export function Spotlight() {
   // Shared hooks - eliminates code duplication with Dashboard
   const { docsWithContent, totalDocsLoaded } = useDocumentLoader();
   const { handleSubmit, cleanupStream } = useChatSubmit(docsWithContent, setError);
+  const modelSelectorRef = useClickOutside<HTMLDivElement>(() => setShowModelSelect(false), showModelSelect);
+  const handleAutoResize = useAutoResize(60);
 
   // Clean up stream listener on unmount
   useEffect(() => cleanupStream, [cleanupStream]);
@@ -143,7 +147,7 @@ export function Spotlight() {
           <div className="flex items-center gap-2 no-drag">
             <LogoIcon size={18} className="text-accent-primary" />
 
-            <div className="relative">
+            <div className="relative" ref={modelSelectorRef}>
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-xs text-text-secondary"
@@ -330,7 +334,10 @@ export function Spotlight() {
             <textarea
               ref={inputRef}
               value={currentQuery.value}
-              onInput={(e) => (currentQuery.value = (e.target as HTMLTextAreaElement).value)}
+              onInput={(e) => {
+                currentQuery.value = (e.target as HTMLTextAreaElement).value;
+                handleAutoResize(e);
+              }}
               onKeyDown={handleKeyDown}
               placeholder={totalDocsLoaded > 0 ? "Ask about your docs..." : "Ask anything..."}
               className="flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"

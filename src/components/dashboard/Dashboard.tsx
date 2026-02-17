@@ -33,6 +33,8 @@ import {
 import { useChatSubmit, parseApiError } from "../../hooks/useChatSubmit";
 import { useDocumentLoader } from "../../hooks/useDocumentLoader";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import {
   LogoIcon,
   SendIcon,
@@ -77,6 +79,8 @@ export function Dashboard() {
   const { docsWithContent, loadingDocs, totalDocsLoaded } = useDocumentLoader();
   const { localSearchQuery, setLocalSearchQuery } = useDebouncedSearch(300);
   const { handleSubmit, cleanupStream } = useChatSubmit(docsWithContent, setError);
+  const modelSelectorRef = useClickOutside<HTMLDivElement>(() => setShowModelSelect(false), showModelSelect);
+  const handleAutoResize = useAutoResize(200);
 
   // Clean up stream listener on unmount
   useEffect(() => cleanupStream, [cleanupStream]);
@@ -525,7 +529,7 @@ export function Dashboard() {
             <span className="font-semibold text-text-primary">OmniRecall</span>
 
             {/* Model Selector */}
-            <div className="relative ml-4">
+            <div className="relative ml-4" ref={modelSelectorRef}>
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-sm text-text-secondary"
@@ -787,7 +791,10 @@ export function Dashboard() {
               <textarea
                 ref={inputRef}
                 value={currentQuery.value}
-                onInput={(e) => (currentQuery.value = (e.target as HTMLTextAreaElement).value)}
+                onInput={(e) => {
+                  currentQuery.value = (e.target as HTMLTextAreaElement).value;
+                  handleAutoResize(e);
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={totalDocsLoaded > 0 ? "Ask about your documents..." : "Type your message..."}
                 className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"
