@@ -14,6 +14,7 @@ import {
   isFullscreen,
   isShortcutsHelpOpen,
   loadPersistedData,
+  applyThemeClasses,
 } from "./stores/appStore";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
@@ -23,32 +24,6 @@ import { ModelCompare } from "./components/common/ModelCompare";
 import { ToastContainer } from "./components/common/Toast";
 import { KeyboardShortcuts } from "./components/common/KeyboardShortcuts";
 import { Onboarding, checkOnboardingStatus } from "./components/common/Onboarding";
-
-function applyThemeClasses(currentTheme: string) {
-  const html = document.documentElement;
-  // Remove all theme classes
-  html.classList.remove("dark", "transparent", "paper", "rose", "ocean");
-
-  // Apply the appropriate theme class
-  switch (currentTheme) {
-    case "dark":
-      html.classList.add("dark");
-      break;
-    case "transparent":
-      html.classList.add("dark", "transparent");
-      break;
-    case "paper":
-      html.classList.add("paper");
-      break;
-    case "rose":
-      html.classList.add("dark", "rose");
-      break;
-    case "ocean":
-      html.classList.add("dark", "ocean");
-      break;
-    // light theme is default (no class needed)
-  }
-}
 
 export function App() {
   useEffect(() => {

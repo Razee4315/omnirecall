@@ -203,7 +203,39 @@ async function getStore(): Promise<Store> {
   return store;
 }
 
-// Simple token estimation (4 chars ≈ 1 token for English text)
+// Debounce utility to prevent excessive disk writes
+const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function debouncedSave(key: string, saveFn: () => Promise<void>, delay = 1500) {
+  const existing = debounceTimers.get(key);
+  if (existing) clearTimeout(existing);
+  debounceTimers.set(key, setTimeout(() => {
+    debounceTimers.delete(key);
+    saveFn();
+  }, delay));
+}
+
+// Force flush all pending saves (call before app exit)
+export async function flushPendingSaves() {
+  for (const [key, timer] of debounceTimers.entries()) {
+    clearTimeout(timer);
+    debounceTimers.delete(key);
+  }
+  // Save everything once
+  try {
+    const s = await getStore();
+    await s.set("chatHistory", chatHistory.value);
+    await s.set("chatFolders", chatFolders.value);
+    await s.set("providers", providers.value);
+    await s.set("documents", documents.value);
+    await s.set("theme", theme.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to flush saves:", e);
+  }
+}
+
+// Simple token estimation (4 chars ~ 1 token for English text)
 export function estimateTokens(text: string): number {
   if (!text) return 0;
   return Math.ceil(text.length / 4);
@@ -238,6 +270,30 @@ export function searchChatHistory(query: string): SearchResult[] {
 
   searchResults.value = results;
   return results;
+}
+
+// Apply theme CSS classes to document root
+export function applyThemeClasses(newTheme: Theme) {
+  const html = document.documentElement;
+  html.classList.remove("dark", "transparent", "paper", "rose", "ocean");
+
+  switch (newTheme) {
+    case "dark":
+      html.classList.add("dark");
+      break;
+    case "transparent":
+      html.classList.add("dark", "transparent");
+      break;
+    case "paper":
+      html.classList.add("paper");
+      break;
+    case "rose":
+      html.classList.add("dark", "rose");
+      break;
+    case "ocean":
+      html.classList.add("dark", "ocean");
+      break;
+  }
 }
 
 // Load data from persistent storage
@@ -286,9 +342,8 @@ export async function loadPersistedData() {
       documents.value = savedDocs;
     }
 
-    // Load current hotkey from backend
+    // Load current hotkey from backend (use already-imported invoke)
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       const currentHotkey = await invoke<string>("get_current_hotkey");
       if (currentHotkey) {
         globalHotkey.value = currentHotkey;
@@ -301,8 +356,27 @@ export async function loadPersistedData() {
   }
 }
 
-// Save chat history
+// Save chat history (debounced - won't write to disk more than once per 1.5s)
 export async function saveChatHistory() {
+  debouncedSave("chatHistory", async () => {
+    try {
+      const s = await getStore();
+      await s.set("chatHistory", chatHistory.value);
+      await s.save();
+    } catch (e) {
+      console.error("Failed to save chat history:", e);
+    }
+  });
+}
+
+// Force immediate save of chat history (use on stream completion)
+export async function saveChatHistoryNow() {
+  // Cancel any pending debounced save
+  const existing = debounceTimers.get("chatHistory");
+  if (existing) {
+    clearTimeout(existing);
+    debounceTimers.delete("chatHistory");
+  }
   try {
     const s = await getStore();
     await s.set("chatHistory", chatHistory.value);
@@ -312,18 +386,20 @@ export async function saveChatHistory() {
   }
 }
 
-// Save chat folders
+// Save chat folders (debounced)
 export async function saveChatFolders() {
-  try {
-    const s = await getStore();
-    await s.set("chatFolders", chatFolders.value);
-    await s.save();
-  } catch (e) {
-    console.error("Failed to save chat folders:", e);
-  }
+  debouncedSave("chatFolders", async () => {
+    try {
+      const s = await getStore();
+      await s.set("chatFolders", chatFolders.value);
+      await s.save();
+    } catch (e) {
+      console.error("Failed to save chat folders:", e);
+    }
+  });
 }
 
-// Save providers (API keys)
+// Save providers (API keys) - immediate since it's user-triggered and infrequent
 export async function saveProviders() {
   try {
     const s = await getStore();
@@ -334,7 +410,7 @@ export async function saveProviders() {
   }
 }
 
-// Save theme
+// Save theme - immediate since it's user-triggered
 export async function saveTheme() {
   try {
     const s = await getStore();
@@ -345,15 +421,17 @@ export async function saveTheme() {
   }
 }
 
-// Save documents
+// Save documents (debounced)
 export async function saveDocuments() {
-  try {
-    const s = await getStore();
-    await s.set("documents", documents.value);
-    await s.save();
-  } catch (e) {
-    console.error("Failed to save documents:", e);
-  }
+  debouncedSave("documents", async () => {
+    try {
+      const s = await getStore();
+      await s.set("documents", documents.value);
+      await s.save();
+    } catch (e) {
+      console.error("Failed to save documents:", e);
+    }
+  });
 }
 
 // Actions
@@ -373,19 +451,19 @@ export function setProviderConnected(providerId: string, connected: boolean) {
 
 export function addChatSession(session: ChatSession) {
   chatHistory.value = [session, ...chatHistory.value];
-  saveChatHistory();
+  saveChatHistoryNow(); // Immediate save for new session creation
 }
 
 export function updateChatSession(sessionId: string, messages: ChatMessage[]) {
   chatHistory.value = chatHistory.value.map(s =>
     s.id === sessionId ? { ...s, messages } : s
   );
-  saveChatHistory();
+  saveChatHistory(); // Debounced - safe for streaming updates
 }
 
 export function deleteChatSession(sessionId: string) {
   chatHistory.value = chatHistory.value.filter(s => s.id !== sessionId);
-  saveChatHistory();
+  saveChatHistoryNow(); // Immediate for destructive action
 }
 
 export function updateSessionFolder(sessionId: string, folderId: string | null) {
@@ -459,14 +537,14 @@ export function updateChatFolder(folderId: string, updates: Partial<ChatFolder>)
 }
 
 export function deleteChatFolder(folderId: string) {
-  // Move all sessions in this folder to uncategorized
+  // Move all sessions in this folder to uncategorized and delete folder in one batch
   chatHistory.value = chatHistory.value.map(s =>
     s.folderId === folderId ? { ...s, folderId: null } : s
   );
-  saveChatHistory();
-
-  // Delete the folder
   chatFolders.value = chatFolders.value.filter(f => f.id !== folderId);
+
+  // Single batched save instead of two separate writes
+  saveChatHistoryNow();
   saveChatFolders();
 }
 
@@ -523,7 +601,7 @@ export function branchFromMessage(sessionId: string, messageId: string, branchNa
   // Set the branched messages as current
   currentMessages.value = branchedMessages;
   activeBranchId.value = branchId;
-  saveChatHistory();
+  saveChatHistoryNow(); // Immediate save for branch creation
 
   return branchId;
 }
@@ -607,7 +685,7 @@ export function updateBranchMessages(sessionId: string, branchId: string | null,
     }
     return s;
   });
-  saveChatHistory();
+  saveChatHistory(); // Debounced for streaming updates
 }
 
 // Delete a branch
@@ -637,7 +715,7 @@ export function deleteBranch(sessionId: string, branchId: string) {
     activeBranchId.value = null;
   }
 
-  saveChatHistory();
+  saveChatHistoryNow(); // Immediate for destructive action
 }
 
 // Rename a branch
@@ -712,29 +790,6 @@ export function importSession(jsonString: string): ChatSession | null {
   } catch (e) {
     console.error("Failed to import session:", e);
     return null;
-  }
-}
-
-function applyThemeClasses(newTheme: Theme) {
-  const html = document.documentElement;
-  html.classList.remove("dark", "transparent", "paper", "rose", "ocean");
-
-  switch (newTheme) {
-    case "dark":
-      html.classList.add("dark");
-      break;
-    case "transparent":
-      html.classList.add("dark", "transparent");
-      break;
-    case "paper":
-      html.classList.add("paper");
-      break;
-    case "rose":
-      html.classList.add("dark", "rose");
-      break;
-    case "ocean":
-      html.classList.add("dark", "ocean");
-      break;
   }
 }
 
