@@ -196,7 +196,20 @@ select option {
   color: var(--text-primary);
 }
 
-/* Active press feedback - will-change only applied when needed */
+/* Focus-visible styles for keyboard accessibility (WCAG 2.1 Level A) */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Active press feedback */
 button:active {
   transform: scale(0.98);
 }

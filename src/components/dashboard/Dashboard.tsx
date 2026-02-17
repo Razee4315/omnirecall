@@ -74,6 +74,9 @@ export function Dashboard() {
   const [showExport, setShowExport] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [showIndexPanel, setShowIndexPanel] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Shared hooks - eliminates code duplication with Spotlight
   const { docsWithContent, loadingDocs, totalDocsLoaded } = useDocumentLoader();
@@ -122,10 +125,19 @@ export function Dashboard() {
   };
 
   const handleDeleteSession = (sessionId: string) => {
-    deleteChatSession(sessionId);
-    if (activeSessionId.value === sessionId) {
-      currentMessages.value = [];
-      activeSessionId.value = null;
+    if (deleteConfirmId === sessionId) {
+      // Second click confirms deletion
+      deleteChatSession(sessionId);
+      if (activeSessionId.value === sessionId) {
+        currentMessages.value = [];
+        activeSessionId.value = null;
+      }
+      setDeleteConfirmId(null);
+    } else {
+      // First click shows confirmation
+      setDeleteConfirmId(sessionId);
+      // Auto-reset after 3 seconds if not confirmed
+      setTimeout(() => setDeleteConfirmId(prev => prev === sessionId ? null : prev), 3000);
     }
   };
 
@@ -416,9 +428,19 @@ export function Dashboard() {
                               )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id); }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-error/20 hover:text-error rounded transition-opacity"
+                                className={`p-1 rounded transition-all min-w-[24px] min-h-[24px] flex items-center justify-center ${
+                                  deleteConfirmId === session.id
+                                    ? "opacity-100 bg-error/20 text-error"
+                                    : "opacity-0 group-hover:opacity-100 hover:bg-error/20 hover:text-error"
+                                }`}
+                                aria-label={deleteConfirmId === session.id ? "Click again to confirm delete" : "Delete chat"}
+                                title={deleteConfirmId === session.id ? "Click to confirm" : "Delete"}
                               >
-                                <CloseIcon size={12} />
+                                {deleteConfirmId === session.id ? (
+                                  <span className="text-[10px] font-medium">?</span>
+                                ) : (
+                                  <CloseIcon size={12} />
+                                )}
                               </button>
                             </div>
                           ))}
@@ -522,6 +544,7 @@ export function Dashboard() {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               <MenuIcon size={18} />
             </button>
@@ -635,7 +658,15 @@ export function Dashboard() {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div
+          className="flex-1 overflow-y-auto p-4 relative"
+          ref={messagesContainerRef}
+          onScroll={(e) => {
+            const el = e.target as HTMLDivElement;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            setShowScrollBottom(!atBottom && currentMessages.value.length > 3);
+          }}
+        >
           {showIndexPanel ? (
             <div className="max-w-2xl mx-auto">
               <div className="flex items-center justify-between mb-4">
@@ -754,7 +785,7 @@ export function Dashboard() {
                       )}
 
                       {message.tokenCount && message.tokenCount > 10 && (
-                        <span className={`text-xs px-1 ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
+                        <span className={`text-xs px-1 opacity-0 group-hover:opacity-100 transition-opacity ${message.role === "user" ? "text-white/50" : "text-text-tertiary/60"
                           }`}>
                           ~{message.tokenCount} tokens
                         </span>
@@ -774,6 +805,18 @@ export function Dashboard() {
 
               <div ref={messagesEndRef} />
             </div>
+          )}
+
+          {/* Scroll to Bottom Button */}
+          {showScrollBottom && (
+            <button
+              onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })}
+              className="absolute bottom-4 right-6 p-2 rounded-full bg-bg-secondary border border-border shadow-lg hover:bg-bg-tertiary transition-colors z-10"
+              aria-label="Scroll to bottom"
+              title="Scroll to bottom"
+            >
+              <ChevronDownIcon size={16} className="text-text-secondary" />
+            </button>
           )}
         </div>
 

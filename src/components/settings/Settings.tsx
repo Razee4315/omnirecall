@@ -34,14 +34,14 @@ export function Settings() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
       <div className={`relative w-full bg-bg-primary rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in ${isCompact ? "max-w-sm max-h-[90vh]" : "max-w-2xl max-h-[85vh]"
         }`}>
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-bg-secondary">
           <h2 className={`font-semibold text-text-primary ${isCompact ? "text-sm" : "text-base"}`}>Settings</h2>
-          <button onClick={handleClose} className="p-1 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary">
+          <button onClick={handleClose} className="p-1 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary" aria-label="Close settings">
             <CloseIcon size={16} />
           </button>
         </div>

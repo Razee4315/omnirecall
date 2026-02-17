@@ -215,6 +215,7 @@ export function Spotlight() {
               onClick={() => (isCommandPaletteOpen.value = true)}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Command Palette (Ctrl+K)"
+              aria-label="Command Palette"
             >
               <CommandIcon size={14} />
             </button>
@@ -222,6 +223,7 @@ export function Spotlight() {
               onClick={handleAddDocuments}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Add Documents"
+              aria-label="Add Documents"
             >
               <FolderIcon size={14} />
             </button>
@@ -229,13 +231,15 @@ export function Spotlight() {
               onClick={() => (isSettingsOpen.value = true)}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Settings (Ctrl+,)"
+              aria-label="Settings"
             >
               <SettingsIcon size={14} />
             </button>
             <button
               onClick={handleExpand}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-              title="Expand"
+              title="Expand to Dashboard"
+              aria-label="Expand to Dashboard"
             >
               <ExpandIcon size={14} />
             </button>
@@ -243,6 +247,7 @@ export function Spotlight() {
               onClick={() => invoke("hide_window")}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
               title="Close (Esc)"
+              aria-label="Close window"
             >
               <CloseIcon size={14} />
             </button>
