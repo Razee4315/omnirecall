@@ -19,6 +19,10 @@ export default {
           primary: "var(--accent-primary)",
           secondary: "var(--accent-secondary)",
         },
+        code: {
+          block: "var(--code-block-bg)",
+          text: "var(--code-text)",
+        },
         border: "var(--border-color)",
         success: "var(--success)",
         warning: "var(--warning)",

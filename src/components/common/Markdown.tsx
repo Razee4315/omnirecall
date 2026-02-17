@@ -1,6 +1,15 @@
 import { useState, useMemo, memo } from "preact/compat";
 import { CopyIcon, CheckIcon } from "../icons";
 
+// Pre-compiled regex patterns for inline markdown parsing
+const RE_INLINE_CODE = /^`([^`]+)`/;
+const RE_BOLD = /^(\*\*|__)([^*_]+)\1/;
+const RE_ITALIC = /^(\*|_)([^*_]+)\1/;
+const RE_LINK = /^\[([^\]]+)\]\(([^)]+)\)/;
+const RE_NEXT_SPECIAL = /[`*_\[]/;
+const RE_UNORDERED_LIST = /^[-*]\s/;
+const RE_ORDERED_LIST = /^\d+\.\s/;
+
 interface MarkdownProps {
   content: string;
   className?: string;
@@ -59,9 +68,9 @@ function parseMarkdown(text: string): preact.JSX.Element[] {
     }
 
     // Unordered list
-    if (line.trim().match(/^[-*]\s/)) {
+    if (RE_UNORDERED_LIST.test(line.trim())) {
       const listItems: string[] = [];
-      while (i < lines.length && lines[i].trim().match(/^[-*]\s/)) {
+      while (i < lines.length && RE_UNORDERED_LIST.test(lines[i].trim())) {
         listItems.push(lines[i].trim().slice(2));
         i++;
       }
@@ -76,9 +85,9 @@ function parseMarkdown(text: string): preact.JSX.Element[] {
     }
 
     // Ordered list
-    if (line.trim().match(/^\d+\.\s/)) {
+    if (RE_ORDERED_LIST.test(line.trim())) {
       const listItems: string[] = [];
-      while (i < lines.length && lines[i].trim().match(/^\d+\.\s/)) {
+      while (i < lines.length && RE_ORDERED_LIST.test(lines[i].trim())) {
         listItems.push(lines[i].trim().replace(/^\d+\.\s/, ''));
         i++;
       }
@@ -128,7 +137,7 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
 
   while (remaining.length > 0) {
     // Inline code `code`
-    const codeMatch = remaining.match(/^`([^`]+)`/);
+    const codeMatch = remaining.match(RE_INLINE_CODE);
     if (codeMatch) {
       parts.push(
         <code key={key++} className="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-primary font-mono text-[0.9em]">
@@ -140,7 +149,7 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
     }
 
     // Bold **text** or __text__
-    const boldMatch = remaining.match(/^(\*\*|__)([^*_]+)\1/);
+    const boldMatch = remaining.match(RE_BOLD);
     if (boldMatch) {
       parts.push(<strong key={key++} className="font-semibold">{boldMatch[2]}</strong>);
       remaining = remaining.slice(boldMatch[0].length);
@@ -148,7 +157,7 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
     }
 
     // Italic *text* or _text_
-    const italicMatch = remaining.match(/^(\*|_)([^*_]+)\1/);
+    const italicMatch = remaining.match(RE_ITALIC);
     if (italicMatch) {
       parts.push(<em key={key++} className="italic">{italicMatch[2]}</em>);
       remaining = remaining.slice(italicMatch[0].length);
@@ -156,7 +165,7 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
     }
 
     // Link [text](url)
-    const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
+    const linkMatch = remaining.match(RE_LINK);
     if (linkMatch) {
       parts.push(
         <a key={key++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
@@ -169,7 +178,7 @@ function parseInline(text: string): (preact.JSX.Element | string)[] {
     }
 
     // Regular text until next special character
-    const nextSpecial = remaining.search(/[`*_\[]/);
+    const nextSpecial = remaining.search(RE_NEXT_SPECIAL);
     if (nextSpecial === -1) {
       parts.push(remaining);
       break;
@@ -260,7 +269,7 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
   );
 
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-border bg-[#1a1a2e] relative">
+    <div className="my-2 rounded-lg overflow-hidden border border-border bg-code-block relative">
       {/* Header with language badge */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border">
         <div className="flex items-center gap-2">
@@ -284,7 +293,7 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
                 <td className="px-3 py-0 text-right text-[10px] text-text-tertiary/50 font-mono select-none border-r border-border/30 w-10 align-top leading-relaxed">
                   {idx + 1}
                 </td>
-                <td className="px-3 py-0 text-xs font-mono text-gray-300 leading-relaxed whitespace-pre">
+                <td className="px-3 py-0 text-xs font-mono text-code-text leading-relaxed whitespace-pre">
                   {line || " "}
                 </td>
               </tr>

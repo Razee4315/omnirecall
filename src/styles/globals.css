@@ -16,6 +16,8 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --glass-bg: rgba(255, 255, 255, 0.92);
+  --code-block-bg: #1e293b;
+  --code-text: #e2e8f0;
 }
 
 .dark {
@@ -29,6 +31,8 @@
   --accent-secondary: #7c3aed;
   --border-color: #2e2e35;
   --glass-bg: rgba(13, 13, 15, 0.92);
+  --code-block-bg: #1a1a2e;
+  --code-text: #d4d4d8;
 }
 
 /* Transparent Glass Theme */
@@ -43,6 +47,8 @@
   --accent-secondary: #9c5aff;
   --border-color: rgba(255, 255, 255, 0.08);
   --glass-bg: rgba(10, 10, 12, 0.7);
+  --code-block-bg: rgba(15, 15, 25, 0.8);
+  --code-text: #d4d4d8;
 }
 
 /* Paper/Cream Theme - T3 Chat Inspired */
@@ -60,6 +66,8 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --glass-bg: rgba(250, 248, 245, 0.95);
+  --code-block-bg: #2d2a2e;
+  --code-text: #e3e1e8;
 }
 
 /* Rose/Pink Theme */
@@ -77,6 +85,8 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --glass-bg: rgba(26, 21, 32, 0.92);
+  --code-block-bg: #1e1525;
+  --code-text: #e8d0e0;
 }
 
 /* Ocean Theme */
@@ -94,6 +104,8 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --glass-bg: rgba(15, 23, 42, 0.92);
+  --code-block-bg: #0c1629;
+  --code-text: #c8d6e5;
 }
 
 .transparent body {
@@ -184,15 +196,7 @@ select option {
   color: var(--text-primary);
 }
 
-/* GPU acceleration for interactive elements */
-button,
-input,
-textarea,
-select,
-[role="button"] {
-  will-change: transform, opacity, background-color;
-}
-
+/* Active press feedback - will-change only applied when needed */
 button:active {
   transform: scale(0.98);
 }
@@ -401,7 +405,7 @@ button:active {
   animation: toastOut 0.2s ease-in forwards;
 }
 
-/* Smooth theme transitions */
+/* Theme transitions - applied only to root container, not every element */
 :root,
 .dark,
 .transparent,
@@ -414,21 +418,11 @@ button:active {
     border-color 0.3s ease;
 }
 
-/* Transition for themed elements */
-.glass,
-button,
-input,
-textarea,
-select,
-[class*="bg-"],
-[class*="border-"],
-[class*="text-"] {
+/* Interactive element transitions - scoped to direct interactions only */
+.glass {
   transition:
     background-color 0.3s ease,
-    color 0.3s ease,
-    border-color 0.3s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease;
+    border-color 0.3s ease;
 }
 
 /* Message reveal animation for streaming */
