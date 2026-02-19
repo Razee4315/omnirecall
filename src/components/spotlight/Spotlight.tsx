@@ -258,16 +258,24 @@ export function Spotlight() {
         <div className="flex-1 overflow-y-auto">
           {currentMessages.value.length === 0 && !isGenerating.value && !error ? (
             <div className="h-full flex items-center justify-center p-4">
-              <div className="text-center">
-                <p className="text-xs text-text-tertiary mb-2">
+              <div className="text-center max-w-xs">
+                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-accent-primary/10 flex items-center justify-center">
+                  <LogoIcon size={22} className="text-accent-primary" />
+                </div>
+                <p className="text-xs text-text-secondary mb-1 font-medium">
                   {totalDocsLoaded > 0
-                    ? `Ask about your ${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''}`
-                    : "Ask anything or add documents"}
+                    ? `${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''} ready`
+                    : "Ask anything"}
                 </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-text-tertiary">
-                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> send ·
-                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Ctrl+K</kbd> commands ·
-                  <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Esc</kbd> hide
+                <p className="text-[11px] text-text-tertiary mb-3">
+                  {totalDocsLoaded > 0
+                    ? "Ask questions about your documents"
+                    : "Chat, analyze, or add documents for RAG"}
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-text-tertiary">
+                  <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded border border-border">Enter</kbd> send</span>
+                  <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded border border-border">Ctrl+K</kbd> commands</span>
+                  <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded border border-border">Esc</kbd> hide</span>
                 </div>
               </div>
             </div>

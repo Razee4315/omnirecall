@@ -495,6 +495,23 @@ mark {
   border-radius: 2px;
 }
 
+/* Provider brand colors for model compare - consistent across themes */
+.text-blue-400 { color: #60a5fa; }
+.text-emerald-400 { color: #34d399; }
+.text-orange-400 { color: #fb923c; }
+.text-purple-400 { color: #c084fc; }
+.text-rose-400 { color: #fb7185; }
+.bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.1); }
+.bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.1); }
+.bg-orange-500\/10 { background-color: rgba(249, 115, 22, 0.1); }
+.bg-purple-500\/10 { background-color: rgba(168, 85, 247, 0.1); }
+.bg-rose-500\/10 { background-color: rgba(244, 63, 94, 0.1); }
+.border-blue-500\/30 { border-color: rgba(59, 130, 246, 0.3); }
+.border-emerald-500\/30 { border-color: rgba(16, 185, 129, 0.3); }
+.border-orange-500\/30 { border-color: rgba(249, 115, 22, 0.3); }
+.border-purple-500\/30 { border-color: rgba(168, 85, 247, 0.3); }
+.border-rose-500\/30 { border-color: rgba(244, 63, 94, 0.3); }
+
 /* Dragging styles */
 [draggable="true"] {
   cursor: grab;
