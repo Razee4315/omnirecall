@@ -396,7 +396,13 @@ export function Dashboard() {
                 return (
                   <div className="space-y-2 px-2">
                     {chatHistory.value.length === 0 ? (
-                      <div className="text-xs text-text-tertiary px-2 py-4 text-center">No chats yet</div>
+                      <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
+                        <div className="w-10 h-10 rounded-xl bg-bg-tertiary flex items-center justify-center">
+                          <LogoIcon size={20} className="text-text-tertiary" />
+                        </div>
+                        <div className="text-xs text-text-tertiary">No conversations yet</div>
+                        <div className="text-[10px] text-text-tertiary">Start chatting to see your history here</div>
+                      </div>
                     ) : sortedGroups.map(group => (
                       <div key={group}>
                         <div className="text-xs text-text-tertiary px-2 py-1 uppercase tracking-wide">{group}</div>
@@ -682,27 +688,68 @@ export function Dashboard() {
             </div>
           ) : currentMessages.value.length === 0 ? (
             <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <LogoIcon size={48} className="text-text-tertiary mx-auto mb-4" />
-                <h2 className="text-xl font-semibold text-text-primary mb-2">Welcome to OmniRecall</h2>
-                <p className="text-text-secondary text-sm max-w-md mb-4">
-                  {totalDocsLoaded > 0
-                    ? `${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''} loaded. Ask questions!`
-                    : "Add documents to enable RAG, or just chat."}
-                </p>
-                <div className="flex items-center justify-center gap-4 text-xs text-text-tertiary">
-                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded">Ctrl+K</kbd> Command</span>
-                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded">Ctrl+N</kbd> New Chat</span>
+              <div className="text-center max-w-lg">
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-accent-primary/10 flex items-center justify-center">
+                  <LogoIcon size={36} className="text-accent-primary" />
                 </div>
-                {totalDocsLoaded === 0 && (
+                <h2 className="text-2xl font-bold text-text-primary mb-2">Welcome to OmniRecall</h2>
+                <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+                  {totalDocsLoaded > 0
+                    ? `${totalDocsLoaded} document${totalDocsLoaded > 1 ? 's' : ''} loaded and ready. Ask questions about your documents or start a general conversation.`
+                    : "Your AI-powered document assistant. Add documents for RAG-powered Q&A, or start chatting right away."}
+                </p>
+
+                {/* Quick Start Prompts */}
+                <div className="grid grid-cols-2 gap-2 mb-6 text-left">
+                  {[
+                    { text: "Summarize the key points", icon: "S" },
+                    { text: "Explain this in simple terms", icon: "E" },
+                    { text: "Compare and contrast", icon: "C" },
+                    { text: "Write a brief analysis", icon: "W" },
+                  ].map((suggestion) => (
+                    <button
+                      key={suggestion.text}
+                      onClick={() => {
+                        currentQuery.value = suggestion.text;
+                        inputRef.current?.focus();
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-bg-secondary hover:bg-bg-tertiary hover:border-accent-primary/30 transition-all text-left group"
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-accent-primary/10 flex items-center justify-center text-xs font-bold text-accent-primary flex-shrink-0 group-hover:bg-accent-primary/20 transition-colors">
+                        {suggestion.icon}
+                      </span>
+                      <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">{suggestion.text}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-center gap-3">
+                  {totalDocsLoaded === 0 && (
+                    <button
+                      onClick={handleAddDocuments}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-accent-primary text-white hover:bg-accent-primary/90 transition-colors text-sm font-medium shadow-lg shadow-accent-primary/20"
+                    >
+                      <FolderIcon size={16} />
+                      Add Documents
+                    </button>
+                  )}
                   <button
-                    onClick={handleAddDocuments}
-                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-bg-tertiary transition-colors text-sm text-text-secondary"
+                    onClick={() => (isCommandPaletteOpen.value = true)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border hover:bg-bg-tertiary transition-colors text-sm text-text-secondary"
                   >
-                    <FolderIcon size={16} />
-                    Add Documents
+                    <CommandIcon size={16} />
+                    Commands
+                    <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs ml-1">Ctrl+K</kbd>
                   </button>
-                )}
+                </div>
+
+                {/* Keyboard Hints */}
+                <div className="mt-6 flex items-center justify-center gap-4 text-xs text-text-tertiary">
+                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded border border-border">Ctrl+N</kbd> New Chat</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded border border-border">Ctrl+Shift+M</kbd> Compare</span>
+                  <span><kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded border border-border">?</kbd> Shortcuts</span>
+                </div>
               </div>
             </div>
           ) : (
