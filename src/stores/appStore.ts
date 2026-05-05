@@ -157,6 +157,46 @@ export const providers = signal<AIProvider[]>([
 export const activeProvider = signal("gemini");
 export const activeModel = signal<string>("gemini-3-flash-preview");
 
+/// User-added model names per provider. Persists across launches and is
+/// merged on top of the built-in model list in the dropdown so users can
+/// still reach a model when a provider deprecates a hard-coded one
+/// (Google in particular retires preview names without warning).
+export const customModels = signal<Record<string, string[]>>({});
+
+/// Hard cap so a runaway paste can't bloat the JSON store. Anything
+/// remotely real is well under this length.
+const MAX_MODEL_NAME_LENGTH = 80;
+const VALID_MODEL_NAME_RE = /^[A-Za-z0-9._:\-/]+$/;
+
+export function isValidModelName(name: string): boolean {
+  const trimmed = name.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed.length <= MAX_MODEL_NAME_LENGTH &&
+    VALID_MODEL_NAME_RE.test(trimmed)
+  );
+}
+
+export function getProviderModels(providerId: string): string[] {
+  const provider = providers.value.find(p => p.id === providerId);
+  const built = provider ? provider.models : [];
+  const custom = customModels.value[providerId] ?? [];
+  // De-dupe while preserving original order; built-ins first, then custom.
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const m of [...built, ...custom]) {
+    if (!seen.has(m)) {
+      seen.add(m);
+      result.push(m);
+    }
+  }
+  return result;
+}
+
+export function isCustomModel(providerId: string, model: string): boolean {
+  return (customModels.value[providerId] ?? []).includes(model);
+}
+
 // Documents State
 export const documents = signal<Document[]>([]);
 
@@ -229,6 +269,9 @@ export async function flushPendingSaves() {
     await s.set("providers", providers.value);
     await s.set("documents", documents.value);
     await s.set("theme", theme.value);
+    await s.set("customModels", customModels.value);
+    await s.set("activeProvider", activeProvider.value);
+    await s.set("activeModel", activeModel.value);
     await s.save();
   } catch (e) {
     console.error("Failed to flush saves:", e);
@@ -335,6 +378,13 @@ export async function loadPersistedData() {
       });
     }
 
+    // Load user-added custom models before resolving the active model so we
+    // can recognize a custom model as valid on restore.
+    const savedCustom = await s.get<Record<string, string[]>>("customModels");
+    if (savedCustom && typeof savedCustom === "object") {
+      customModels.value = savedCustom;
+    }
+
     // Load last-used provider/model (only if they're still valid choices).
     const savedActiveProvider = await s.get<string>("activeProvider");
     const savedActiveModel = await s.get<string>("activeModel");
@@ -425,6 +475,55 @@ export async function saveProviders() {
     await s.save();
   } catch (e) {
     console.error("Failed to save providers:", e);
+  }
+}
+
+async function saveCustomModels() {
+  try {
+    const s = await getStore();
+    await s.set("customModels", customModels.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to save custom models:", e);
+  }
+}
+
+export function addCustomModel(providerId: string, model: string): { ok: true } | { ok: false; reason: string } {
+  const trimmed = model.trim();
+  if (!isValidModelName(trimmed)) {
+    return { ok: false, reason: "Invalid model name. Use letters, numbers, dots, dashes, slashes or colons." };
+  }
+  const provider = providers.value.find(p => p.id === providerId);
+  if (provider?.models.includes(trimmed)) {
+    return { ok: false, reason: "That model is already in the built-in list." };
+  }
+  const existing = customModels.value[providerId] ?? [];
+  if (existing.includes(trimmed)) {
+    return { ok: false, reason: "Already added." };
+  }
+  customModels.value = {
+    ...customModels.value,
+    [providerId]: [...existing, trimmed],
+  };
+  saveCustomModels();
+  return { ok: true };
+}
+
+export function removeCustomModel(providerId: string, model: string) {
+  const existing = customModels.value[providerId] ?? [];
+  const next = existing.filter(m => m !== model);
+  if (next.length === existing.length) return;
+  customModels.value = { ...customModels.value, [providerId]: next };
+  saveCustomModels();
+
+  // If the removed model was the active one, fall back to the first
+  // available built-in / remaining custom model for the same provider.
+  if (activeProvider.value === providerId && activeModel.value === model) {
+    const remaining = getProviderModels(providerId);
+    if (remaining.length > 0) {
+      activeModel.value = remaining[0];
+      saveActiveModel();
+    }
   }
 }
 
