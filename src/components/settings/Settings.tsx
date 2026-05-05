@@ -1,14 +1,14 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import {
   isSettingsOpen,
   providers,
   updateProviderApiKey,
+  updateProviderBaseUrl,
   setProviderConnected,
+  setActiveModel,
   theme,
   setTheme,
-  activeProvider,
-  activeModel,
   viewMode,
   globalHotkey,
 } from "../../stores/appStore";
@@ -28,13 +28,62 @@ type SettingsTab = "providers" | "appearance" | "shortcuts" | "developer";
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("providers");
   const isCompact = viewMode.value === "spotlight";
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const handleClose = () => {
     isSettingsOpen.value = false;
   };
 
+  // Focus trap: keep Tab navigation inside the modal so users (and screen
+  // reader users in particular) can't accidentally tab into the chat input
+  // or sidebar behind the overlay.
+  useEffect(() => {
+    const root = dialogRef.current;
+    if (!root) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const focusable = (): HTMLElement[] => {
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter(el => !el.hasAttribute("aria-hidden") && el.offsetParent !== null);
+    };
+
+    // Move focus into the modal on mount.
+    const els = focusable();
+    if (els.length > 0) els[0].focus();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement;
+      if (e.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    root.addEventListener("keydown", handleKey);
+    return () => {
+      root.removeEventListener("keydown", handleKey);
+      // Restore focus to whatever opened the modal so keyboard users
+      // don't get teleported back to the document body.
+      previouslyFocused?.focus?.();
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2" role="dialog" aria-modal="true" aria-label="Settings">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center p-2" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
       <div className={`relative w-full bg-bg-primary rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in ${isCompact ? "max-w-sm max-h-[90vh]" : "max-w-2xl max-h-[85vh]"
         }`}>
@@ -121,9 +170,12 @@ function ProvidersTabCompact() {
 function ProviderCardCompact({ provider }: { provider: any }) {
   const [showKey, setShowKey] = useState(false);
   const [apiKey, setApiKey] = useState(provider.apiKey);
+  const [baseUrl, setBaseUrl] = useState<string>(provider.baseUrl ?? "");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(provider.isConnected ? "success" : null);
   const [testMessage, setTestMessage] = useState<string | null>(provider.isConnected ? "Connected" : null);
+
+  const effectiveBaseUrl = baseUrl.trim() || (provider.id === "ollama" ? "http://localhost:11434" : undefined);
 
   const handleTest = async () => {
     if (!apiKey && provider.id !== "ollama") return;
@@ -131,13 +183,12 @@ function ProviderCardCompact({ provider }: { provider: any }) {
     setTestResult(null);
     setTestMessage(null);
     try {
-      await invoke("test_api_key", { provider: provider.id, apiKey, baseUrl: provider.baseUrl });
+      await invoke("test_api_key", { provider: provider.id, apiKey, baseUrl: effectiveBaseUrl });
       setTestResult("success");
       setTestMessage("✓ Connected!");
       setProviderConnected(provider.id, true);
       if (!providers.value.some(p => p.isConnected)) {
-        activeProvider.value = provider.id;
-        activeModel.value = provider.models[0];
+        setActiveModel(provider.id, provider.models[0]);
       }
     } catch (err: any) {
       setTestResult("error");
@@ -156,6 +207,12 @@ function ProviderCardCompact({ provider }: { provider: any }) {
   };
 
   const handleSave = () => updateProviderApiKey(provider.id, apiKey);
+  const handleSaveBaseUrl = () => {
+    const trimmed = baseUrl.trim();
+    if (trimmed !== (provider.baseUrl ?? "")) {
+      updateProviderBaseUrl(provider.id, trimmed);
+    }
+  };
 
   const getUrl = () => {
     const urls: Record<string, string> = {
@@ -186,9 +243,10 @@ function ProviderCardCompact({ provider }: { provider: any }) {
                 onInput={(e) => setApiKey((e.target as HTMLInputElement).value)}
                 onBlur={handleSave}
                 placeholder="API key..."
+                aria-label={`${provider.name} API key`}
                 className="w-full px-2 py-1.5 pr-7 bg-bg-tertiary border border-border rounded text-text-primary text-xs outline-none focus:border-accent-primary"
               />
-              <button onClick={() => setShowKey(!showKey)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary">
+              <button onClick={() => setShowKey(!showKey)} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary" aria-label={showKey ? "Hide API key" : "Show API key"}>
                 {showKey ? <EyeOffIcon size={12} /> : <EyeIcon size={12} />}
               </button>
             </div>
@@ -212,10 +270,19 @@ function ProviderCardCompact({ provider }: { provider: any }) {
               {testMessage}
             </p>
           )}
-          <a href={getUrl()} target="_blank" className="text-xs text-accent-primary hover:underline block">Get key →</a>
+          <a href={getUrl()} target="_blank" rel="noopener noreferrer" className="text-xs text-accent-primary hover:underline block">Get key →</a>
         </div>
       ) : (
         <div className="space-y-1.5">
+          <input
+            type="text"
+            value={baseUrl}
+            onInput={(e) => setBaseUrl((e.target as HTMLInputElement).value)}
+            onBlur={handleSaveBaseUrl}
+            placeholder="http://localhost:11434"
+            aria-label="Ollama base URL"
+            className="w-full px-2 py-1.5 bg-bg-tertiary border border-border rounded text-text-primary text-xs outline-none focus:border-accent-primary"
+          />
           <button onClick={handleTest} disabled={testing} className={`w-full px-2 py-1.5 rounded text-xs font-medium transition-all ${testing ? "bg-bg-tertiary text-text-tertiary" :
             testResult === "success" ? "bg-success/20 text-success" :
               testResult === "error" ? "bg-error/20 text-error" :
@@ -409,9 +476,18 @@ function ProvidersTab() {
 function ProviderCard({ provider }: { provider: any }) {
   const [showKey, setShowKey] = useState(false);
   const [apiKey, setApiKey] = useState(provider.apiKey);
+  const [baseUrl, setBaseUrl] = useState<string>(provider.baseUrl ?? "");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(provider.isConnected ? "success" : null);
   const [testMessage, setTestMessage] = useState<string | null>(provider.isConnected ? "API key verified" : null);
+
+  const effectiveBaseUrl = baseUrl.trim() || (provider.id === "ollama" ? "http://localhost:11434" : undefined);
+  const handleSaveBaseUrl = () => {
+    const trimmed = baseUrl.trim();
+    if (trimmed !== (provider.baseUrl ?? "")) {
+      updateProviderBaseUrl(provider.id, trimmed);
+    }
+  };
 
   const handleTest = async () => {
     if (!apiKey && provider.id !== "ollama") return;
@@ -419,13 +495,12 @@ function ProviderCard({ provider }: { provider: any }) {
     setTestResult(null);
     setTestMessage(null);
     try {
-      await invoke("test_api_key", { provider: provider.id, apiKey, baseUrl: provider.baseUrl });
+      await invoke("test_api_key", { provider: provider.id, apiKey, baseUrl: effectiveBaseUrl });
       setTestResult("success");
       setTestMessage("✓ Connection successful! API key is valid.");
       setProviderConnected(provider.id, true);
       if (!providers.value.some(p => p.isConnected)) {
-        activeProvider.value = provider.id;
-        activeModel.value = provider.models[0];
+        setActiveModel(provider.id, provider.models[0]);
       }
     } catch (err: any) {
       setTestResult("error");
@@ -516,12 +591,19 @@ function ProviderCard({ provider }: { provider: any }) {
               {testMessage}
             </p>
           )}
-          <a href={getUrl()} target="_blank" className="text-xs text-accent-primary hover:underline">Get your API key →</a>
+          <a href={getUrl()} target="_blank" rel="noopener noreferrer" className="text-xs text-accent-primary hover:underline">Get your API key →</a>
         </div>
       ) : (
         <div className="space-y-2">
-          <input type="text" defaultValue={provider.baseUrl} placeholder="http://localhost:11434"
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm outline-none focus:border-accent-primary transition-colors" />
+          <input
+            type="text"
+            value={baseUrl}
+            onInput={(e) => setBaseUrl((e.target as HTMLInputElement).value)}
+            onBlur={handleSaveBaseUrl}
+            placeholder="http://localhost:11434"
+            aria-label="Ollama base URL"
+            className="w-full px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm outline-none focus:border-accent-primary transition-colors"
+          />
           <button
             onClick={handleTest}
             disabled={testing}

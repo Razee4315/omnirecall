@@ -4,7 +4,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   viewMode,
   activeModel,
-  activeProvider,
   providers,
   isGenerating,
   currentQuery,
@@ -15,6 +14,7 @@ import {
   Document,
   stopGeneration,
   isCommandPaletteOpen,
+  setActiveModel,
 } from "../../stores/appStore";
 import { useChatSubmit } from "../../hooks/useChatSubmit";
 import { useDocumentLoader } from "../../hooks/useDocumentLoader";
@@ -69,9 +69,8 @@ export function Spotlight() {
       e.preventDefault();
       handleSubmit();
     }
-    if (e.key === "Escape") {
-      invoke("hide_window");
-    }
+    // Escape is handled globally in App.tsx (closes overlays, then hides
+    // window) so we deliberately don't double-handle it here.
   };
 
   const handleCopy = async () => {
@@ -134,8 +133,7 @@ export function Spotlight() {
   };
 
   const selectModel = (providerId: string, model: string) => {
-    activeProvider.value = providerId;
-    activeModel.value = model;
+    setActiveModel(providerId, model);
     setShowModelSelect(false);
   };
 
@@ -151,13 +149,16 @@ export function Spotlight() {
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-xs text-text-secondary"
+                aria-haspopup="listbox"
+                aria-expanded={showModelSelect}
+                aria-label={`Active model: ${activeModel.value}. Click to change.`}
               >
                 <span className="max-w-[100px] truncate">{activeModel.value}</span>
                 <ChevronDownIcon size={10} />
               </button>
 
               {showModelSelect && (
-                <div className="absolute top-full left-0 mt-1 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                <div role="listbox" aria-label="Available AI models" className="absolute top-full left-0 mt-1 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
                   {providers.value.map(provider => (
                     <div key={provider.id}>
                       <div className="px-3 py-1 text-xs text-text-tertiary font-medium">
@@ -356,6 +357,8 @@ export function Spotlight() {
               className="flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"
               rows={1}
               disabled={isGenerating.value}
+              maxLength={200000}
+              aria-label="Chat message input"
             />
             {isGenerating.value ? (
               <button

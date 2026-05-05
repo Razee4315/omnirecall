@@ -7,6 +7,9 @@ pub async fn test_api_key(
     api_key: String,
     base_url: Option<String>,
 ) -> Result<()> {
+    if api_key.trim().is_empty() && provider != "ollama" {
+        return Err(crate::error::AppError::Config("API key is empty".to_string()));
+    }
     let client = AiClient::new(&provider, &api_key, base_url.as_deref());
     client.test_connection().await?;
     Ok(())
@@ -55,9 +58,3 @@ pub async fn get_providers() -> Result<Vec<serde_json::Value>> {
     ])
 }
 
-#[tauri::command]
-pub async fn save_api_key(_provider: String, _api_key: String) -> Result<()> {
-    // For now, we store in frontend state
-    // In production, use keyring crate for secure storage
-    Ok(())
-}

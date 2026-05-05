@@ -16,6 +16,7 @@ pub struct Document {
 
 #[derive(Debug, Deserialize)]
 pub struct AddDocumentsRequest {
+    #[allow(dead_code)]
     pub space_id: String,
     pub file_paths: Vec<String>,
 }
@@ -26,12 +27,6 @@ pub struct AddDocumentsResponse {
     pub errors: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct DocumentContent {
-    pub id: String,
-    pub name: String,
-    pub content: String,
-}
 
 #[tauri::command]
 pub async fn add_documents(request: AddDocumentsRequest) -> Result<AddDocumentsResponse> {
@@ -84,12 +79,50 @@ pub async fn list_documents(_space_id: String) -> Result<Vec<Document>> {
     Ok(vec![])
 }
 
+/// Maximum file size we'll attempt to read (50 MB). Beyond this we refuse
+/// rather than risk OOM or extreme parse latency for poorly-formed input.
+const MAX_DOCUMENT_BYTES: u64 = 50 * 1024 * 1024;
+/// Allow-list of extensions whose content we'll read. Prevents accidental
+/// reads of unexpected binary types (e.g. exe, dll) and makes the surface
+/// callable from the frontend explicit.
+const ALLOWED_EXTENSIONS: &[&str] = &[
+    "pdf", "txt", "md", "rst", "html", "htm",
+    "py", "js", "ts", "tsx", "jsx", "rs", "java", "cpp", "c", "h", "hpp",
+    "go", "rb", "php", "swift", "kt", "cs", "json", "yaml", "yml", "toml",
+    "xml", "csv", "sh", "ps1", "sql", "log", "conf", "ini", "env",
+];
+
+fn is_allowed_extension(ext: &str) -> bool {
+    ALLOWED_EXTENSIONS.iter().any(|allowed| allowed.eq_ignore_ascii_case(ext))
+}
+
 #[tauri::command]
 pub async fn read_document_content(file_path: String) -> Result<String> {
+    // Reject obvious traversal patterns. We cannot meaningfully sandbox the
+    // filesystem here (the user's own dialog picks arbitrary absolute paths)
+    // but we can still refuse paths whose components include `..`, which are
+    // never produced by the dialog and only show up if a caller is trying to
+    // confuse path resolution downstream.
+    if file_path.split(['/', '\\']).any(|s| s == "..") {
+        return Err(AppError::File("Path traversal patterns are not allowed".to_string()));
+    }
+
     let path = Path::new(&file_path);
-    
+
     if !path.exists() {
         return Err(AppError::File(format!("File not found: {}", file_path)));
+    }
+
+    let metadata = fs::metadata(path).map_err(|e| AppError::File(e.to_string()))?;
+    if !metadata.is_file() {
+        return Err(AppError::File("Path is not a regular file".to_string()));
+    }
+    if metadata.len() > MAX_DOCUMENT_BYTES {
+        return Err(AppError::File(format!(
+            "File too large ({} MB). Maximum supported size is {} MB.",
+            metadata.len() / 1_048_576,
+            MAX_DOCUMENT_BYTES / 1_048_576,
+        )));
     }
 
     let extension = path.extension()
@@ -97,18 +130,21 @@ pub async fn read_document_content(file_path: String) -> Result<String> {
         .unwrap_or("")
         .to_lowercase();
 
+    if !is_allowed_extension(&extension) {
+        return Err(AppError::File(format!("Unsupported file type: .{}", extension)));
+    }
+
     let content = match extension.as_str() {
         "pdf" => extract_pdf_text(path)?,
-        "txt" | "md" | "py" | "js" | "ts" | "rs" | "java" | "cpp" | "c" | "h" | "json" | "yaml" | "yml" | "toml" => {
-            fs::read_to_string(path).map_err(|e| AppError::File(e.to_string()))?
-        }
         "html" | "htm" => {
             let html = fs::read_to_string(path).map_err(|e| AppError::File(e.to_string()))?;
             strip_html_tags(&html)
         }
         _ => {
-            // Try to read as text
-            fs::read_to_string(path).unwrap_or_else(|_| String::from("Unable to read file content"))
+            // Text-based formats. Use lossy UTF-8 for files that contain mixed
+            // encodings (e.g. log files) so we still surface readable content.
+            let bytes = fs::read(path).map_err(|e| AppError::File(e.to_string()))?;
+            String::from_utf8(bytes.clone()).unwrap_or_else(|_| String::from_utf8_lossy(&bytes).into_owned())
         }
     };
 
@@ -345,16 +381,15 @@ pub async fn get_relevant_context(
 /// Clear all indexed documents
 #[tauri::command]
 pub async fn clear_index() -> Result<()> {
-    use crate::services::vector_store::VectorStore;
     use directories::ProjectDirs;
-    
+
     if let Some(proj_dirs) = ProjectDirs::from("com", "omnirecall", "OmniRecall") {
         let db_path = proj_dirs.data_dir().join("vectors.db");
         if db_path.exists() {
             std::fs::remove_file(db_path)?;
         }
     }
-    
+
     Ok(())
 }
 

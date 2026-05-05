@@ -136,6 +136,7 @@ impl VectorStore {
     }
     
     /// Get all chunks for a document
+    #[allow(dead_code)]
     pub fn get_document_chunks(&self, document_id: &str) -> Result<Vec<DocumentChunk>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, document_id, document_name, content, embedding, chunk_index, token_count 
@@ -161,6 +162,7 @@ impl VectorStore {
     }
     
     /// Check if a document is already indexed
+    #[allow(dead_code)]
     pub fn document_exists(&self, document_id: &str) -> Result<bool> {
         let count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM chunks WHERE document_id = ?1",

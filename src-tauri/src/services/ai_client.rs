@@ -1,13 +1,36 @@
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 use reqwest::Client;
 use serde::Deserialize;
 use crate::error::{AppError, Result};
-use crate::commands::chat::ChatMessage;
+use crate::commands::chat::{ChatMessage, STREAM_CANCELLED};
+
+/// Connect timeout for all HTTP requests. Long-running streams have no
+/// overall request timeout (streams can legitimately run for minutes), but
+/// connection establishment must not hang.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// Whole-request timeout for non-streaming calls (test_connection, embeddings,
+/// non-streaming chat). Streaming calls override this with a connect-only
+/// budget so they can keep the response open.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+
+fn build_http_client(streaming: bool) -> Client {
+    let mut builder = Client::builder()
+        .connect_timeout(CONNECT_TIMEOUT)
+        // Limit redirect chains to prevent open-redirect / SSRF amplification.
+        .redirect(reqwest::redirect::Policy::limited(3));
+    if !streaming {
+        builder = builder.timeout(REQUEST_TIMEOUT);
+    }
+    builder.build().unwrap_or_else(|_| Client::new())
+}
 
 pub struct AiClient {
     provider: String,
     api_key: String,
     base_url: Option<String>,
     client: Client,
+    streaming_client: Client,
 }
 
 impl AiClient {
@@ -16,8 +39,19 @@ impl AiClient {
             provider: provider.to_string(),
             api_key: api_key.to_string(),
             base_url: base_url.map(String::from),
-            client: Client::new(),
+            client: build_http_client(false),
+            streaming_client: build_http_client(true),
         }
+    }
+
+    /// Redact the API key from any string before it's surfaced to the user
+    /// or logged. Several providers put the key in the URL (Gemini) or the
+    /// Authorization header may be echoed in error envelopes.
+    fn redact(&self, msg: String) -> String {
+        if self.api_key.is_empty() || self.api_key.len() < 6 {
+            return msg;
+        }
+        msg.replace(&self.api_key, "[REDACTED]")
     }
 
     pub async fn test_connection(&self) -> Result<Vec<String>> {
@@ -29,10 +63,6 @@ impl AiClient {
             "glm" => self.test_glm().await,
             _ => Err(AppError::Config("Unknown provider".to_string())),
         }
-    }
-
-    pub async fn chat(&self, model: &str, message: &str) -> Result<String> {
-        self.chat_with_history(model, message, &[], None).await
     }
 
     pub async fn chat_with_history(
@@ -215,7 +245,7 @@ impl AiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("Gemini error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("Gemini error {}: {}", status, error_text))));
         }
 
         let json: serde_json::Value = response.json().await?;
@@ -279,27 +309,32 @@ impl AiClient {
             }
         });
 
-        let response = self.client.post(&url)
+        let response = self.streaming_client.post(&url)
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
-            .await?;
+            .await
+            .map_err(|e| AppError::Network(self.redact(e.to_string())))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("Gemini stream error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("Gemini stream error {}: {}", status, error_text))));
         }
 
         // Stream the response
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
-        
+
         while let Some(chunk_result) = stream.next().await {
-            let chunk = chunk_result.map_err(|e| AppError::Network(e.to_string()))?;
+            // Check if user requested cancellation - drop the connection.
+            if STREAM_CANCELLED.load(Ordering::SeqCst) {
+                break;
+            }
+            let chunk = chunk_result.map_err(|e| AppError::Network(self.redact(e.to_string())))?;
             let text = String::from_utf8_lossy(&chunk);
             buffer.push_str(&text);
-            
+
             // Process lines - SSE format uses "data: " prefix
             for line in buffer.lines().collect::<Vec<_>>() {
                 if let Some(data) = line.strip_prefix("data: ") {
@@ -313,13 +348,13 @@ impl AiClient {
                     }
                 }
             }
-            
+
             // Keep only incomplete line in buffer
             if let Some(last_newline) = buffer.rfind('\n') {
                 buffer = buffer[last_newline + 1..].to_string();
             }
         }
-        
+
         // Signal completion
         let _ = app.emit("chat-stream", serde_json::json!({
             "chunk": "",
@@ -369,7 +404,7 @@ impl AiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("OpenAI error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("OpenAI error {}: {}", status, error_text))));
         }
 
         let json: serde_json::Value = response.json().await?;
@@ -416,7 +451,7 @@ impl AiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("Anthropic error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("Anthropic error {}: {}", status, error_text))));
         }
 
         let json: serde_json::Value = response.json().await?;
@@ -468,7 +503,7 @@ impl AiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("Ollama error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("Ollama error {}: {}", status, error_text))));
         }
 
         let json: serde_json::Value = response.json().await?;
@@ -520,7 +555,7 @@ impl AiClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("GLM error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("GLM error {}: {}", status, error_text))));
         }
 
         let json: serde_json::Value = response.json().await?;
@@ -567,17 +602,18 @@ impl AiClient {
             "stream": true,
         });
 
-        let response = self.client.post("https://api.z.ai/api/paas/v4/chat/completions")
+        let response = self.streaming_client.post("https://api.z.ai/api/paas/v4/chat/completions")
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .json(&body)
             .send()
-            .await?;
+            .await
+            .map_err(|e| AppError::Network(self.redact(e.to_string())))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::Api(format!("GLM stream error {}: {}", status, error_text)));
+            return Err(AppError::Api(self.redact(format!("GLM stream error {}: {}", status, error_text))));
         }
 
         // Stream the response
@@ -585,7 +621,10 @@ impl AiClient {
         let mut buffer = String::new();
 
         while let Some(chunk_result) = stream.next().await {
-            let chunk = chunk_result.map_err(|e| AppError::Network(e.to_string()))?;
+            if STREAM_CANCELLED.load(Ordering::SeqCst) {
+                break;
+            }
+            let chunk = chunk_result.map_err(|e| AppError::Network(self.redact(e.to_string())))?;
             let text = String::from_utf8_lossy(&chunk);
             buffer.push_str(&text);
 

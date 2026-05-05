@@ -319,14 +319,32 @@ export async function loadPersistedData() {
       chatFolders.value = savedFolders;
     }
 
-    // Load API keys
+    // Load API keys + persisted base URLs (Ollama, custom endpoints)
     const savedProviders = await s.get<AIProvider[]>("providers");
     if (savedProviders) {
-      // Merge saved API keys with current providers
       providers.value = providers.value.map(p => {
         const saved = savedProviders.find(sp => sp.id === p.id);
-        return saved ? { ...p, apiKey: saved.apiKey, isConnected: saved.isConnected } : p;
+        if (!saved) return p;
+        return {
+          ...p,
+          apiKey: saved.apiKey,
+          isConnected: saved.isConnected,
+          // Use saved base URL if present, otherwise fall back to defaults.
+          baseUrl: saved.baseUrl !== undefined ? saved.baseUrl : p.baseUrl,
+        };
       });
+    }
+
+    // Load last-used provider/model (only if they're still valid choices).
+    const savedActiveProvider = await s.get<string>("activeProvider");
+    const savedActiveModel = await s.get<string>("activeModel");
+    if (savedActiveProvider && savedActiveModel) {
+      const providerExists = providers.value.find(p => p.id === savedActiveProvider);
+      if (providerExists) {
+        activeProvider.value = savedActiveProvider;
+        // Allow custom models too (e.g. user-added Ollama tags).
+        activeModel.value = savedActiveModel;
+      }
     }
 
     // Load theme
@@ -399,7 +417,7 @@ export async function saveChatFolders() {
   });
 }
 
-// Save providers (API keys) - immediate since it's user-triggered and infrequent
+// Save providers (API keys, baseUrl) - immediate since it's user-triggered and infrequent
 export async function saveProviders() {
   try {
     const s = await getStore();
@@ -408,6 +426,31 @@ export async function saveProviders() {
   } catch (e) {
     console.error("Failed to save providers:", e);
   }
+}
+
+// Save the user's last-selected provider/model so it persists across launches.
+export async function saveActiveModel() {
+  try {
+    const s = await getStore();
+    await s.set("activeProvider", activeProvider.value);
+    await s.set("activeModel", activeModel.value);
+    await s.save();
+  } catch (e) {
+    console.error("Failed to save active model:", e);
+  }
+}
+
+export function setActiveModel(providerId: string, model: string) {
+  activeProvider.value = providerId;
+  activeModel.value = model;
+  saveActiveModel();
+}
+
+export function updateProviderBaseUrl(providerId: string, baseUrl: string) {
+  providers.value = providers.value.map((p) =>
+    p.id === providerId ? { ...p, baseUrl } : p,
+  );
+  saveProviders();
 }
 
 // Save theme - immediate since it's user-triggered
@@ -799,7 +842,11 @@ export function setTheme(newTheme: Theme) {
   saveTheme();
 }
 
-// Stop generation
+// Stop generation: signal both frontend and backend to abort the in-flight stream.
 export function stopGeneration() {
   isGenerating.value = false;
+  // Tell the Rust side to drop its streaming HTTP connection. Fire-and-forget;
+  // a failure here is non-fatal because the frontend has already stopped
+  // updating the UI.
+  invoke("stop_generation").catch(() => {});
 }

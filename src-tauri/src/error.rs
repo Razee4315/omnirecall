@@ -2,6 +2,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+#[allow(dead_code)] // RateLimited / Unknown are reserved for future use
 pub enum AppError {
     #[error("Network error: {0}")]
     Network(String),
