@@ -29,12 +29,10 @@ import {
   stopGeneration,
   isCommandPaletteOpen,
   isMaximized,
-  setActiveModel,
 } from "../../stores/appStore";
 import { useChatSubmit, parseApiError } from "../../hooks/useChatSubmit";
 import { useDocumentLoader } from "../../hooks/useDocumentLoader";
 import { useDebouncedSearch } from "../../hooks/useDebouncedSearch";
-import { useClickOutside } from "../../hooks/useClickOutside";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import {
   LogoIcon,
@@ -61,6 +59,7 @@ import { Markdown } from "../common/Markdown";
 import { TokenCounter } from "../common/TokenCounter";
 import { ExportImport } from "../common/ExportImport";
 import { FolderManager } from "../common/FolderManager";
+import { ModelSelector } from "../common/ModelSelector";
 import { WindowControls, DragRegion } from "../common/WindowControls";
 import { RagDebugPanel } from "../common/RagDebugPanel";
 import { DocumentListSkeleton } from "../common/Skeleton";
@@ -69,7 +68,6 @@ export function Dashboard() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showModelSelect, setShowModelSelect] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"chats" | "folders" | "docs">("chats");
   const [showExport, setShowExport] = useState(false);
@@ -83,7 +81,6 @@ export function Dashboard() {
   const { docsWithContent, loadingDocs, totalDocsLoaded } = useDocumentLoader();
   const { localSearchQuery, setLocalSearchQuery } = useDebouncedSearch(300);
   const { handleSubmit, cleanupStream } = useChatSubmit(docsWithContent, setError);
-  const modelSelectorRef = useClickOutside<HTMLDivElement>(() => setShowModelSelect(false), showModelSelect);
   const handleAutoResize = useAutoResize(200);
 
   // Clean up stream listener on unmount
@@ -221,11 +218,6 @@ export function Dashboard() {
     removeDocument(docId);
   };
 
-  const selectModel = (providerId: string, model: string) => {
-    setActiveModel(providerId, model);
-    setShowModelSelect(false);
-  };
-
   const handleCopyMessage = async (content: string, messageId: string) => {
     await navigator.clipboard.writeText(content);
     setCopiedMessageId(messageId);
@@ -323,9 +315,11 @@ export function Dashboard() {
           <button
             onClick={handleNewChat}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-accent-primary text-white text-sm hover:bg-accent-primary/90 transition-colors"
+            title="New Chat (Ctrl+N)"
           >
             <PlusIcon size={16} />
-            New Chat
+            <span>New Chat</span>
+            <kbd className="ml-auto px-1.5 py-0.5 bg-white/15 rounded text-[10px] font-mono">Ctrl+N</kbd>
           </button>
 
           {/* Sidebar Tabs */}
@@ -564,61 +558,8 @@ export function Dashboard() {
             <span className="font-semibold text-text-primary">OmniRecall</span>
 
             {/* Model Selector */}
-            <div className="relative ml-4" ref={modelSelectorRef}>
-              <button
-                onClick={() => setShowModelSelect(!showModelSelect)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-sm text-text-secondary"
-                aria-haspopup="listbox"
-                aria-expanded={showModelSelect}
-                aria-label={`Active model: ${activeModel.value}. Click to change.`}
-              >
-                <span>{activeModel.value}</span>
-                <ChevronDownIcon size={14} />
-              </button>
-
-              {showModelSelect && (
-                <div role="listbox" aria-label="Available AI models" className="absolute top-full left-0 mt-1 w-64 bg-bg-primary border border-border rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
-                  {providers.value.map(provider => (
-                    <div key={provider.id}>
-                      <div className="px-3 py-2 text-xs text-text-tertiary font-medium border-b border-border">
-                        {provider.name}
-                        {!provider.apiKey && provider.id !== "ollama" && (
-                          <span className="text-warning ml-1">(no key)</span>
-                        )}
-                      </div>
-                      {provider.models.map(model => (
-                        <button
-                          key={model}
-                          onClick={() => selectModel(provider.id, model)}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-bg-tertiary transition-colors ${activeModel.value === model ? "text-accent-primary bg-accent-primary/10" : "text-text-primary"
-                            }`}
-                        >
-                          {model}
-                        </button>
-                      ))}
-                      {provider.id === "ollama" && (
-                        <div className="px-3 py-2 border-t border-border mt-1">
-                          <input
-                            type="text"
-                            placeholder="Enter custom model name..."
-                            className="w-full px-2 py-1.5 bg-bg-tertiary border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                const value = (e.target as HTMLInputElement).value.trim();
-                                if (value) {
-                                  selectModel("ollama", value);
-                                  (e.target as HTMLInputElement).value = "";
-                                }
-                              }
-                            }}
-                          />
-                          <p className="text-xs text-text-tertiary mt-1">Press Enter to use custom model</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="ml-4">
+              <ModelSelector />
             </div>
 
             {/* Token Counter */}
@@ -642,7 +583,8 @@ export function Dashboard() {
               <button
                 onClick={() => setShowExport(true)}
                 className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-                title="Export Chat"
+                title="Export chat"
+                aria-label="Export chat"
               >
                 <DownloadIcon size={18} />
               </button>
@@ -650,14 +592,16 @@ export function Dashboard() {
             <button
               onClick={() => (isSettingsOpen.value = true)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-              title="Settings"
+              title="Settings (Ctrl+,)"
+              aria-label="Settings"
             >
               <SettingsIcon size={18} />
             </button>
             <button
               onClick={handleBackToSpotlight}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-              title="Back to Spotlight"
+              title="Back to Spotlight (Esc)"
+              aria-label="Back to Spotlight"
             >
               <CloseIcon size={16} />
             </button>
@@ -883,8 +827,25 @@ export function Dashboard() {
 
         {/* Error */}
         {error && (
-          <div className="px-4 py-2 bg-error/10 border-t border-error/20">
-            <p className="text-sm text-error text-center">{error}</p>
+          <div className="px-4 py-2 bg-error/10 border-t border-error/20 flex items-center justify-between gap-3" role="alert">
+            <p className="text-sm text-error flex-1">{error}</p>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/Settings|API key/i.test(error) && (
+                <button
+                  onClick={() => (isSettingsOpen.value = true)}
+                  className="px-2.5 py-1 rounded text-xs bg-error/20 text-error hover:bg-error/30 transition-colors"
+                >
+                  Open Settings
+                </button>
+              )}
+              <button
+                onClick={() => setError(null)}
+                className="p-1 rounded text-error/70 hover:text-error hover:bg-error/10 transition-colors"
+                aria-label="Dismiss error"
+              >
+                <CloseIcon size={12} />
+              </button>
+            </div>
           </div>
         )}
 
@@ -913,6 +874,7 @@ export function Dashboard() {
                   onClick={stopGeneration}
                   className="p-2 rounded-lg bg-error text-white hover:bg-error/90 transition-all flex-shrink-0"
                   title="Stop generating (Ctrl+.)"
+                  aria-label="Stop generating"
                 >
                   <StopIcon size={18} />
                 </button>
@@ -924,9 +886,23 @@ export function Dashboard() {
                     ? "bg-accent-primary text-white hover:bg-accent-primary/90"
                     : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
                     }`}
+                  title={currentQuery.value.trim() ? "Send (Enter)" : "Type a message to send"}
+                  aria-label={currentQuery.value.trim() ? "Send message" : "Send disabled — type a message first"}
                 >
                   <SendIcon size={18} />
                 </button>
+              )}
+            </div>
+            {/* Footer: character counter (only when getting close to limit) and shortcut hints */}
+            <div className="flex items-center justify-between mt-1.5 px-1 text-[10px] text-text-tertiary">
+              <div className="flex items-center gap-3">
+                <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> send</span>
+                <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Shift</kbd>+<kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> newline</span>
+              </div>
+              {currentQuery.value.length > 100_000 && (
+                <span className={currentQuery.value.length > 180_000 ? "text-warning" : ""}>
+                  {currentQuery.value.length.toLocaleString()} / 200,000
+                </span>
               )}
             </div>
           </div>

@@ -3,8 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   viewMode,
-  activeModel,
-  providers,
   isGenerating,
   currentQuery,
   isSettingsOpen,
@@ -14,11 +12,9 @@ import {
   Document,
   stopGeneration,
   isCommandPaletteOpen,
-  setActiveModel,
 } from "../../stores/appStore";
 import { useChatSubmit } from "../../hooks/useChatSubmit";
 import { useDocumentLoader } from "../../hooks/useDocumentLoader";
-import { useClickOutside } from "../../hooks/useClickOutside";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import {
   LogoIcon,
@@ -27,7 +23,6 @@ import {
   ExpandIcon,
   CopyIcon,
   RefreshIcon,
-  ChevronDownIcon,
   CloseIcon,
   FolderIcon,
   TypingIndicator,
@@ -36,20 +31,19 @@ import {
   CommandIcon,
 } from "../icons";
 import { Markdown } from "../common/Markdown";
+import { ModelSelector } from "../common/ModelSelector";
 import { TokenCounter } from "../common/TokenCounter";
 
 export function Spotlight() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
-  const [showModelSelect, setShowModelSelect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   // Shared hooks - eliminates code duplication with Dashboard
   const { docsWithContent, totalDocsLoaded } = useDocumentLoader();
   const { handleSubmit, cleanupStream } = useChatSubmit(docsWithContent, setError);
-  const modelSelectorRef = useClickOutside<HTMLDivElement>(() => setShowModelSelect(false), showModelSelect);
   const handleAutoResize = useAutoResize(60);
 
   // Clean up stream listener on unmount
@@ -132,11 +126,6 @@ export function Spotlight() {
     }
   };
 
-  const selectModel = (providerId: string, model: string) => {
-    setActiveModel(providerId, model);
-    setShowModelSelect(false);
-  };
-
   return (
     <div className="h-full w-full flex flex-col">
       <div className="glass rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in m-2 flex flex-col flex-1">
@@ -145,59 +134,7 @@ export function Spotlight() {
           <div className="flex items-center gap-2 no-drag">
             <LogoIcon size={18} className="text-accent-primary" />
 
-            <div className="relative" ref={modelSelectorRef}>
-              <button
-                onClick={() => setShowModelSelect(!showModelSelect)}
-                className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-xs text-text-secondary"
-                aria-haspopup="listbox"
-                aria-expanded={showModelSelect}
-                aria-label={`Active model: ${activeModel.value}. Click to change.`}
-              >
-                <span className="max-w-[100px] truncate">{activeModel.value}</span>
-                <ChevronDownIcon size={10} />
-              </button>
-
-              {showModelSelect && (
-                <div role="listbox" aria-label="Available AI models" className="absolute top-full left-0 mt-1 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                  {providers.value.map(provider => (
-                    <div key={provider.id}>
-                      <div className="px-3 py-1 text-xs text-text-tertiary font-medium">
-                        {provider.name}
-                      </div>
-                      {provider.models.map(model => (
-                        <button
-                          key={model}
-                          onClick={() => selectModel(provider.id, model)}
-                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-bg-tertiary transition-colors ${activeModel.value === model ? "text-accent-primary bg-accent-primary/10" : "text-text-primary"
-                            }`}
-                        >
-                          {model}
-                        </button>
-                      ))}
-                      {provider.id === "ollama" && (
-                        <div className="px-3 py-2 border-t border-border mt-1">
-                          <input
-                            type="text"
-                            placeholder="Custom model name..."
-                            className="w-full px-2 py-1.5 bg-bg-tertiary border border-border rounded text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                const value = (e.target as HTMLInputElement).value.trim();
-                                if (value) {
-                                  selectModel("ollama", value);
-                                  (e.target as HTMLInputElement).value = "";
-                                }
-                              }
-                            }}
-                          />
-                          <p className="text-xs text-text-tertiary mt-1">Press Enter to use</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ModelSelector compact />
 
             {/* Token Counter */}
             {currentMessages.value.length > 0 && (
@@ -337,8 +274,25 @@ export function Spotlight() {
 
         {/* Error */}
         {error && (
-          <div className="px-3 py-2 bg-error/10 border-t border-error/20">
-            <p className="text-xs text-error">{error}</p>
+          <div className="px-3 py-2 bg-error/10 border-t border-error/20 flex items-center justify-between gap-2" role="alert">
+            <p className="text-xs text-error flex-1">{error}</p>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/Settings|API key/i.test(error) && (
+                <button
+                  onClick={() => (isSettingsOpen.value = true)}
+                  className="px-2 py-0.5 rounded text-[10px] bg-error/20 text-error hover:bg-error/30 transition-colors"
+                >
+                  Settings
+                </button>
+              )}
+              <button
+                onClick={() => setError(null)}
+                className="p-0.5 rounded text-error/70 hover:text-error transition-colors"
+                aria-label="Dismiss error"
+              >
+                <CloseIcon size={10} />
+              </button>
+            </div>
           </div>
         )}
 
@@ -365,6 +319,7 @@ export function Spotlight() {
                 onClick={stopGeneration}
                 className="p-2 rounded-lg bg-error text-white hover:bg-error/90 transition-all flex-shrink-0"
                 title="Stop generating (Ctrl+.)"
+                aria-label="Stop generating"
               >
                 <StopIcon size={14} />
               </button>
@@ -376,6 +331,8 @@ export function Spotlight() {
                   ? "bg-accent-primary text-white hover:bg-accent-primary/90"
                   : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
                   }`}
+                title={currentQuery.value.trim() ? "Send (Enter)" : "Type a message to send"}
+                aria-label={currentQuery.value.trim() ? "Send message" : "Send disabled — type a message first"}
               >
                 <SendIcon size={14} />
               </button>
