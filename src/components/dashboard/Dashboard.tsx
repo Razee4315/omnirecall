@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "preact/hooks";
+import { useState, useRef, useEffect, useMemo } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -92,6 +92,43 @@ export function Dashboard() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [currentMessages.value]);
+
+  // Group sessions by date once per chatHistory change instead of on every
+  // render. This was previously rebuilt inside the JSX IIFE on every signal
+  // update — including every streaming chunk — which is O(N) avoidable work.
+  const groupedSessions = useMemo(() => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const todayStr = today.toDateString();
+    const yesterdayStr = yesterday.toDateString();
+
+    const getDateGroup = (dateStr: string) => {
+      const ds = new Date(dateStr).toDateString();
+      if (ds === todayStr) return "Today";
+      if (ds === yesterdayStr) return "Yesterday";
+      return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    };
+
+    const grouped = chatHistory.value.reduce((acc, session) => {
+      const group = getDateGroup(session.createdAt);
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(session);
+      return acc;
+    }, {} as Record<string, typeof chatHistory.value>);
+
+    const groupOrder = ["Today", "Yesterday"];
+    const sortedGroups = Object.keys(grouped).sort((a, b) => {
+      const aIdx = groupOrder.indexOf(a);
+      const bIdx = groupOrder.indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return 0;
+    });
+
+    return { grouped, sortedGroups };
+  }, [chatHistory.value]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -363,37 +400,7 @@ export function Dashboard() {
                     </div>
                   ))}
                 </div>
-              ) : (() => {
-                // Group chats by date
-                const getDateGroup = (dateStr: string) => {
-                  const date = new Date(dateStr);
-                  const today = new Date();
-                  const yesterday = new Date(today);
-                  yesterday.setDate(yesterday.getDate() - 1);
-
-                  if (date.toDateString() === today.toDateString()) return "Today";
-                  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                };
-
-                const grouped = chatHistory.value.reduce((acc, session) => {
-                  const group = getDateGroup(session.createdAt);
-                  if (!acc[group]) acc[group] = [];
-                  acc[group].push(session);
-                  return acc;
-                }, {} as Record<string, typeof chatHistory.value>);
-
-                const groupOrder = ["Today", "Yesterday"];
-                const sortedGroups = Object.keys(grouped).sort((a, b) => {
-                  const aIdx = groupOrder.indexOf(a);
-                  const bIdx = groupOrder.indexOf(b);
-                  if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-                  if (aIdx !== -1) return -1;
-                  if (bIdx !== -1) return 1;
-                  return 0;
-                });
-
-                return (
+              ) : (
                   <div className="space-y-2 px-2">
                     {chatHistory.value.length === 0 ? (
                       <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
@@ -403,11 +410,11 @@ export function Dashboard() {
                         <div className="text-xs text-text-tertiary">No conversations yet</div>
                         <div className="text-[10px] text-text-tertiary">Start chatting to see your history here</div>
                       </div>
-                    ) : sortedGroups.map(group => (
+                    ) : groupedSessions.sortedGroups.map(group => (
                       <div key={group}>
                         <div className="text-xs text-text-tertiary px-2 py-1 uppercase tracking-wide">{group}</div>
                         <div className="space-y-0.5">
-                          {grouped[group].map(session => (
+                          {groupedSessions.grouped[group].map(session => (
                             <div
                               key={session.id}
                               draggable
@@ -454,8 +461,7 @@ export function Dashboard() {
                       </div>
                     ))}
                   </div>
-                );
-              })()}
+              )}
             </>
           )}
 
@@ -562,13 +568,16 @@ export function Dashboard() {
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-sm text-text-secondary"
+                aria-haspopup="listbox"
+                aria-expanded={showModelSelect}
+                aria-label={`Active model: ${activeModel.value}. Click to change.`}
               >
                 <span>{activeModel.value}</span>
                 <ChevronDownIcon size={14} />
               </button>
 
               {showModelSelect && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-bg-primary border border-border rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
+                <div role="listbox" aria-label="Available AI models" className="absolute top-full left-0 mt-1 w-64 bg-bg-primary border border-border rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto">
                   {providers.value.map(provider => (
                     <div key={provider.id}>
                       <div className="px-3 py-2 text-xs text-text-tertiary font-medium border-b border-border">
@@ -667,6 +676,11 @@ export function Dashboard() {
         <div
           className="flex-1 overflow-y-auto p-4 relative"
           ref={messagesContainerRef}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-atomic="false"
+          aria-label="Conversation"
           onScroll={(e) => {
             const el = e.target as HTMLDivElement;
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;

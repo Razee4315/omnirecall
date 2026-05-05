@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import {
   isSettingsOpen,
@@ -28,13 +28,62 @@ type SettingsTab = "providers" | "appearance" | "shortcuts" | "developer";
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("providers");
   const isCompact = viewMode.value === "spotlight";
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const handleClose = () => {
     isSettingsOpen.value = false;
   };
 
+  // Focus trap: keep Tab navigation inside the modal so users (and screen
+  // reader users in particular) can't accidentally tab into the chat input
+  // or sidebar behind the overlay.
+  useEffect(() => {
+    const root = dialogRef.current;
+    if (!root) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const focusable = (): HTMLElement[] => {
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter(el => !el.hasAttribute("aria-hidden") && el.offsetParent !== null);
+    };
+
+    // Move focus into the modal on mount.
+    const els = focusable();
+    if (els.length > 0) els[0].focus();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement;
+      if (e.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    root.addEventListener("keydown", handleKey);
+    return () => {
+      root.removeEventListener("keydown", handleKey);
+      // Restore focus to whatever opened the modal so keyboard users
+      // don't get teleported back to the document body.
+      previouslyFocused?.focus?.();
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2" role="dialog" aria-modal="true" aria-label="Settings">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center p-2" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
       <div className={`relative w-full bg-bg-primary rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in ${isCompact ? "max-w-sm max-h-[90vh]" : "max-w-2xl max-h-[85vh]"
         }`}>

@@ -15,6 +15,7 @@ import {
   isShortcutsHelpOpen,
   loadPersistedData,
   applyThemeClasses,
+  flushPendingSaves,
 } from "./stores/appStore";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
@@ -41,6 +42,16 @@ export function App() {
       e.preventDefault();
     };
     document.addEventListener("contextmenu", handleContextMenu);
+
+    // Flush pending debounced saves before the window unloads. Without this
+    // a user closing the app within ~1.5s of typing can lose their last
+    // chat history / folder updates because the debounced writer hasn't
+    // fired yet.
+    const handleUnload = () => {
+      flushPendingSaves();
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Command Palette (Ctrl+K)
@@ -177,7 +188,12 @@ export function App() {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
   }, []);
 
   // Watch theme changes

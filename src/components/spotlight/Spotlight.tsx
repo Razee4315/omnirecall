@@ -150,13 +150,16 @@ export function Spotlight() {
               <button
                 onClick={() => setShowModelSelect(!showModelSelect)}
                 className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-bg-tertiary transition-colors text-xs text-text-secondary"
+                aria-haspopup="listbox"
+                aria-expanded={showModelSelect}
+                aria-label={`Active model: ${activeModel.value}. Click to change.`}
               >
                 <span className="max-w-[100px] truncate">{activeModel.value}</span>
                 <ChevronDownIcon size={10} />
               </button>
 
               {showModelSelect && (
-                <div className="absolute top-full left-0 mt-1 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+                <div role="listbox" aria-label="Available AI models" className="absolute top-full left-0 mt-1 w-52 bg-bg-secondary border border-border rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
                   {providers.value.map(provider => (
                     <div key={provider.id}>
                       <div className="px-3 py-1 text-xs text-text-tertiary font-medium">
