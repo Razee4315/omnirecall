@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
 mod commands;
 mod services;
 mod config;
@@ -216,7 +213,6 @@ pub fn run() {
             commands::chat::stop_generation,
             commands::providers::test_api_key,
             commands::providers::get_providers,
-            commands::providers::save_api_key,
             commands::documents::add_documents,
             commands::documents::remove_document,
             commands::documents::list_documents,

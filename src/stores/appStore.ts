@@ -799,7 +799,11 @@ export function setTheme(newTheme: Theme) {
   saveTheme();
 }
 
-// Stop generation
+// Stop generation: signal both frontend and backend to abort the in-flight stream.
 export function stopGeneration() {
   isGenerating.value = false;
+  // Tell the Rust side to drop its streaming HTTP connection. Fire-and-forget;
+  // a failure here is non-fatal because the frontend has already stopped
+  // updating the UI.
+  invoke("stop_generation").catch(() => {});
 }

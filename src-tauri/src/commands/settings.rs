@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::fs;
 use crate::config::{AppConfig, get_config_path};
 use crate::error::{AppError, Result};

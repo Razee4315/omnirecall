@@ -39,10 +39,12 @@ pub fn get_config_path() -> PathBuf {
     get_data_dir().join("config.json")
 }
 
+#[allow(dead_code)]
 pub fn get_documents_dir() -> PathBuf {
     get_data_dir().join("documents")
 }
 
+#[allow(dead_code)]
 pub fn get_database_dir() -> PathBuf {
     get_data_dir().join("db")
 }
