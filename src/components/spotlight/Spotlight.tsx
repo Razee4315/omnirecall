@@ -69,9 +69,8 @@ export function Spotlight() {
       e.preventDefault();
       handleSubmit();
     }
-    if (e.key === "Escape") {
-      invoke("hide_window");
-    }
+    // Escape is handled globally in App.tsx (closes overlays, then hides
+    // window) so we deliberately don't double-handle it here.
   };
 
   const handleCopy = async () => {
@@ -358,6 +357,8 @@ export function Spotlight() {
               className="flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"
               rows={1}
               disabled={isGenerating.value}
+              maxLength={200000}
+              aria-label="Chat message input"
             />
             {isGenerating.value ? (
               <button

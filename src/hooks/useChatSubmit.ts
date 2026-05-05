@@ -24,6 +24,12 @@ interface DocumentWithContent {
   content?: string;
 }
 
+/// Hard cap on a single user message. The actual model context window is
+/// far smaller than this, but we use the cap as a frontline guard against
+/// pasted megabytes of text (which would freeze the textarea). The error
+/// message points the user toward the document feature for large content.
+export const MAX_MESSAGE_CHARS = 200_000;
+
 // Parse and simplify API error messages for user display
 export function parseApiError(err: any): string {
   const rawMessage = err?.message || err?.toString() || "Failed to get response";
@@ -86,6 +92,15 @@ export function useChatSubmit(
 
   const handleSubmit = useCallback(async () => {
     if (!currentQuery.value.trim() || isGenerating.value) return;
+
+    if (currentQuery.value.length > MAX_MESSAGE_CHARS) {
+      setError(
+        `Message is too long (${currentQuery.value.length.toLocaleString()} characters). ` +
+        `Maximum is ${MAX_MESSAGE_CHARS.toLocaleString()}. ` +
+        `For larger content, add it as a document instead.`,
+      );
+      return;
+    }
 
     const provider = providers.value.find(p => p.id === activeProvider.value);
     if (!provider?.apiKey && provider?.id !== "ollama") {

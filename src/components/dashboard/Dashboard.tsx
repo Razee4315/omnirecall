@@ -904,6 +904,8 @@ export function Dashboard() {
                 className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"
                 rows={1}
                 disabled={isGenerating.value}
+                maxLength={200000}
+                aria-label="Chat message input"
                 style={{ lineHeight: '24px' }}
               />
               {isGenerating.value ? (

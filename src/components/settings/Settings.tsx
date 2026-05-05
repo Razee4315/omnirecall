@@ -591,7 +591,7 @@ function ProviderCard({ provider }: { provider: any }) {
               {testMessage}
             </p>
           )}
-          <a href={getUrl()} target="_blank" className="text-xs text-accent-primary hover:underline">Get your API key →</a>
+          <a href={getUrl()} target="_blank" rel="noopener noreferrer" className="text-xs text-accent-primary hover:underline">Get your API key →</a>
         </div>
       ) : (
         <div className="space-y-2">
