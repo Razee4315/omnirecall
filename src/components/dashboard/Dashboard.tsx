@@ -554,11 +554,13 @@ export function Dashboard() {
             >
               <MenuIcon size={18} />
             </button>
-            <LogoIcon size={24} className="text-accent-primary" />
-            <span className="font-semibold text-text-primary">OmniRecall</span>
+            <LogoIcon size={22} className="text-accent-primary" aria-hidden="true" />
+            {/* App name only at wider widths - keeps the header airy when the
+                model selector / token counter / doc badge are all visible. */}
+            <span className="hidden lg:inline font-semibold text-text-primary">OmniRecall</span>
 
             {/* Model Selector */}
-            <div className="ml-4">
+            <div className="lg:ml-3 ml-1">
               <ModelSelector />
             </div>
 
@@ -568,27 +570,37 @@ export function Dashboard() {
             )}
 
             {totalDocsLoaded > 0 && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-accent-primary/10 rounded-lg">
+              <button
+                onClick={() => { setSidebarOpen(true); setSidebarTab("docs"); }}
+                className="flex items-center gap-1.5 px-2 py-1 bg-accent-primary/10 rounded-lg hover:bg-accent-primary/20 transition-colors"
+                title={`${totalDocsLoaded} document${totalDocsLoaded > 1 ? "s" : ""} loaded — click to manage`}
+                aria-label={`Manage ${totalDocsLoaded} loaded document${totalDocsLoaded > 1 ? "s" : ""}`}
+              >
                 <DocumentIcon size={14} className="text-accent-primary" />
                 <span className="text-xs text-accent-primary">{totalDocsLoaded} doc{totalDocsLoaded > 1 ? 's' : ''}</span>
-              </div>
+              </button>
             )}
           </div>
 
           {/* Drag Area - invisible but draggable */}
           <DragRegion className="h-full" />
 
-          <div className="flex items-center gap-1 no-drag">
+          <div className="flex items-center gap-0.5 no-drag">
+            {/* Per-chat actions cluster (only visible when there's a session). */}
             {currentSession && (
-              <button
-                onClick={() => setShowExport(true)}
-                className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-                title="Export chat"
-                aria-label="Export chat"
-              >
-                <DownloadIcon size={18} />
-              </button>
+              <>
+                <button
+                  onClick={() => setShowExport(true)}
+                  className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
+                  title="Export chat"
+                  aria-label="Export chat"
+                >
+                  <DownloadIcon size={18} />
+                </button>
+                <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+              </>
             )}
+            {/* App-level actions cluster. */}
             <button
               onClick={() => (isSettingsOpen.value = true)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
@@ -607,7 +619,7 @@ export function Dashboard() {
             </button>
 
             {/* Window Controls */}
-            <div className="ml-2 border-l border-border pl-2">
+            <div className="ml-1 border-l border-border pl-1">
               <WindowControls
                 isMaximized={isMaximized.value}
                 showFullscreen={false}
@@ -624,6 +636,7 @@ export function Dashboard() {
           aria-live="polite"
           aria-relevant="additions text"
           aria-atomic="false"
+          aria-busy={isGenerating.value}
           aria-label="Conversation"
           onScroll={(e) => {
             const el = e.target as HTMLDivElement;
@@ -753,16 +766,23 @@ export function Dashboard() {
                       <Markdown content={message.content} className="text-sm leading-relaxed" />
                     )}
 
-                    {/* Message Actions - Always visible */}
-                    <div className={`flex items-center gap-1 mt-2 ${message.role === "user" ? "justify-end" : "justify-start"
-                      }`}>
+                    {/* Message actions: hidden until message is hovered/focused
+                        to keep messages visually clean. The copy button stays
+                        visible briefly after copying so the success state is
+                        readable. */}
+                    <div className={`flex items-center gap-1 mt-2 transition-opacity ${
+                        copiedMessageId === message.id
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                      } ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                       <button
                         onClick={() => handleCopyMessage(message.content, message.id)}
-                        className={`p-1 rounded text-xs ${message.role === "user"
-                          ? "text-white/60 hover:text-white hover:bg-white/10"
+                        className={`p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs ${message.role === "user"
+                          ? "text-white/70 hover:text-white hover:bg-white/10"
                           : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
                           }`}
-                        title="Copy"
+                        title={copiedMessageId === message.id ? "Copied!" : "Copy message"}
+                        aria-label="Copy message"
                       >
                         {copiedMessageId === message.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
                       </button>
@@ -771,8 +791,9 @@ export function Dashboard() {
                       {message.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && (
                         <button
                           onClick={() => handleRegenerate(message.id)}
-                          className="p-1 rounded text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-                          title="Regenerate (creates a new branch)"
+                          className="p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+                          title="Regenerate response (creates a new branch)"
+                          aria-label="Regenerate response"
                         >
                           <RegenerateIcon size={12} />
                         </button>
@@ -782,8 +803,9 @@ export function Dashboard() {
                       {message.role === "assistant" && index < currentMessages.value.length - 1 && (
                         <button
                           onClick={() => handleBranch(message.id)}
-                          className="p-1 rounded text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-                          title="Branch from here"
+                          className="p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+                          title="Branch conversation from here"
+                          aria-label="Branch from this message"
                         >
                           <BranchIcon size={12} />
                         </button>
