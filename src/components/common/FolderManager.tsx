@@ -160,6 +160,25 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
 
             {/* Folders List */}
             <div className="flex-1 overflow-y-auto">
+                {chatFolders.value.length === 0 && !isAddingFolder && (
+                    <div className="px-3 py-6 text-center">
+                        <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-bg-tertiary flex items-center justify-center">
+                            <FolderIcon size={20} className="text-text-tertiary" />
+                        </div>
+                        <p className="text-xs text-text-secondary mb-1 font-medium">Organize chats into folders</p>
+                        <p className="text-[10px] text-text-tertiary leading-relaxed mb-3">
+                            Drag any chat from the sidebar onto a folder to file it.
+                        </p>
+                        <button
+                            onClick={() => setIsAddingFolder(true)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-accent-primary text-white text-xs hover:bg-accent-primary/90 transition-colors"
+                        >
+                            <PlusIcon size={12} />
+                            New folder
+                        </button>
+                    </div>
+                )}
+
                 {/* Custom Folders */}
                 {chatFolders.value.map((folder) => (
                     <FolderItem

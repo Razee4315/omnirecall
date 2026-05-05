@@ -104,7 +104,9 @@ export function useChatSubmit(
 
     const provider = providers.value.find(p => p.id === activeProvider.value);
     if (!provider?.apiKey && provider?.id !== "ollama") {
-      setError("Please add your API key in Settings");
+      setError(
+        `No API key for ${provider?.name ?? activeProvider.value}. Open Settings (Ctrl+,) to add one.`,
+      );
       return;
     }
 
