@@ -102,6 +102,13 @@ export const isShortcutsHelpOpen = signal(false);
 export const isOnboardingActive = signal(false);
 export const hasCompletedOnboarding = signal(false);
 
+// System Prompt: a persistent instruction prepended to every conversation.
+// Lets users set persona/role/tone without having to repeat themselves at
+// the top of each new chat. Stored locally and bounded to keep it from
+// eating the whole context window.
+export const MAX_SYSTEM_PROMPT_CHARS = 8_000;
+export const systemPrompt = signal<string>("");
+
 // AI Provider State
 export const providers = signal<AIProvider[]>([
   {
@@ -272,6 +279,7 @@ export async function flushPendingSaves() {
     await s.set("customModels", customModels.value);
     await s.set("activeProvider", activeProvider.value);
     await s.set("activeModel", activeModel.value);
+    await s.set("systemPrompt", systemPrompt.value);
     await s.save();
   } catch (e) {
     console.error("Failed to flush saves:", e);
@@ -404,6 +412,12 @@ export async function loadPersistedData() {
       applyThemeClasses(savedTheme);
     }
 
+    // Load system prompt
+    const savedPrompt = await s.get<string>("systemPrompt");
+    if (typeof savedPrompt === "string") {
+      systemPrompt.value = savedPrompt.slice(0, MAX_SYSTEM_PROMPT_CHARS);
+    }
+
     // Load documents
     const savedDocs = await s.get<Document[]>("documents");
     if (savedDocs) {
@@ -525,6 +539,24 @@ export function removeCustomModel(providerId: string, model: string) {
       saveActiveModel();
     }
   }
+}
+
+/// Save the user's system prompt. Bounded to MAX_SYSTEM_PROMPT_CHARS so
+/// pasted megabytes can't bloat the on-disk JSON store.
+export function setSystemPrompt(value: string) {
+  const bounded = value.length > MAX_SYSTEM_PROMPT_CHARS
+    ? value.slice(0, MAX_SYSTEM_PROMPT_CHARS)
+    : value;
+  systemPrompt.value = bounded;
+  debouncedSave("systemPrompt", async () => {
+    try {
+      const s = await getStore();
+      await s.set("systemPrompt", systemPrompt.value);
+      await s.save();
+    } catch (e) {
+      console.error("Failed to save system prompt:", e);
+    }
+  });
 }
 
 // Save the user's last-selected provider/model so it persists across launches.
@@ -907,6 +939,18 @@ export function exportSession(session: ChatSession, format: 'json' | 'md', branc
   return md;
 }
 
+/// Export every chat session in the current store. The output is a single
+/// JSON envelope with version + exportedAt so we can read it back from a
+/// future schema. Branches are preserved.
+export function exportAllSessions(): string {
+  return JSON.stringify({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    sessions: chatHistory.value,
+    folders: chatFolders.value,
+  }, null, 2);
+}
+
 export function importSession(jsonString: string): ChatSession | null {
   try {
     const data = JSON.parse(jsonString);
@@ -939,6 +983,40 @@ export function setTheme(newTheme: Theme) {
   theme.value = newTheme;
   applyThemeClasses(newTheme);
   saveTheme();
+}
+
+/// Wipe all locally-stored user data: chat history, folders, documents,
+/// API keys, custom models, system prompt, theme. Used by Settings →
+/// "Reset all data". Doesn't clear the Rust-side vector index (call
+/// `clear_index` separately for that).
+export async function resetAllData() {
+  try {
+    const s = await getStore();
+    // Clear in-memory state first so the UI updates instantly.
+    chatHistory.value = [];
+    chatFolders.value = [];
+    documents.value = [];
+    customModels.value = {};
+    systemPrompt.value = "";
+    activeSessionId.value = null;
+    activeBranchId.value = null;
+    currentMessages.value = [];
+    // Wipe API keys but keep the provider list shape.
+    providers.value = providers.value.map(p => ({
+      ...p,
+      apiKey: "",
+      isConnected: false,
+    }));
+    // Cancel any pending debounced writes - we're about to overwrite anyway.
+    for (const [, timer] of debounceTimers.entries()) clearTimeout(timer);
+    debounceTimers.clear();
+    // Clear underlying store. Using clear() avoids stale keys outliving us.
+    await s.clear();
+    await s.save();
+  } catch (e) {
+    console.error("Failed to reset data:", e);
+    throw e;
+  }
 }
 
 // Stop generation: signal both frontend and backend to abort the in-flight stream.
