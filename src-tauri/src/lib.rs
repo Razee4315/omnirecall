@@ -208,26 +208,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::chat::send_message,
             commands::chat::send_message_stream,
             commands::chat::stop_generation,
             commands::providers::test_api_key,
-            commands::providers::get_providers,
-            commands::documents::add_documents,
-            commands::documents::remove_document,
-            commands::documents::list_documents,
             commands::documents::read_document_content,
             commands::documents::index_document,
             commands::documents::semantic_search,
             commands::documents::get_relevant_context,
             commands::documents::clear_index,
             commands::documents::get_index_stats,
-            commands::spaces::create_space,
-            commands::spaces::list_spaces,
-            commands::spaces::delete_space,
-            commands::settings::get_settings,
-            commands::settings::save_settings,
-            show_window,
             hide_window,
             toggle_dashboard,
             update_hotkey,
@@ -235,17 +224,9 @@ pub fn run() {
             minimize_window,
             toggle_maximize,
             toggle_fullscreen,
-            get_window_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-#[tauri::command]
-async fn show_window(window: tauri::WebviewWindow) {
-    position_window_at_cursor(&window);
-    let _ = window.show();
-    let _ = window.set_focus();
 }
 
 #[tauri::command]
@@ -365,20 +346,4 @@ async fn toggle_fullscreen(window: tauri::WebviewWindow) -> bool {
     let is_fullscreen = window.is_fullscreen().unwrap_or(false);
     let _ = window.set_fullscreen(!is_fullscreen);
     !is_fullscreen
-}
-
-#[derive(serde::Serialize)]
-struct WindowState {
-    is_maximized: bool,
-    is_fullscreen: bool,
-    is_focused: bool,
-}
-
-#[tauri::command]
-async fn get_window_state(window: tauri::WebviewWindow) -> WindowState {
-    WindowState {
-        is_maximized: window.is_maximized().unwrap_or(false),
-        is_fullscreen: window.is_fullscreen().unwrap_or(false),
-        is_focused: window.is_focused().unwrap_or(false),
-    }
 }

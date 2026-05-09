@@ -53,25 +53,6 @@ fn build_combined_context(
     }
 }
 
-#[tauri::command]
-pub async fn send_message(
-    message: String,
-    history: Vec<ChatMessage>,
-    documents: Vec<DocumentContext>,
-    provider: String,
-    model: String,
-    api_key: String,
-    system_prompt: Option<String>,
-) -> Result<String> {
-    let client = AiClient::new(&provider, &api_key, None);
-    let doc_context = build_doc_context(&documents);
-    let combined = build_combined_context(system_prompt.as_deref(), doc_context.as_deref());
-    let response = client
-        .chat_with_history(&model, &message, &history, combined.as_deref())
-        .await?;
-    Ok(response)
-}
-
 /// Streaming version - emits chunks via Tauri events
 #[tauri::command]
 pub async fn send_message_stream(
