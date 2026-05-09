@@ -33,21 +33,24 @@ fn build_doc_context(documents: &[DocumentContext]) -> Option<String> {
     Some(context)
 }
 
-#[tauri::command]
-pub async fn send_message(
-    message: String,
-    history: Vec<ChatMessage>,
-    documents: Vec<DocumentContext>,
-    provider: String,
-    model: String,
-    api_key: String,
-) -> Result<String> {
-    let client = AiClient::new(&provider, &api_key, None);
-    let doc_context = build_doc_context(&documents);
-    let response = client
-        .chat_with_history(&model, &message, &history, doc_context.as_deref())
-        .await?;
-    Ok(response)
+/// Combine an optional user-set system prompt with the (also optional)
+/// document context into a single string. Both are presented to the model
+/// as additional context; the system prompt is intentionally placed FIRST
+/// so it sets the persona/tone before the documents are introduced.
+fn build_combined_context(
+    system_prompt: Option<&str>,
+    doc_context: Option<&str>,
+) -> Option<String> {
+    let prompt = system_prompt.map(str::trim).filter(|s| !s.is_empty());
+    match (prompt, doc_context) {
+        (None, None) => None,
+        (Some(p), None) => Some(format!("System instructions:\n{}\n", p)),
+        (None, Some(d)) => Some(d.to_string()),
+        (Some(p), Some(d)) => Some(format!(
+            "System instructions:\n{}\n\n{}",
+            p, d,
+        )),
+    }
 }
 
 /// Streaming version - emits chunks via Tauri events
@@ -60,19 +63,21 @@ pub async fn send_message_stream(
     provider: String,
     model: String,
     api_key: String,
+    system_prompt: Option<String>,
 ) -> Result<()> {
     // Reset cancellation flag for this new stream
     STREAM_CANCELLED.store(false, Ordering::SeqCst);
 
     let client = AiClient::new(&provider, &api_key, None);
     let doc_context = build_doc_context(&documents);
+    let combined = build_combined_context(system_prompt.as_deref(), doc_context.as_deref());
 
     client.chat_stream_with_emitter(
         &app,
         &model,
         &message,
         &history,
-        doc_context.as_deref(),
+        combined.as_deref(),
     ).await?;
 
     Ok(())

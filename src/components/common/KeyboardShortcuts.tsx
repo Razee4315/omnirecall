@@ -42,6 +42,15 @@ const fullShortcutGroups: ShortcutGroup[] = [
         ],
     },
     {
+        title: "Slash Commands",
+        shortcuts: [
+            { keys: ["/clear"], description: "Clear current chat" },
+            { keys: ["/new"], description: "Start a new chat" },
+            { keys: ["/system", "..."], description: "Set system prompt" },
+            { keys: ["/help"], description: "Show this overlay" },
+        ],
+    },
+    {
         title: "Navigation",
         shortcuts: [
             { keys: ["Ctrl", "["], description: "Previous chat" },

@@ -11,7 +11,14 @@ import {
   setTheme,
   viewMode,
   globalHotkey,
+  systemPrompt,
+  setSystemPrompt,
+  MAX_SYSTEM_PROMPT_CHARS,
+  resetAllData,
+  exportAllSessions,
+  chatHistory,
 } from "../../stores/appStore";
+import { toast } from "../../stores/toastStore";
 import {
   CloseIcon,
   KeyIcon,
@@ -23,7 +30,7 @@ import {
 } from "../icons";
 import { RagDebugPanel } from "../common/RagDebugPanel";
 
-type SettingsTab = "providers" | "appearance" | "shortcuts" | "developer";
+type SettingsTab = "providers" | "appearance" | "shortcuts" | "behavior" | "privacy" | "developer";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("providers");
@@ -99,12 +106,12 @@ export function Settings() {
           // Compact layout for Spotlight mode
           <div className="overflow-y-auto max-h-[calc(90vh-50px)]">
             {/* Tabs */}
-            <div className="flex border-b border-border">
-              {["providers", "appearance", "shortcuts"].map((tab) => (
+            <div className="flex border-b border-border overflow-x-auto">
+              {["providers", "appearance", "behavior", "shortcuts", "privacy"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as SettingsTab)}
-                  className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${activeTab === tab
+                  className={`flex-1 min-w-[64px] px-2 py-2 text-xs font-medium transition-colors ${activeTab === tab
                     ? "text-accent-primary border-b-2 border-accent-primary"
                     : "text-text-secondary hover:text-text-primary"
                     }`}
@@ -116,7 +123,9 @@ export function Settings() {
             <div className="p-3">
               {activeTab === "providers" && <ProvidersTabCompact />}
               {activeTab === "appearance" && <AppearanceTabCompact />}
+              {activeTab === "behavior" && <BehaviorTab compact />}
               {activeTab === "shortcuts" && <ShortcutsTabCompact />}
+              {activeTab === "privacy" && <PrivacyTab compact />}
             </div>
           </div>
         ) : (
@@ -127,7 +136,9 @@ export function Settings() {
                 {[
                   { id: "providers", label: "AI Providers" },
                   { id: "appearance", label: "Appearance" },
+                  { id: "behavior", label: "Behavior" },
                   { id: "shortcuts", label: "Shortcuts" },
+                  { id: "privacy", label: "Privacy" },
                   { id: "developer", label: "Developer" },
                 ].map((tab) => (
                   <button
@@ -146,7 +157,9 @@ export function Settings() {
             <div className="flex-1 overflow-y-auto p-4">
               {activeTab === "providers" && <ProvidersTab />}
               {activeTab === "appearance" && <AppearanceTab />}
+              {activeTab === "behavior" && <BehaviorTab />}
               {activeTab === "shortcuts" && <ShortcutsTab />}
+              {activeTab === "privacy" && <PrivacyTab />}
               {activeTab === "developer" && <DeveloperTab />}
             </div>
           </div>
@@ -174,6 +187,22 @@ function ProviderCardCompact({ provider }: { provider: any }) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(provider.isConnected ? "success" : null);
   const [testMessage, setTestMessage] = useState<string | null>(provider.isConnected ? "Connected" : null);
+
+  // Sync local state when the upstream provider record changes (e.g. after
+  // an import or `Reset all data`). Without this the field shows stale
+  // values from the original mount.
+  useEffect(() => { setApiKey(provider.apiKey); }, [provider.apiKey]);
+  useEffect(() => { setBaseUrl(provider.baseUrl ?? ""); }, [provider.baseUrl]);
+  useEffect(() => {
+    if (provider.isConnected) {
+      setTestResult("success");
+      setTestMessage("Connected");
+    } else if (testResult === "success") {
+      // External invalidation (e.g. reset) - clear the success badge.
+      setTestResult(null);
+      setTestMessage(null);
+    }
+  }, [provider.isConnected]);
 
   const effectiveBaseUrl = baseUrl.trim() || (provider.id === "ollama" ? "http://localhost:11434" : undefined);
 
@@ -480,6 +509,20 @@ function ProviderCard({ provider }: { provider: any }) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(provider.isConnected ? "success" : null);
   const [testMessage, setTestMessage] = useState<string | null>(provider.isConnected ? "API key verified" : null);
+
+  // Same prop-sync as the compact card. See ProviderCardCompact for the
+  // rationale.
+  useEffect(() => { setApiKey(provider.apiKey); }, [provider.apiKey]);
+  useEffect(() => { setBaseUrl(provider.baseUrl ?? ""); }, [provider.baseUrl]);
+  useEffect(() => {
+    if (provider.isConnected) {
+      setTestResult("success");
+      setTestMessage("API key verified");
+    } else if (testResult === "success") {
+      setTestResult(null);
+      setTestMessage(null);
+    }
+  }, [provider.isConnected]);
 
   const effectiveBaseUrl = baseUrl.trim() || (provider.id === "ollama" ? "http://localhost:11434" : undefined);
   const handleSaveBaseUrl = () => {
@@ -801,6 +844,201 @@ function DeveloperTab() {
         <p className="text-xs text-text-secondary">Advanced tools for developers and power users.</p>
       </div>
       <RagDebugPanel />
+    </div>
+  );
+}
+
+/// Behavior tab: persistent system prompt + (future) per-provider tuning.
+/// The text area is bounded to MAX_SYSTEM_PROMPT_CHARS at the store level
+/// — the visible counter exists so users see how much budget they have
+/// before hitting the limit silently.
+function BehaviorTab({ compact = false }: { compact?: boolean }) {
+  const [draft, setDraft] = useState(systemPrompt.value);
+  const [saved, setSaved] = useState(false);
+
+  // Re-sync when the underlying signal changes externally (e.g. Reset).
+  useEffect(() => { setDraft(systemPrompt.value); }, [systemPrompt.value]);
+
+  const handleSave = () => {
+    setSystemPrompt(draft);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const isDirty = draft !== systemPrompt.value;
+  const tooLong = draft.length > MAX_SYSTEM_PROMPT_CHARS;
+
+  return (
+    <div className={compact ? "space-y-2" : "space-y-4"}>
+      {!compact && (
+        <div>
+          <h3 className="text-base font-medium text-text-primary mb-1">Behavior</h3>
+          <p className="text-xs text-text-secondary">
+            How OmniRecall talks to you. Applies to every chat.
+          </p>
+        </div>
+      )}
+
+      <div>
+        <label className={`block font-medium text-text-primary mb-1.5 ${compact ? "text-xs" : "text-sm"}`}>
+          System prompt
+        </label>
+        <p className={`text-text-tertiary mb-2 ${compact ? "text-[10px]" : "text-xs"}`}>
+          Sets persona, tone, or context. Sent at the start of every conversation.
+        </p>
+        <textarea
+          value={draft}
+          onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)}
+          placeholder="e.g. You are a senior software engineer. Be concise and direct. Prefer code examples."
+          rows={compact ? 4 : 6}
+          maxLength={MAX_SYSTEM_PROMPT_CHARS + 100}
+          className={`w-full px-3 py-2 bg-bg-tertiary border rounded-lg text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary transition-colors resize-y leading-relaxed ${
+            compact ? "text-xs" : "text-sm"
+          } ${tooLong ? "border-error" : "border-border"}`}
+        />
+        <div className={`flex items-center justify-between mt-1.5 ${compact ? "text-[10px]" : "text-xs"}`}>
+          <span className={tooLong ? "text-error" : "text-text-tertiary"}>
+            {draft.length.toLocaleString()} / {MAX_SYSTEM_PROMPT_CHARS.toLocaleString()}
+          </span>
+          <div className="flex items-center gap-2">
+            {saved && (
+              <span className="text-success">Saved</span>
+            )}
+            {isDirty && draft !== "" && (
+              <button
+                onClick={() => setDraft(systemPrompt.value)}
+                className="px-2 py-1 rounded bg-bg-tertiary text-text-secondary hover:text-text-primary"
+              >
+                Discard
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || tooLong}
+              className={`px-3 py-1 rounded font-medium transition-colors ${
+                !isDirty || tooLong
+                  ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                  : "bg-accent-primary text-white hover:bg-accent-primary/90"
+              }`}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/// Privacy tab: bulk export and `Reset all data`. Both are destructive
+/// enough to deserve their own dedicated screen rather than hiding
+/// behind the AI Providers tab. Reset is gated by an in-page two-step
+/// confirmation so a stray click can't wipe an account's worth of work.
+function PrivacyTab({ compact = false }: { compact?: boolean }) {
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const handleExport = () => {
+    try {
+      const json = exportAllSessions();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `omnirecall-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${chatHistory.value.length} chat${chatHistory.value.length === 1 ? "" : "s"}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Export failed");
+    }
+  };
+
+  const handleReset = async () => {
+    if (!confirmingReset) {
+      setConfirmingReset(true);
+      // Auto-cancel the "are you sure" if the user wanders off.
+      setTimeout(() => setConfirmingReset(prev => prev), 5000);
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetAllData();
+      toast.success("All local data cleared");
+      setConfirmingReset(false);
+      isSettingsOpen.value = false;
+    } catch (e) {
+      toast.error("Failed to clear data");
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <div className={compact ? "space-y-2" : "space-y-4"}>
+      {!compact && (
+        <div>
+          <h3 className="text-base font-medium text-text-primary mb-1">Privacy & Data</h3>
+          <p className="text-xs text-text-secondary">
+            Manage your locally stored chats, keys, and documents. OmniRecall stores everything on this device only.
+          </p>
+        </div>
+      )}
+
+      <div className={`p-3 rounded-lg border border-border bg-bg-secondary ${compact ? "" : "space-y-2"}`}>
+        <div>
+          <div className={`font-medium text-text-primary ${compact ? "text-xs" : "text-sm"}`}>Export everything</div>
+          <p className={`text-text-tertiary mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>
+            One JSON file with all chats, branches, and folders. Useful as a backup.
+          </p>
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={chatHistory.value.length === 0}
+          className={`mt-2 w-full px-3 py-2 rounded-lg font-medium transition-colors ${
+            chatHistory.value.length === 0
+              ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+              : "bg-accent-primary text-white hover:bg-accent-primary/90"
+          } ${compact ? "text-xs py-1.5" : "text-sm"}`}
+        >
+          {chatHistory.value.length === 0
+            ? "No chats to export"
+            : `Export ${chatHistory.value.length} chat${chatHistory.value.length === 1 ? "" : "s"}`}
+        </button>
+      </div>
+
+      <div className="p-3 rounded-lg border border-error/30 bg-error/5">
+        <div className={`font-medium text-text-primary ${compact ? "text-xs" : "text-sm"}`}>Reset all data</div>
+        <p className={`text-text-tertiary mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>
+          Permanently deletes all chats, folders, documents, API keys, and custom models from this device. Cannot be undone.
+        </p>
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          className={`mt-2 w-full px-3 py-2 rounded-lg font-medium transition-colors ${
+            confirmingReset
+              ? "bg-error text-white hover:bg-error/90"
+              : "bg-error/10 text-error border border-error/30 hover:bg-error/20"
+          } ${compact ? "text-xs py-1.5" : "text-sm"} ${resetting ? "opacity-60" : ""}`}
+        >
+          {resetting
+            ? "Clearing..."
+            : confirmingReset
+            ? "Click again to permanently delete everything"
+            : "Reset all data..."}
+        </button>
+        {confirmingReset && !resetting && (
+          <button
+            onClick={() => setConfirmingReset(false)}
+            className={`mt-1.5 w-full text-text-tertiary hover:text-text-primary ${compact ? "text-[10px]" : "text-xs"}`}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }

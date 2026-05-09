@@ -29,6 +29,7 @@ import {
   stopGeneration,
   isCommandPaletteOpen,
   isMaximized,
+  systemPrompt,
 } from "../../stores/appStore";
 import { useChatSubmit, parseApiError } from "../../hooks/useChatSubmit";
 import { useDocumentLoader } from "../../hooks/useDocumentLoader";
@@ -229,28 +230,27 @@ export function Dashboard() {
     branchFromMessage(activeSessionId.value, messageId);
   };
 
-  // Regenerate: Create a branch from the user message before this assistant response
+  // Regenerate: Create a branch from the user message before this assistant response.
+  // Mirrors useChatSubmit's race-safe pattern (id-based message lookup,
+  // session/branch capture) so navigating away mid-regenerate doesn't
+  // corrupt some other thread.
   const handleRegenerate = async (assistantMessageId: string) => {
     if (!activeSessionId.value || isGenerating.value) return;
 
-    // Find this message and the user message before it
     const msgIndex = currentMessages.value.findIndex(m => m.id === assistantMessageId);
     if (msgIndex <= 0) return;
 
     const userMessage = currentMessages.value[msgIndex - 1];
     if (userMessage.role !== "user") return;
 
-    // Create a branch from the user message
     const branchId = branchFromMessage(activeSessionId.value, userMessage.id);
     if (!branchId) return;
 
-    // Now re-submit to get a new response
     const provider = providers.value.find(p => p.id === activeProvider.value);
     if (!provider?.apiKey && provider?.id !== "ollama") return;
 
     isGenerating.value = true;
 
-    // Create placeholder for assistant message
     const newAssistantId = crypto.randomUUID();
     const assistantMessage: ChatMessage = {
       id: newAssistantId,
@@ -260,6 +260,9 @@ export function Dashboard() {
     };
     currentMessages.value = [...currentMessages.value, assistantMessage];
 
+    const submitSessionId = activeSessionId.value;
+    const submitBranchId = activeBranchId.value;
+
     try {
       const history = currentMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
       const documentContext = docsWithContent
@@ -268,35 +271,65 @@ export function Dashboard() {
 
       let unlisten: UnlistenFn | null = null;
       let fullResponse = "";
+      let throttleTimer: ReturnType<typeof setTimeout> | null = null;
 
-      const regenIdx = currentMessages.value.length - 1;
+      const stillOnSameThread = () => (
+        activeSessionId.value === submitSessionId &&
+        activeBranchId.value === submitBranchId
+      );
+
+      const flushUpdate = () => {
+        throttleTimer = null;
+        if (!stillOnSameThread()) return;
+        const msgs = currentMessages.value;
+        const idx = msgs.findIndex(m => m.id === newAssistantId);
+        if (idx === -1) return;
+        const next = [...msgs];
+        next[idx] = { ...next[idx], content: fullResponse };
+        currentMessages.value = next;
+      };
+
       unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
         if (!event.payload.done) {
           fullResponse += event.payload.chunk;
-          const msgs = [...currentMessages.value];
-          msgs[regenIdx] = { ...msgs[regenIdx], content: fullResponse };
-          currentMessages.value = msgs;
+          if (!throttleTimer) {
+            throttleTimer = setTimeout(flushUpdate, 80);
+          }
         } else {
-          // Final update with token count
-          const msgs = [...currentMessages.value];
-          msgs[regenIdx] = { ...msgs[regenIdx], content: fullResponse, tokenCount: estimateTokens(fullResponse) };
-          currentMessages.value = msgs;
+          if (throttleTimer) { clearTimeout(throttleTimer); throttleTimer = null; }
+          if (unlisten) { unlisten(); unlisten = null; }
+
+          if (stillOnSameThread()) {
+            const msgs = currentMessages.value;
+            const idx = msgs.findIndex(m => m.id === newAssistantId);
+            if (idx !== -1) {
+              const next = [...msgs];
+              next[idx] = {
+                ...next[idx],
+                content: fullResponse,
+                tokenCount: estimateTokens(fullResponse),
+              };
+              currentMessages.value = next;
+            }
+          }
 
           isGenerating.value = false;
-          if (unlisten) unlisten();
-          // Save to branch
-          updateBranchMessages(activeSessionId.value!, activeBranchId.value, currentMessages.value);
-          saveChatHistoryNow();
+
+          if (fullResponse.trim().length > 0 && submitSessionId) {
+            updateBranchMessages(submitSessionId, submitBranchId, stillOnSameThread() ? currentMessages.value : []);
+            saveChatHistoryNow();
+          }
         }
       });
 
       await invoke("send_message_stream", {
         message: userMessage.content,
-        history: history.slice(0, -1), // Exclude the last user message we're re-submitting
+        history: history.slice(0, -1),
         documents: documentContext,
         provider: activeProvider.value,
         model: activeModel.value,
         apiKey: provider?.apiKey || "",
+        systemPrompt: systemPrompt.value.trim() || null,
       });
     } catch (err: any) {
       setError(parseApiError(err));

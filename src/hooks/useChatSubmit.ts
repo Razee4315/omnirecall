@@ -17,7 +17,16 @@ import {
   ChatMessage,
   ChatSession,
   estimateTokens,
+  systemPrompt,
+  setSystemPrompt,
+  stopGeneration,
+  isShortcutsHelpOpen,
 } from "../stores/appStore";
+
+/// If we don't see a stream chunk for this long, assume the connection is
+/// dead and surface an error rather than leaving the user staring at a
+/// blinking cursor forever.
+const CHUNK_IDLE_TIMEOUT_MS = 60_000;
 
 interface DocumentWithContent {
   name: string;
@@ -29,6 +38,47 @@ interface DocumentWithContent {
 /// pasted megabytes of text (which would freeze the textarea). The error
 /// message points the user toward the document feature for large content.
 export const MAX_MESSAGE_CHARS = 200_000;
+
+/// Handle a slash command typed into the input. Returns true if the
+/// input was consumed (the caller should clear the input and skip the
+/// model send). Returns false if the command was unrecognized — in that
+/// case we let the message go through so the model can answer about it.
+///
+/// Supported:
+///   /clear            - drop the current conversation (no save)
+///   /new              - start a fresh chat
+///   /help             - open the keyboard shortcuts overlay
+///   /system <prompt>  - replace the persistent system prompt
+function handleSlashCommand(input: string, setError: (e: string | null) => void): boolean {
+  const space = input.indexOf(" ");
+  const cmd = (space === -1 ? input : input.slice(0, space)).toLowerCase();
+  const arg = space === -1 ? "" : input.slice(space + 1).trim();
+
+  switch (cmd) {
+    case "/clear":
+    case "/new": {
+      currentMessages.value = [];
+      activeSessionId.value = null;
+      activeBranchId.value = null;
+      setError(null);
+      return true;
+    }
+    case "/help": {
+      isShortcutsHelpOpen.value = true;
+      return true;
+    }
+    case "/system": {
+      if (!arg) {
+        setError("Usage: /system <your system prompt>");
+        return true;
+      }
+      setSystemPrompt(arg);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
 
 // Parse and simplify API error messages for user display
 export function parseApiError(err: any): string {
@@ -76,6 +126,7 @@ export function useChatSubmit(
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const streamingContentRef = useRef("");
   const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clean up stream listener
   const cleanupStream = useCallback(() => {
@@ -87,11 +138,25 @@ export function useChatSubmit(
       clearTimeout(throttleTimerRef.current);
       throttleTimerRef.current = null;
     }
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
     streamingContentRef.current = "";
   }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!currentQuery.value.trim() || isGenerating.value) return;
+
+    // Slash commands. Handled before any provider/network checks so power
+    // users can /clear or /help even with no API key configured.
+    const trimmed = currentQuery.value.trim();
+    if (trimmed.startsWith("/")) {
+      if (handleSlashCommand(trimmed, setError)) {
+        currentQuery.value = "";
+        return;
+      }
+    }
 
     if (currentQuery.value.length > MAX_MESSAGE_CHARS) {
       setError(
@@ -134,6 +199,12 @@ export function useChatSubmit(
     };
     currentMessages.value = [...newMessages, assistantMessage];
 
+    // Capture the session/branch context at submit time. If the user
+    // navigates away mid-stream we drop the update on the floor instead of
+    // mutating whatever they're now looking at.
+    const submitSessionId = activeSessionId.value;
+    const submitBranchId = activeBranchId.value;
+
     try {
       const history = newMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
       const documentContext = docsWithContent
@@ -141,19 +212,47 @@ export function useChatSubmit(
         .map(d => ({ name: d.name, content: d.content! }));
 
       streamingContentRef.current = "";
-      const assistantIdx = currentMessages.value.length - 1;
+
+      const stillOnSameThread = () => (
+        activeSessionId.value === submitSessionId &&
+        activeBranchId.value === submitBranchId
+      );
+
+      // Locate the assistant message by id rather than a captured index.
+      // If a regenerate / branch / new chat shifts indices we must not
+      // overwrite the wrong message.
+      const findAssistantIndex = (msgs: ChatMessage[]) =>
+        msgs.findIndex(m => m.id === assistantId);
 
       // Throttled UI update - only update DOM every 80ms during streaming
       const flushStreamUpdate = () => {
-        const content = streamingContentRef.current;
-        const msgs = [...currentMessages.value];
-        msgs[assistantIdx] = { ...msgs[assistantIdx], content };
-        currentMessages.value = msgs;
+        if (!stillOnSameThread()) return;
+        const msgs = currentMessages.value;
+        const idx = findAssistantIndex(msgs);
+        if (idx === -1) return;
+        const next = [...msgs];
+        next[idx] = { ...next[idx], content: streamingContentRef.current };
+        currentMessages.value = next;
       };
+
+      const armIdleTimer = () => {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(() => {
+          // No chunk in CHUNK_IDLE_TIMEOUT_MS - tell the backend to drop
+          // the connection and surface a friendly error.
+          stopGeneration();
+          cleanupStream();
+          isGenerating.value = false;
+          setError("Connection stalled. The AI provider stopped responding. Please try again.");
+        }, CHUNK_IDLE_TIMEOUT_MS);
+      };
+
+      armIdleTimer();
 
       unlistenRef.current = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
         if (!event.payload.done) {
           streamingContentRef.current += event.payload.chunk;
+          armIdleTimer();
 
           // Throttle UI updates to every 80ms instead of every chunk
           if (!throttleTimerRef.current) {
@@ -168,38 +267,65 @@ export function useChatSubmit(
             clearTimeout(throttleTimerRef.current);
             throttleTimerRef.current = null;
           }
+          if (idleTimerRef.current) {
+            clearTimeout(idleTimerRef.current);
+            idleTimerRef.current = null;
+          }
 
           const finalContent = streamingContentRef.current;
-          const msgs = [...currentMessages.value];
-          msgs[assistantIdx] = {
-            ...msgs[assistantIdx],
-            content: finalContent,
-            tokenCount: estimateTokens(finalContent),
-          };
-          currentMessages.value = msgs;
+          const sameThread = stillOnSameThread();
+
+          if (sameThread) {
+            const msgs = currentMessages.value;
+            const idx = findAssistantIndex(msgs);
+            if (idx !== -1) {
+              const next = [...msgs];
+              next[idx] = {
+                ...next[idx],
+                content: finalContent,
+                tokenCount: estimateTokens(finalContent),
+              };
+              currentMessages.value = next;
+            }
+          }
 
           isGenerating.value = false;
           cleanupStream();
 
-          // Save to chat history (immediate save on completion)
-          const updatedMessages = currentMessages.value;
-          if (!activeSessionId.value) {
-            const newSession: ChatSession = {
-              id: crypto.randomUUID(),
-              title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
-              messages: updatedMessages,
-              branches: [],
-              branchMessages: {},
-              createdAt: new Date().toISOString(),
-              folderId: null,
-            };
-            addChatSession(newSession);
-            activeSessionId.value = newSession.id;
-          } else {
-            if (activeBranchId.value) {
-              updateBranchMessages(activeSessionId.value, activeBranchId.value, updatedMessages);
+          // Persist regardless of whether the user is still looking at
+          // this thread — they may come back. Write to the captured
+          // session/branch, not the current one.
+          if (!submitSessionId) {
+            // First message in a fresh chat: only create a session if we
+            // actually have content. Empty stream completions (network
+            // failure, provider returns nothing) shouldn't litter the
+            // sidebar with empty conversations.
+            if (finalContent.trim().length > 0) {
+              const messagesToSave = sameThread
+                ? currentMessages.value
+                : [
+                    ...newMessages,
+                    { ...assistantMessage, content: finalContent, tokenCount: estimateTokens(finalContent) },
+                  ];
+              const newSession: ChatSession = {
+                id: crypto.randomUUID(),
+                title: userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? "..." : ""),
+                messages: messagesToSave,
+                branches: [],
+                branchMessages: {},
+                createdAt: new Date().toISOString(),
+                folderId: null,
+              };
+              addChatSession(newSession);
+              if (sameThread) {
+                activeSessionId.value = newSession.id;
+              }
+            }
+          } else if (sameThread) {
+            if (submitBranchId) {
+              updateBranchMessages(submitSessionId, submitBranchId, currentMessages.value);
             } else {
-              updateChatSession(activeSessionId.value, updatedMessages);
+              updateChatSession(submitSessionId, currentMessages.value);
             }
             saveChatHistoryNow();
           }
@@ -214,6 +340,7 @@ export function useChatSubmit(
         provider: activeProvider.value,
         model: activeModel.value,
         apiKey: provider?.apiKey || "",
+        systemPrompt: systemPrompt.value.trim() || null,
       });
 
     } catch (err: any) {
