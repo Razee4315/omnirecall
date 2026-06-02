@@ -136,8 +136,8 @@ export function Spotlight() {
     <div className="h-full w-full flex flex-col">
       <div className="glass rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in m-2 flex flex-col flex-1">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border drag-region">
-          <div className="flex items-center gap-2 no-drag">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border drag-region gap-1">
+          <div className="flex items-center gap-2 no-drag min-w-0">
             <LogoIcon size={18} className="text-accent-primary" />
 
             <ModelSelector compact />
@@ -154,7 +154,7 @@ export function Spotlight() {
             )}
           </div>
 
-          <div className="flex items-center gap-0.5 no-drag">
+          <div className="flex items-center gap-0.5 no-drag flex-shrink-0">
             <button
               onClick={() => (isCommandPaletteOpen.value = true)}
               className="p-1.5 rounded-md hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
@@ -251,10 +251,10 @@ export function Spotlight() {
                 return (
                 <div
                   key={msg.id}
-                  className={`group flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-message-reveal`}
+                  className={`group flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} animate-message-reveal`}
                   style={{ animationDelay: `${Math.min(index * 50, 200)}ms` }}
                 >
-                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs relative ${msg.role === "user"
+                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs ${msg.role === "user"
                     ? "bg-accent-primary text-on-accent"
                     : "bg-bg-tertiary text-text-primary"
                     }`}>
@@ -263,40 +263,37 @@ export function Spotlight() {
                     ) : (
                       <Markdown content={msg.content} className="text-xs leading-relaxed" />
                     )}
-
-                    {/* Message Actions */}
-                    {msg.content && (
-                      <div className={`flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === "user" ? "justify-end" : "justify-start"
-                        }`}>
-                        <button
-                          onClick={() => handleCopyMessage(msg.content, msg.id)}
-                          className={`p-0.5 rounded ${msg.role === "user"
-                            ? "text-on-accent opacity-70 hover:opacity-100"
-                            : "text-text-tertiary hover:text-text-primary"
-                            }`}
-                          title="Copy"
-                        >
-                          {copiedMessageId === msg.id ? <CheckIcon size={10} /> : <CopyIcon size={10} />}
-                        </button>
-                        {msg.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && activeSessionId.value && (
-                          <button
-                            onClick={() => regenerate(msg.id)}
-                            className="p-0.5 rounded text-text-tertiary hover:text-text-primary"
-                            title="Regenerate response"
-                            aria-label="Regenerate response"
-                          >
-                            <RefreshIcon size={10} />
-                          </button>
-                        )}
-                        {msg.tokenCount && msg.tokenCount > 10 && (
-                          <span className={`text-[10px] ${msg.role === "user" ? "text-on-accent opacity-60" : "text-text-tertiary/60"
-                            }`}>
-                            ~{msg.tokenCount}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
+
+                  {/* Actions live outside the bubble so it hugs its text. */}
+                  {msg.content && (
+                    <div className={`flex items-center gap-0.5 mt-0.5 px-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === "user" ? "justify-end" : "justify-start"
+                      }`}>
+                      <button
+                        onClick={() => handleCopyMessage(msg.content, msg.id)}
+                        className="p-0.5 rounded text-text-tertiary hover:text-text-primary"
+                        title="Copy"
+                        aria-label="Copy message"
+                      >
+                        {copiedMessageId === msg.id ? <CheckIcon size={10} /> : <CopyIcon size={10} />}
+                      </button>
+                      {msg.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && activeSessionId.value && (
+                        <button
+                          onClick={() => regenerate(msg.id)}
+                          className="p-0.5 rounded text-text-tertiary hover:text-text-primary"
+                          title="Regenerate response"
+                          aria-label="Regenerate response"
+                        >
+                          <RefreshIcon size={10} />
+                        </button>
+                      )}
+                      {msg.tokenCount && msg.tokenCount > 10 && (
+                        <span className="text-[10px] text-text-tertiary/60">
+                          ~{msg.tokenCount}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 );
               })}
@@ -348,7 +345,7 @@ export function Spotlight() {
               }}
               onKeyDown={handleKeyDown}
               placeholder={totalDocsLoaded > 0 ? "Ask about your docs..." : "Ask anything..."}
-              className="flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"
+              className="composer-input flex-1 bg-bg-tertiary border border-transparent focus:border-accent-primary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px] transition-colors"
               rows={1}
               disabled={isGenerating.value}
               maxLength={200000}

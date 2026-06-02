@@ -228,6 +228,12 @@ a:focus-visible,
   border-radius: 4px;
 }
 
+/* The chat composer shows focus on its wrapping container (a subtle accent
+   border) rather than a hard 2px ring around the textarea itself. */
+.composer-input:focus-visible {
+  outline: none;
+}
+
 /* Foreground for content sitting on an accent-colored fill (chat bubbles,
    primary buttons). Chosen per-theme so it always meets WCAG AA contrast,
    without recoloring the accent itself. */

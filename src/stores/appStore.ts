@@ -154,12 +154,13 @@ export const providers = signal<AIProvider[]>([
   {
     id: "gemini",
     name: "Google Gemini",
+    // Current Gemini line-up. Older/retired names are intentionally omitted;
+    // any model can still be added per-provider via "Add custom model".
     models: [
       "gemini-3-flash-preview",
       "gemini-3-pro-preview",
       "gemini-2.5-flash",
       "gemini-2.5-pro",
-      "gemini-2.5-flash-lite",
     ],
     apiKey: "",
     isConnected: false,

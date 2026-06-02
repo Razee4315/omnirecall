@@ -71,10 +71,10 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
           }`}
           aria-hidden="true"
         />
-        <span className={`text-text-tertiary ${compact ? "max-w-[60px]" : ""} truncate`}>
+        <span className={`text-text-tertiary truncate ${compact ? "max-w-[60px]" : "max-w-[90px]"}`}>
           {currentProviderLabel}
         </span>
-        <span className={compact ? "max-w-[100px] truncate" : ""}>
+        <span className={`truncate ${compact ? "max-w-[100px]" : "max-w-[140px]"}`}>
           <span className="text-text-tertiary mx-1">·</span>
           {activeModel.value}
         </span>

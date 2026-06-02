@@ -594,8 +594,8 @@ export function Dashboard() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header with Drag Region */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-secondary drag-region">
-          <div className="flex items-center gap-3 no-drag">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-secondary drag-region gap-2">
+          <div className="flex items-center gap-3 no-drag min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
@@ -609,7 +609,7 @@ export function Dashboard() {
             <span className="hidden lg:inline font-semibold text-text-primary">OmniRecall</span>
 
             {/* Model Selector */}
-            <div className="lg:ml-3 ml-1">
+            <div className="lg:ml-3 ml-1 min-w-0">
               <ModelSelector />
             </div>
 
@@ -643,7 +643,7 @@ export function Dashboard() {
           {/* Drag Area - invisible but draggable */}
           <DragRegion className="h-full" />
 
-          <div className="flex items-center gap-0.5 no-drag">
+          <div className="flex items-center gap-0.5 no-drag flex-shrink-0">
             {/* Per-chat actions cluster (only visible when there's a session). */}
             {currentSession && (
               <>
@@ -804,11 +804,11 @@ export function Dashboard() {
                 return (
                 <div
                   key={message.id}
-                  className={`group flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-message-reveal`}
+                  className={`group flex flex-col ${message.role === "user" ? "items-end" : "items-start"} animate-message-reveal`}
                   style={{ animationDelay: `${Math.min(index * 50, 200)}ms` }}
                 >
                   <div
-                    className={`max-w-[80%] rounded-xl px-4 py-3 relative ${message.role === "user"
+                    className={`max-w-[80%] rounded-xl px-4 py-3 ${message.role === "user"
                       ? "bg-accent-primary text-on-accent"
                       : "bg-bg-secondary text-text-primary border border-border"
                       }`}
@@ -828,71 +828,62 @@ export function Dashboard() {
                     ) : (
                       <Markdown content={message.content} className="text-sm leading-relaxed" />
                     )}
+                  </div>
 
-                    {/* Message actions: hidden until message is hovered/focused
-                        to keep messages visually clean. The copy button stays
-                        visible briefly after copying so the success state is
-                        readable. */}
-                    <div className={`flex items-center gap-1 mt-2 transition-opacity ${
-                        copiedMessageId === message.id
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                      } ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {/* Actions live OUTSIDE the bubble (so the bubble hugs its
+                      text) and are revealed on hover/focus. */}
+                  <div className={`flex items-center gap-0.5 mt-1 px-1 transition-opacity ${
+                      copiedMessageId === message.id
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                    } ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <button
+                      onClick={() => handleCopyMessage(message.content, message.id)}
+                      className="p-1 rounded min-w-[24px] min-h-[24px] flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                      title={copiedMessageId === message.id ? "Copied!" : "Copy message"}
+                      aria-label="Copy message"
+                    >
+                      {copiedMessageId === message.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+                    </button>
+
+                    {message.role === "user" && !isGenerating.value && (
                       <button
-                        onClick={() => handleCopyMessage(message.content, message.id)}
-                        className={`p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs ${message.role === "user"
-                          ? "text-on-accent opacity-70 hover:opacity-100 hover:bg-black/10"
-                          : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-                          }`}
-                        title={copiedMessageId === message.id ? "Copied!" : "Copy message"}
-                        aria-label="Copy message"
+                        onClick={() => handleEditMessage(message.id)}
+                        className="p-1 rounded min-w-[24px] min-h-[24px] flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                        title="Edit & resend"
+                        aria-label="Edit and resend message"
                       >
-                        {copiedMessageId === message.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+                        <EditIcon size={12} />
                       </button>
+                    )}
 
-                      {/* Edit & resend - user messages only */}
-                      {message.role === "user" && !isGenerating.value && (
-                        <button
-                          onClick={() => handleEditMessage(message.id)}
-                          className="p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs text-on-accent opacity-70 hover:opacity-100 hover:bg-black/10"
-                          title="Edit & resend"
-                          aria-label="Edit and resend message"
-                        >
-                          <EditIcon size={12} />
-                        </button>
-                      )}
+                    {message.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && (
+                      <button
+                        onClick={() => regenerate(message.id)}
+                        className="p-1 rounded min-w-[24px] min-h-[24px] flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                        title="Regenerate response (creates a new branch)"
+                        aria-label="Regenerate response"
+                      >
+                        <RegenerateIcon size={12} />
+                      </button>
+                    )}
 
-                      {/* Regenerate button - only on latest assistant message */}
-                      {message.role === "assistant" && index === currentMessages.value.length - 1 && !isGenerating.value && (
-                        <button
-                          onClick={() => regenerate(message.id)}
-                          className="p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-                          title="Regenerate response (creates a new branch)"
-                          aria-label="Regenerate response"
-                        >
-                          <RegenerateIcon size={12} />
-                        </button>
-                      )}
+                    {message.role === "assistant" && index < currentMessages.value.length - 1 && (
+                      <button
+                        onClick={() => handleBranch(message.id)}
+                        className="p-1 rounded min-w-[24px] min-h-[24px] flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                        title="Branch conversation from here"
+                        aria-label="Branch from this message"
+                      >
+                        <BranchIcon size={12} />
+                      </button>
+                    )}
 
-                      {/* Branch button - on all assistant messages except the last */}
-                      {message.role === "assistant" && index < currentMessages.value.length - 1 && (
-                        <button
-                          onClick={() => handleBranch(message.id)}
-                          className="p-1.5 rounded min-w-[28px] min-h-[28px] flex items-center justify-center text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-                          title="Branch conversation from here"
-                          aria-label="Branch from this message"
-                        >
-                          <BranchIcon size={12} />
-                        </button>
-                      )}
-
-                      {message.tokenCount && message.tokenCount > 10 && (
-                        <span className={`text-xs px-1 opacity-0 group-hover:opacity-100 transition-opacity ${message.role === "user" ? "text-on-accent" : "text-text-tertiary/60"
-                          }`}>
-                          ~{message.tokenCount} tokens
-                        </span>
-                      )}
-                    </div>
+                    {message.tokenCount && message.tokenCount > 10 && (
+                      <span className="text-[10px] px-1 text-text-tertiary/60">
+                        ~{message.tokenCount} tokens
+                      </span>
+                    )}
                   </div>
                 </div>
                 );
@@ -958,7 +949,7 @@ export function Dashboard() {
         {/* Input Area */}
         <div className="border-t border-border bg-bg-secondary p-4">
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-center gap-3 bg-bg-primary rounded-xl border border-border px-4 py-3">
+            <div className="flex items-center gap-3 bg-bg-primary rounded-xl border border-border px-4 py-3 focus-within:border-accent-primary transition-colors">
               <textarea
                 ref={inputRef}
                 value={currentQuery.value}
@@ -968,7 +959,7 @@ export function Dashboard() {
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={totalDocsLoaded > 0 ? "Ask about your documents..." : "Type your message..."}
-                className="flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"
+                className="composer-input flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"
                 rows={1}
                 disabled={isGenerating.value}
                 maxLength={200000}
