@@ -50,7 +50,14 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
     <div
       className="relative"
       ref={ref}
-      onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+      onKeyDown={(e) => {
+        // Close only the dropdown; the global Escape handler would otherwise
+        // also hide the window.
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
     >
       <button
         onClick={() => setOpen(o => !o)}
@@ -215,6 +222,7 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
                 }
                 if (e.key === "Escape") {
                   e.preventDefault();
+                  e.stopPropagation();
                   setAdding(false);
                   setDraft("");
                   setError(null);

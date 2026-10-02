@@ -136,7 +136,10 @@ export function FolderManager({ onSelectSession }: FolderManagerProps) {
                             onInput={(e) => setNewFolderName((e.target as HTMLInputElement).value)}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") handleAddFolder();
-                                if (e.key === "Escape") setIsAddingFolder(false);
+                                if (e.key === "Escape") {
+                                    e.stopPropagation();
+                                    setIsAddingFolder(false);
+                                }
                             }}
                             placeholder="Folder name..."
                             className="flex-1 px-2 py-1.5 bg-bg-tertiary border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary"
@@ -325,7 +328,10 @@ function FolderItem({
                         onInput={(e) => onEditNameChange((e.target as HTMLInputElement).value)}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") onSaveEdit();
-                            if (e.key === "Escape") onCancelEdit();
+                            if (e.key === "Escape") {
+                                e.stopPropagation();
+                                onCancelEdit();
+                            }
                         }}
                         onBlur={onSaveEdit}
                         className="flex-1 px-1 bg-bg-tertiary border border-accent-primary rounded text-sm text-text-primary outline-none"

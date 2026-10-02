@@ -28,7 +28,7 @@ window is marked `blocked` with the reason once implemented.
 | F-13 | 1 | Spotlight parity (retry, scroll, actions, branches) | todo | |
 | F-14 | 1 | Enter submits during IME composition | todo | |
 | F-15 | 1 | Ctrl+N during streaming corrupts session | todo | |
-| F-16 | 1 | Esc in inline editors hides the window | todo | |
+| F-16 | 1 | Esc in inline editors hides the window | done | stopPropagation in model dropdown, custom-model input, folder inputs, branch menu/rename |
 | F-17 | 1 | Context meter ignores docs; history never trimmed | todo | |
 | F-18 | 1 | Hide-on-blur vs dialogs/drag; monitor clamp | todo | |
 | F-19 | 1 | System prompt sent as document context | todo | |

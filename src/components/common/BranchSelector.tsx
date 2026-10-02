@@ -58,6 +58,7 @@ export function BranchSelector({ className = "" }: BranchSelectorProps) {
         if (e.key === "Enter") {
             handleSaveRename(branchId);
         } else if (e.key === "Escape") {
+            e.stopPropagation();
             setEditingId(null);
             setEditName("");
         }
@@ -107,6 +108,7 @@ export function BranchSelector({ className = "" }: BranchSelectorProps) {
                                         e.preventDefault();
                                         handleSelect(branch.id);
                                     } else if (e.key === "Escape") {
+                                        e.stopPropagation();
                                         setIsOpen(false);
                                         setEditingId(null);
                                     }
