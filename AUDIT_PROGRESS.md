@@ -46,7 +46,7 @@ window is marked `blocked` with the reason once implemented.
 | F-31 | 2 | Command palette search, index reset, commands | todo | |
 | F-32 | 2 | History grouped by creation date | todo | |
 | F-33 | 2 | Regenerate branch pile-up (version arrows) | todo | |
-| F-34 | 3 | Onboarding opens Settings behind the tour (P0) | todo | |
+| F-34 | 3 | Onboarding opens Settings behind the tour (P0) | done | tour returns null and releases focus trap while isSettingsOpen; resumes on same step |
 | F-35 | 3 | Ollama base URL ignored for chat | todo | |
 | F-36 | 3 | API keys stored in plain JSON | todo | |
 | F-37 | 3 | Folders: no way to file a chat without HTML5 drag | todo | |

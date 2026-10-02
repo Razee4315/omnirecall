@@ -74,9 +74,13 @@ const steps: OnboardingStep[] = [
 export function Onboarding() {
     const [currentStep, setCurrentStep] = useState(0);
     const panelRef = useRef<HTMLDivElement>(null);
-    useFocusTrap(panelRef, isOnboardingActive.value, () => completeOnboarding());
+    // The tour steps aside while Settings is open (its "Open Settings" action
+    // would otherwise open the modal underneath this overlay) and resumes on
+    // the same step once Settings closes.
+    const visible = isOnboardingActive.value && !isSettingsOpen.value;
+    useFocusTrap(panelRef, visible, () => completeOnboarding());
 
-    if (!isOnboardingActive.value) return null;
+    if (!visible) return null;
 
     const step = steps[currentStep];
     const isLastStep = currentStep === steps.length - 1;
