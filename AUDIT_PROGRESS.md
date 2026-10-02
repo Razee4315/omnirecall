@@ -20,7 +20,7 @@ window is marked `blocked` with the reason once implemented.
 | F-05 | 1 | Mid-stream error loses the turn | todo | |
 | F-06 | 1 | Markdown: tables, nested lists, highlighting | todo | |
 | F-07 | 1 | Render-blocking Google Fonts | done | build emits woff2 assets; dist/index.html has no external stylesheet |
-| F-08 | 1 | Hotkey registration failure is silent | todo | |
+| F-08 | 1 | Hotkey registration failure is silent | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for startup status + register-before-release; warning toast, Settings alert and onboarding copy verified against mock |
 | F-09 | 1 | Hard-coded model list, Anthropic key test | todo | |
 | F-10 | 1 | First connected provider never auto-selected | verified | vitest: adoptProviderIfActiveUnusable (3 cases) |
 | F-11 | 1 | SSE parser duplicates / corrupts UTF-8 | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. LineBuffer frames on bytes, yields each line once; unit tests cover split UTF-8 and split lines |
@@ -30,7 +30,7 @@ window is marked `blocked` with the reason once implemented.
 | F-15 | 1 | Ctrl+N during streaming corrupts session | todo | |
 | F-16 | 1 | Esc in inline editors hides the window | done | stopPropagation in model dropdown, custom-model input, folder inputs, branch menu/rename |
 | F-17 | 1 | Context meter ignores docs; history never trimmed | todo | |
-| F-18 | 1 | Hide-on-blur vs dialogs/drag; monitor clamp | todo | |
+| F-18 | 1 | Hide-on-blur vs dialogs/drag; monitor clamp | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for set_blur_hide_suspended and cursor-monitor placement (unit tests); hold/release around dialogs and Settings verified (vitest + browser mock); pin button added |
 | F-19 | 1 | System prompt sent as document context | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. System prompt sent in each provider's system field; unit tests on request bodies |
 | F-20 | 2 | .docx offered but rejected; silent doc failures | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for the shared extension list + per-document errors; frontend feedback verified (browser mock: docx skipped, scanned PDF error shown) |
 | F-21 | 2 | Removed documents stay in the vector index | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for remove_document_index; frontend call verified (vitest + browser mock) |
@@ -42,18 +42,18 @@ window is marked `blocked` with the reason once implemented.
 | F-27 | 2 | Editing first message overwrites the thread | todo | |
 | F-28 | 2 | Retry after failed regenerate is a no-op | todo | |
 | F-29 | 2 | Search: empty state, titles/branches, scroll to hit | todo | |
-| F-30 | 2 | Maximize state; leaving maximized Dashboard | todo | |
+| F-30 | 2 | Maximize state; leaving maximized Dashboard | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for unmaximize/exit-fullscreen before shrinking; maximize icon state wired to command result |
 | F-31 | 2 | Command palette search, index reset, commands | todo | |
 | F-32 | 2 | History grouped by creation date | todo | |
 | F-33 | 2 | Regenerate branch pile-up (version arrows) | todo | |
 | F-34 | 3 | Onboarding opens Settings behind the tour (P0) | done | tour returns null and releases focus trap while isSettingsOpen; resumes on same step |
 | F-35 | 3 | Ollama base URL ignored for chat | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. baseUrl passed from the store to send_message_stream; argument verified (vitest) |
-| F-36 | 3 | API keys stored in plain JSON | todo | |
+| F-36 | 3 | API keys stored in plain JSON | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for the keyring commands; migration, stripped store file and fallback verified (vitest); keychain round-trip not run |
 | F-37 | 3 | Folders: no way to file a chat without HTML5 drag | todo | |
 | F-38 | 3 | Onboarding copy, Esc, hard-coded hotkey | todo | |
 | F-39 | 3 | API key saved only on blur; missing labels | todo | |
-| F-40 | 3 | Hotkey recorder uses e.key; stale tray tooltip | todo | |
-| F-41 | 3 | Reset all data is incomplete | todo | |
+| F-40 | 3 | Hotkey recorder uses e.key; stale tray tooltip | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for pause/resume + tray tooltip; recorder (e.code, Esc to cancel, failure message) verified in browser mock + vitest |
+| F-41 | 3 | Reset all data is incomplete | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for reset_backend_data; frontend reset verified (vitest + browser mock: store, secrets, backend call, onboarding) |
 | F-42 | 3 | Export/import reachability and stale export | todo | |
 | F-43 | 3 | Native confirm(); dead Branch label | todo | |
 | F-44 | 3 | CSP off, unchecked link hrefs | todo | |
@@ -69,7 +69,7 @@ window is marked `blocked` with the reason once implemented.
 | ID | Tier | Item | Status | Note |
 |---|---|---|---|---|
 | M-01 | all | Auto-update | todo | |
-| M-02 | 1 | Launch at login and single-instance guard | todo | |
+| M-02 | 1 | Launch at login and single-instance guard | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. tauri-plugin-single-instance + tauri-plugin-autostart (--hidden login launch); Launch at login switch verified against mock |
 | M-03 | 2 | Source citations on document answers | todo | |
 | M-04 | 2 | Per-chat document toggle | todo | |
 | M-05 | 1 | Live model lists | todo | |
@@ -86,7 +86,7 @@ window is marked `blocked` with the reason once implemented.
 |---|---|---|---|---|
 | C-01 | - | Delete stray `-o` binary | verified | git rm; no references in repo (grep), build unaffected |
 | C-02 | - | Unused npm packages | todo | |
-| C-03 | - | Unused crates | todo | |
+| C-03 | - | Unused crates | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. async-stream, chrono, anyhow, regex removed; keyring now used; Cargo.lock cannot be regenerated here |
 | C-04 | - | Clipboard plugin either used or removed | todo | |
 | C-05 | - | Unused store signals | todo | |
 | C-06 | - | Dead components and exports | todo | |
@@ -95,7 +95,7 @@ window is marked `blocked` with the reason once implemented.
 | C-09 | - | Unused CSS | todo | |
 | C-10 | - | Non-streaming chat functions | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Removed with the streaming rewrite; no remaining references (grep) |
 | C-11 | - | Unused embedding paths and helpers | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. OpenAI/Ollama embedding paths, embed-per-chunk loop, dimension() removed |
-| C-12 | - | Unused AppConfig fields, stale allow(dead_code) | todo | |
+| C-12 | - | Unused AppConfig fields, stale allow(dead_code) | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. AppConfig reduced to hotkey; stale allow(dead_code) and Unknown variant removed |
 | C-13 | - | Archive stale audit docs | todo | |
 | C-14 | - | demo/demo.mp4 reference check | todo | |
 | C-15 | - | Duplication: settings cards/tabs, add-documents, downloads, fade-in | todo | |
