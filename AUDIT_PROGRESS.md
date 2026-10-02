@@ -84,7 +84,7 @@ window is marked `blocked` with the reason once implemented.
 
 | ID | Tier | Item | Status | Note |
 |---|---|---|---|---|
-| C-01 | - | Delete stray `-o` binary | todo | |
+| C-01 | - | Delete stray `-o` binary | verified | git rm; no references in repo (grep), build unaffected |
 | C-02 | - | Unused npm packages | todo | |
 | C-03 | - | Unused crates | todo | |
 | C-04 | - | Clipboard plugin either used or removed | todo | |
