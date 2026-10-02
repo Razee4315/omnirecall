@@ -68,7 +68,7 @@ window is marked `blocked` with the reason once implemented.
 
 | ID | Tier | Item | Status | Note |
 |---|---|---|---|---|
-| M-01 | all | Auto-update | todo | |
+| M-01 | all | Auto-update | blocked | needs credentials and a decision: the Tauri updater requires a signing keypair (private key as a CI secret) and an update endpoint; not something to generate on your behalf - see report for options |
 | M-02 | 1 | Launch at login and single-instance guard | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. tauri-plugin-single-instance + tauri-plugin-autostart (--hidden login launch); Launch at login switch verified against mock |
 | M-03 | 2 | Source citations on document answers | blocked | same change as F-24: sources chips rendered from the stream result; backend half not compiled here (no Rust toolchain) |
 | M-04 | 2 | Per-chat document toggle | verified | vitest + browser: per-chat docsEnabled persisted on the session |
@@ -78,7 +78,7 @@ window is marked `blocked` with the reason once implemented.
 | M-08 | 3 | Restore-backup entry | verified | browser mock: Settings > Privacy > Import chats and the palette command open the import dialog without an open chat |
 | M-09 | 1 | Per-chat draft retention | verified | vitest: unsent text kept per chat across loadSession/startNewChat |
 | M-10 | 1 | Clipboard capture into the composer | blocked | frontend verified (vitest quoteForComposer; browser mock: Ctrl+Shift+V / button / palette); reads the native clipboard through the existing clipboard plugin, which only runs in the native app |
-| M-11 | all | Frontend tests | verified | 63 vitest cases (store, chat actions, Markdown, utilities); Rust unit tests written for sse, ai_client, chat, documents, vector_store, embedding, secrets, lib but not run |
+| M-11 | all | Frontend tests | verified | 62 vitest cases (store, chat actions, Markdown, utilities, error boundary); Rust unit tests written for sse, ai_client, chat, documents, vector_store, embedding, secrets, lib but not run |
 
 ## Cleanup
 
@@ -96,8 +96,8 @@ window is marked `blocked` with the reason once implemented.
 | C-10 | - | Non-streaming chat functions | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Removed with the streaming rewrite; no remaining references (grep) |
 | C-11 | - | Unused embedding paths and helpers | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. OpenAI/Ollama embedding paths, embed-per-chunk loop, dimension() removed |
 | C-12 | - | Unused AppConfig fields, stale allow(dead_code) | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. AppConfig reduced to hotkey; stale allow(dead_code) and Unknown variant removed |
-| C-13 | - | Archive stale audit docs | todo | |
-| C-14 | - | demo/demo.mp4 reference check | todo | |
+| C-13 | - | Archive stale audit docs | verified | moved to docs/archive with a note; no references elsewhere (grep) |
+| C-14 | - | demo/demo.mp4 reference check | blocked | needs your decision: no file in the repo references demo/demo.mp4 (grep), but it may be linked from outside (release notes, social); left in place |
 | C-15 | - | Duplication: settings cards/tabs, add-documents, downloads, fade-in | verified | one ProviderCard and one ShortcutsTab (compact prop), shared pickAndAddDocuments, saveTextFile, single SSE driver (Rust), single fade-in definition |
 | C-16 | - | Shared error helper, import validation, remove `any` | verified | errorMessage()/parseApiError shared; sanitizeSession/Folder/Document validate stored + imported data (vitest); no any left (grep) |
 | C-17 | - | Onboarding flag moved into the app store | verified | vitest (resetAllData) + browser: onboardingComplete lives in the store, localStorage flag migrated and removed |
