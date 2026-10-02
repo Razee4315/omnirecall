@@ -183,6 +183,28 @@ export function ExpandIcon({ size = 20, className = "" }: IconProps) {
   );
 }
 
+export function CollapseIcon({ size = 20, className = "" }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 20 20"
+      fill="none"
+      className={className}
+    >
+      <path
+        d="M12 3V8H17M8 17V12H3M12 8L18 2M8 12L2 18"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function CloseIcon({ size = 20, className = "" }: IconProps) {
   return (
     <svg
@@ -393,28 +415,6 @@ export function ChevronDownIcon({ size = 20, className = "" }: IconProps) {
   );
 }
 
-export function StarIcon({ size = 20, className = "" }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 20 20"
-      fill="none"
-      className={className}
-    >
-      <path
-        d="M10 1.66667L12.575 6.88334L18.3333 7.725L14.1667 11.7833L15.15 17.5167L10 14.8083L4.85 17.5167L5.83333 11.7833L1.66667 7.725L7.425 6.88334L10 1.66667Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export function RefreshIcon({ size = 20, className = "" }: IconProps) {
   return (
     <svg
@@ -444,50 +444,6 @@ export function RefreshIcon({ size = 20, className = "" }: IconProps) {
         d="M16.325 7.5C15.9357 6.39699 15.2806 5.40667 14.4188 4.61544C13.557 3.82421 12.515 3.25628 11.385 2.96218C10.2549 2.66807 9.07118 2.65688 7.93574 2.92959C6.80029 3.20231 5.74761 3.75039 4.87083 4.525L1.66667 7.5M18.3333 12.5L15.1292 15.475C14.2524 16.2496 13.1997 16.7977 12.0643 17.0704C10.9288 17.3431 9.74512 17.3319 8.61503 17.0378C7.48495 16.7437 6.443 16.1758 5.58121 15.3846C4.71943 14.5933 4.06428 13.603 3.675 12.5"
         stroke="currentColor"
         strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export function ThumbsUpIcon({ size = 20, className = "" }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 20 20"
-      fill="none"
-      className={className}
-    >
-      <path
-        d="M5.83333 18.3333H3.33333C2.8913 18.3333 2.46738 18.1577 2.15482 17.8452C1.84226 17.5326 1.66667 17.1087 1.66667 16.6667V10.8333C1.66667 10.3913 1.84226 9.96738 2.15482 9.65482C2.46738 9.34226 2.8913 9.16667 3.33333 9.16667H5.83333M11.6667 7.5V4.16667C11.6667 3.50363 11.4033 2.86774 10.9344 2.3989C10.4656 1.93006 9.82971 1.66667 9.16667 1.66667L5.83333 9.16667V18.3333H15.2333C15.6353 18.3379 16.0253 18.1967 16.3316 17.9363C16.6378 17.6759 16.8397 17.3137 16.9 16.9167L18.05 9.41667C18.0863 9.18418 18.0701 8.94667 18.0026 8.72116C17.9351 8.49565 17.818 8.28773 17.6598 8.11252C17.5015 7.93731 17.3061 7.79926 17.0877 7.70849C16.8694 7.61771 16.6336 7.57639 16.3967 7.5875L11.6667 7.5Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export function ThumbsDownIcon({ size = 20, className = "" }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 20 20"
-      fill="none"
-      className={className}
-    >
-      <path
-        d="M14.1667 1.66667H16.6667C17.1087 1.66667 17.5326 1.84226 17.8452 2.15482C18.1577 2.46738 18.3333 2.8913 18.3333 3.33333V9.16667C18.3333 9.6087 18.1577 10.0326 17.8452 10.3452C17.5326 10.6577 17.1087 10.8333 16.6667 10.8333H14.1667M8.33333 12.5V15.8333C8.33333 16.4964 8.59672 17.1323 9.06557 17.6011C9.53441 18.0699 10.1703 18.3333 10.8333 18.3333L14.1667 10.8333V1.66667H4.76667C4.36469 1.66206 3.97468 1.80326 3.66841 2.06368C3.36215 2.3241 3.16027 2.68631 3.1 3.08333L1.95 10.5833C1.91369 10.8158 1.92992 11.0533 1.99738 11.2788C2.06485 11.5044 2.18198 11.7123 2.34022 11.8875C2.49847 12.0627 2.69387 12.2007 2.91223 12.2915C3.13058 12.3823 3.36644 12.4236 3.60333 12.4125L8.33333 12.5Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -959,49 +915,6 @@ export function CommandIcon({ size = 20, className = "" }: IconProps) {
       />
       <path
         d="M7.5 12.5H15C15.663 12.5 16.2989 12.2366 16.7678 11.7678C17.2366 11.2989 17.5 10.663 17.5 10C17.5 9.33696 17.2366 8.70107 16.7678 8.23223C16.2989 7.76339 15.663 7.5 15 7.5H5C4.33696 7.5 3.70107 7.76339 3.23223 8.23223C2.76339 8.70107 2.5 9.33696 2.5 10C2.5 10.663 2.76339 11.2989 3.23223 11.7678C3.70107 12.2366 4.33696 12.5 5 12.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export function HashIcon({ size = 20, className = "" }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      aria-hidden="true"
-      focusable="false"
-      viewBox="0 0 20 20"
-      fill="none"
-      className={className}
-    >
-      <path
-        d="M3.33333 7.5H16.6667"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3.33333 12.5H16.6667"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8.33333 2.5L6.66667 17.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M13.3333 2.5L11.6667 17.5"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"

@@ -7,12 +7,14 @@ import {
   setActiveModel,
   addCustomModel,
   removeCustomModel,
+  getProviderModels,
   isCustomModel,
   isValidModelName,
   AIProvider,
 } from "../../stores/appStore";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { ChevronDownIcon, CloseIcon, PlusIcon, CheckIcon } from "../icons";
+import { focusOnMount } from "../../lib/dom";
 
 interface ModelSelectorProps {
   /** Compact variant for Spotlight (smaller text + tighter padding). */
@@ -38,13 +40,31 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
     setOpen(false);
   };
 
-  // Scroll the active model into view when the dropdown opens.
+  // Move focus to the active model when the dropdown opens, so the arrow
+  // keys work straight away.
   useEffect(() => {
     if (open) {
-      const el = listRef.current?.querySelector('[aria-selected="true"]') as HTMLElement | null;
+      const el = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
       el?.scrollIntoView({ block: "nearest" });
+      el?.focus();
     }
   }, [open]);
+
+  // Arrow keys / Home / End move between models.
+  const handleListKeyDown = (e: KeyboardEvent) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+    if ((e.target as HTMLElement).tagName === "INPUT") return;
+    const options = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+    if (options.length === 0) return;
+    e.preventDefault();
+    const current = options.indexOf(document.activeElement as HTMLElement);
+    const next =
+      e.key === "Home" ? 0
+      : e.key === "End" ? options.length - 1
+      : e.key === "ArrowDown" ? Math.min(current + 1, options.length - 1)
+      : Math.max(current - 1, 0);
+    options[next].focus();
+  };
 
   return (
     <div
@@ -64,7 +84,8 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Active model: ${currentProviderLabel} ${activeModel.value}. Click to change.`}
-        className={`flex items-center gap-1.5 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-text-secondary ${
+        title={`${currentProviderLabel} · ${activeModel.value}`}
+        className={`flex items-center gap-1.5 min-w-0 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-text-secondary ${
           compact ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
         }`}
       >
@@ -78,13 +99,15 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
           }`}
           aria-hidden="true"
         />
-        <span className={`text-text-tertiary ${compact ? "max-w-[60px]" : ""} truncate`}>
-          {currentProviderLabel}
-        </span>
-        <span className={compact ? "max-w-[100px] truncate" : ""}>
-          <span className="text-text-tertiary mx-1">·</span>
-          {activeModel.value}
-        </span>
+        {/* Spotlight has room for the model name only; the provider is in
+            the tooltip and the dropdown. */}
+        {!compact && (
+          <>
+            <span className="text-text-tertiary truncate">{currentProviderLabel}</span>
+            <span className="text-text-tertiary">·</span>
+          </>
+        )}
+        <span className={compact ? "max-w-[120px] truncate" : "truncate"}>{activeModel.value}</span>
         <ChevronDownIcon size={compact ? 10 : 14} className="flex-shrink-0" />
       </button>
 
@@ -93,6 +116,7 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
           ref={listRef}
           role="listbox"
           aria-label="Available AI models"
+          onKeyDown={handleListKeyDown}
           className={`absolute top-full left-0 mt-1 bg-bg-primary border border-border rounded-lg shadow-xl z-50 py-1 overflow-y-auto ${
             compact ? "w-64 max-h-72" : "w-72 max-h-96"
           }`}
@@ -126,8 +150,10 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const builtIns = provider.models;
-  const custom = customModels.value[provider.id] ?? [];
+  // Subscribes this group to custom-model changes; the list itself comes
+  // from the store (live provider list when known, plus custom models).
+  void customModels.value;
+  const models = getProviderModels(provider.id);
   const showWarn = !provider.apiKey && provider.id !== "ollama";
 
   const submitDraft = () => {
@@ -163,7 +189,7 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
         )}
       </div>
 
-      {[...builtIns, ...custom.filter(m => !builtIns.includes(m))].map(model => {
+      {models.map(model => {
         const isActive = activeProviderId === provider.id && activeModelName === model;
         const userAdded = isCustomModel(provider.id, model);
         return (
@@ -192,7 +218,7 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
                   e.stopPropagation();
                   removeCustomModel(provider.id, model);
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1 mr-1.5 rounded text-text-tertiary hover:text-error hover:bg-error/10 transition-all"
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1 mr-1.5 rounded text-text-tertiary hover:text-error hover:bg-error/10 transition-opacity"
                 aria-label={`Remove custom model ${model}`}
                 title="Remove custom model"
               >
@@ -209,7 +235,7 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
           <div className="space-y-1">
             <input
               type="text"
-              autoFocus
+              ref={focusOnMount}
               value={draft}
               onInput={(e) => {
                 setDraft((e.target as HTMLInputElement).value);
