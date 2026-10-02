@@ -1,48 +1,81 @@
+import { lazy, Suspense } from "preact/compat";
 import { useEffect } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { toast } from "./stores/toastStore";
+import { confirmRequest } from "./stores/confirmStore";
 import {
   viewMode,
   theme,
   isSettingsOpen,
+  settingsTab,
   isCommandPaletteOpen,
   isCompareMode,
+  exportDialog,
   currentMessages,
   stopGeneration,
   isGenerating,
   isFullscreen,
   isShortcutsHelpOpen,
+  isOnboardingActive,
   isOnline,
   isDragOver,
-  addDroppedFiles,
-  loadPersistedData,
+  hotkeyError,
   applyThemeClasses,
   flushPendingSaves,
   startNewChat,
   loadSessionByIndex,
   loadAdjacentSession,
 } from "./stores/appStore";
+import { chatError } from "./stores/chatActions";
+import { addDocumentsWithFeedback } from "./lib/documents";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
-import { Settings } from "./components/settings/Settings";
 import { CommandPalette } from "./components/common/CommandPalette";
-import { ModelCompare } from "./components/common/ModelCompare";
+import { ConfirmDialog } from "./components/common/ConfirmDialog";
 import { ToastContainer } from "./components/common/Toast";
-import { KeyboardShortcuts } from "./components/common/KeyboardShortcuts";
-import { Onboarding, checkOnboardingStatus } from "./components/common/Onboarding";
+import { quoteClipboard, requestComposerFocus } from "./components/chat/ChatComposer";
+
+// Overlays are loaded the first time they are opened, keeping them out of
+// the code needed to show the chat window.
+const Settings = lazy(() => import("./components/settings/Settings").then(m => ({ default: m.Settings })));
+const ModelCompare = lazy(() => import("./components/common/ModelCompare").then(m => ({ default: m.ModelCompare })));
+const ExportImport = lazy(() => import("./components/common/ExportImport").then(m => ({ default: m.ExportImport })));
+const KeyboardShortcuts = lazy(() => import("./components/common/KeyboardShortcuts").then(m => ({ default: m.KeyboardShortcuts })));
+const Onboarding = lazy(() => import("./components/common/Onboarding").then(m => ({ default: m.Onboarding })));
+
+/// A blocking overlay is open; chat shortcuts shouldn't act behind it.
+function modalIsOpen(): boolean {
+  return (
+    isSettingsOpen.value ||
+    isCompareMode.value ||
+    exportDialog.value !== null ||
+    isOnboardingActive.value ||
+    confirmRequest.value !== null
+  );
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+}
+
+async function copyLastResponse() {
+  const lastAssistant = [...currentMessages.value].reverse().find(m => m.role === "assistant" && m.content);
+  if (!lastAssistant) {
+    toast.info("No response to copy yet");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(lastAssistant.content);
+    toast.success("Copied last response");
+  } catch {
+    toast.error("Couldn't copy to the clipboard");
+  }
+}
 
 export function App() {
   useEffect(() => {
-    // Load persisted data once at app level
-    loadPersistedData();
-
-    // Apply theme on mount
-    applyThemeClasses(theme.value);
-
-    // Check onboarding status
-    checkOnboardingStatus();
-
     // Suppress the webview context menu on chrome, but keep it where users
     // expect copy/paste: inputs and selectable text (messages, errors).
     const handleContextMenu = (e: MouseEvent) => {
@@ -53,11 +86,10 @@ export function App() {
     document.addEventListener("contextmenu", handleContextMenu);
 
     // Flush pending debounced saves before the window unloads. Without this
-    // a user closing the app within ~1.5s of typing can lose their last
-    // chat history / folder updates because the debounced writer hasn't
-    // fired yet.
+    // a user closing the app within ~1.5s of a change can lose it because
+    // the debounced writer hasn't fired yet.
     const handleUnload = () => {
-      flushPendingSaves();
+      void flushPendingSaves();
     };
     window.addEventListener("beforeunload", handleUnload);
     window.addEventListener("pagehide", handleUnload);
@@ -68,143 +100,137 @@ export function App() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // OS-level file drag-and-drop → add as documents (the feature the
-    // onboarding tour advertises). Shows a drop overlay while hovering.
+    // OS-level file drag-and-drop → add as documents. Shows a drop overlay
+    // while hovering.
     let unlistenDrop: (() => void) | undefined;
-    getCurrentWebview()
-      .onDragDropEvent((event) => {
-        const p = event.payload as { type: string; paths?: string[] };
-        if (p.type === "enter" || p.type === "over") {
-          isDragOver.value = true;
-        } else if (p.type === "leave") {
-          isDragOver.value = false;
-        } else if (p.type === "drop") {
-          isDragOver.value = false;
-          const n = addDroppedFiles(p.paths ?? []);
-          if (n > 0) toast.success(`Added ${n} document${n > 1 ? "s" : ""}`);
-          else toast.warning("No supported files in that drop");
+    let disposed = false;
+    try {
+      getCurrentWebview()
+        .onDragDropEvent((event) => {
+          const payload = event.payload;
+          if (payload.type === "enter" || payload.type === "over") {
+            isDragOver.value = true;
+          } else if (payload.type === "leave") {
+            isDragOver.value = false;
+          } else if (payload.type === "drop") {
+            isDragOver.value = false;
+            void addDocumentsWithFeedback(payload.paths);
+          }
+        })
+        .then((fn) => {
+          if (disposed) fn();
+          else unlistenDrop = fn;
+        })
+        .catch(() => {});
+    } catch (e) {
+      console.error("File drop is unavailable:", e);
+    }
+
+    // The global shortcut is the main way in; if it couldn't be registered
+    // (another app owns it) say so instead of failing silently.
+    if (hotkeyError.value) {
+      toast.action(
+        hotkeyError.value,
+        {
+          label: "Fix",
+          onClick: () => {
+            settingsTab.value = "shortcuts";
+            isSettingsOpen.value = true;
+          },
+        },
+        "warning",
+        15_000,
+      );
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+
+      // Escape closes the topmost overlay. Overlays with their own focus
+      // trap (compare, export, onboarding, confirm) and inline editors stop
+      // the event themselves, so reaching here means none of those took it.
+      if (e.key === "Escape") {
+        if (isShortcutsHelpOpen.value) {
+          isShortcutsHelpOpen.value = false;
+        } else if (isCommandPaletteOpen.value) {
+          isCommandPaletteOpen.value = false;
+        } else if (isSettingsOpen.value) {
+          isSettingsOpen.value = false;
+        } else if (viewMode.value === "spotlight" && !modalIsOpen()) {
+          void invoke("hide_window");
         }
-      })
-      .then((fn) => { unlistenDrop = fn; })
-      .catch(() => {});
-
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      // Command Palette (Ctrl+K)
-      if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        isCommandPaletteOpen.value = !isCommandPaletteOpen.value;
+        // In the Dashboard, Escape with nothing open does nothing: it must
+        // never throw away the window the user is working in.
         return;
       }
 
-      // New Chat (Ctrl+N)
-      if (e.key === "n" && (e.ctrlKey || e.metaKey)) {
+      if (mod && key === "k") {
         e.preventDefault();
-        startNewChat();
+        if (!modalIsOpen()) isCommandPaletteOpen.value = !isCommandPaletteOpen.value;
         return;
       }
 
-      // Copy Last Response (Ctrl+Shift+C)
-      if (e.key === "C" && (e.ctrlKey || e.metaKey) && e.shiftKey) {
-        e.preventDefault();
-        const lastAssistant = [...currentMessages.value].reverse().find(m => m.role === "assistant");
-        if (lastAssistant) {
-          await navigator.clipboard.writeText(lastAssistant.content);
-        }
-        return;
-      }
-
-      // Stop Generation (Ctrl+.)
-      if (e.key === "." && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        if (isGenerating.value) {
-          stopGeneration();
-        }
-        return;
-      }
-
-      // Toggle Compare Mode (Ctrl+Shift+M)
-      if (e.key === "M" && (e.ctrlKey || e.metaKey) && e.shiftKey) {
-        e.preventDefault();
-        isCompareMode.value = !isCompareMode.value;
-        return;
-      }
-
-      // Fullscreen toggle (F11)
-      if (e.key === "F11") {
-        e.preventDefault();
-        const newState = await invoke<boolean>("toggle_fullscreen");
-        isFullscreen.value = newState;
-        return;
-      }
-
-      // Quick Chat Navigation (Ctrl+1-9)
-      if ((e.ctrlKey || e.metaKey) && e.key >= "1" && e.key <= "9") {
-        e.preventDefault();
-        loadSessionByIndex(parseInt(e.key) - 1);
-        return;
-      }
-
-      // Previous Chat (Ctrl+[)
-      if (e.key === "[" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        loadAdjacentSession(-1);
-        return;
-      }
-
-      // Next Chat (Ctrl+])
-      if (e.key === "]" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        loadAdjacentSession(1);
-        return;
-      }
-
-      // Settings shortcut
-      if (e.key === "," && (e.ctrlKey || e.metaKey)) {
+      if (mod && e.key === ",") {
         e.preventDefault();
         isSettingsOpen.value = !isSettingsOpen.value;
         return;
       }
 
-      // Close settings or hide window on Escape
-      if (e.key === "Escape") {
-        if (isShortcutsHelpOpen.value) {
-          isShortcutsHelpOpen.value = false;
-          return;
-        }
-        if (isCommandPaletteOpen.value) {
-          isCommandPaletteOpen.value = false;
-          return;
-        }
-        if (isCompareMode.value) {
-          isCompareMode.value = false;
-          return;
-        }
-        if (isSettingsOpen.value) {
-          isSettingsOpen.value = false;
-        } else if (viewMode.value === "spotlight") {
-          await invoke("hide_window");
-        } else {
-          // Switch back to spotlight from dashboard
-          viewMode.value = "spotlight";
-          await invoke("toggle_dashboard", { isDashboard: false });
+      if ((mod && e.key === "/") || (e.key === "?" && !mod && !isTypingTarget(e.target))) {
+        e.preventDefault();
+        isShortcutsHelpOpen.value = !isShortcutsHelpOpen.value;
+        return;
+      }
+
+      if (mod && e.key === ".") {
+        e.preventDefault();
+        if (isGenerating.value) stopGeneration();
+        return;
+      }
+
+      if (e.key === "F11") {
+        e.preventDefault();
+        if (viewMode.value === "dashboard") {
+          void invoke<boolean>("toggle_fullscreen").then((state) => {
+            isFullscreen.value = state;
+          });
         }
         return;
       }
 
-      // Keyboard shortcuts help (?)
-      if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
-        // Only trigger if not typing in an input/textarea
-        const target = e.target as HTMLElement;
-        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-          e.preventDefault();
-          isShortcutsHelpOpen.value = !isShortcutsHelpOpen.value;
-        }
-        return;
+      // Everything below acts on the chat and stays inert behind a modal.
+      if (!mod || modalIsOpen()) return;
+
+      if (e.shiftKey && key === "c") {
+        e.preventDefault();
+        void copyLastResponse();
+      } else if (e.shiftKey && key === "v") {
+        e.preventDefault();
+        void quoteClipboard();
+      } else if (e.shiftKey && key === "m") {
+        e.preventDefault();
+        isCompareMode.value = true;
+      } else if (key === "n" && !e.shiftKey) {
+        e.preventDefault();
+        startNewChat();
+        chatError.value = null;
+        requestComposerFocus();
+      } else if (e.key >= "1" && e.key <= "9") {
+        e.preventDefault();
+        loadSessionByIndex(parseInt(e.key) - 1);
+      } else if (e.key === "[") {
+        e.preventDefault();
+        loadAdjacentSession(-1);
+      } else if (e.key === "]") {
+        e.preventDefault();
+        loadAdjacentSession(1);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      disposed = true;
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("beforeunload", handleUnload);
       window.removeEventListener("pagehide", handleUnload);
@@ -223,12 +249,16 @@ export function App() {
   return (
     <div className={`h-full w-full ${viewMode.value === "spotlight" || theme.value === "transparent" ? "bg-transparent" : "bg-bg-primary"}`}>
       {viewMode.value === "spotlight" ? <Spotlight /> : <Dashboard />}
-      {isSettingsOpen.value && <Settings />}
       <CommandPalette />
-      {isCompareMode.value && <ModelCompare onClose={() => (isCompareMode.value = false)} />}
+      <Suspense fallback={null}>
+        {isSettingsOpen.value && <Settings />}
+        {isCompareMode.value && <ModelCompare onClose={() => (isCompareMode.value = false)} />}
+        {exportDialog.value !== null && <ExportImport />}
+        {isShortcutsHelpOpen.value && <KeyboardShortcuts />}
+        {isOnboardingActive.value && <Onboarding />}
+      </Suspense>
+      <ConfirmDialog />
       <ToastContainer />
-      <KeyboardShortcuts />
-      <Onboarding />
       {isDragOver.value && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-accent-primary/10 backdrop-blur-sm border-4 border-dashed border-accent-primary pointer-events-none">
           <div className="text-center px-6 py-4 rounded-xl bg-bg-primary/90 border border-border shadow-2xl">

@@ -1,7 +1,8 @@
-import { useState, useRef } from "preact/hooks";
+import { useEffect, useState, useRef } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { providers } from "../../stores/appStore";
+import { listen } from "@tauri-apps/api/event";
+import { getProviderModels, providers, systemPrompt } from "../../stores/appStore";
+import { parseApiError } from "../../lib/errors";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
     CompareIcon,
@@ -77,91 +78,91 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
         textareaRef.current?.focus();
     };
 
-    const handleCopyResponse = async (content: string) => {
-        await navigator.clipboard.writeText(content);
+    const handleCopyResponse = (content: string) => {
+        navigator.clipboard.writeText(content).catch(() => {});
     };
 
-    const handleCopyAll = async () => {
+    const handleCopyAll = () => {
         const allText = responses
             .filter(r => r.content && !r.error)
             .map(r => `## ${r.model}\n\n${r.content}`)
             .join("\n\n---\n\n");
         const full = `# Model Comparison\n\n**Prompt:** ${prompt}\n\n---\n\n${allText}`;
-        await navigator.clipboard.writeText(full);
+        navigator.clipboard.writeText(full).catch(() => {});
     };
 
-    const handleCompare = async () => {
-        if (!prompt.trim() || selectedModels.length < 2) return;
+    // The run in progress: lets Stop (and closing the dialog) cancel the
+    // request in flight and skip the models still queued.
+    const runRef = useRef<{ cancelled: boolean; streamId: string | null }>({ cancelled: false, streamId: null });
 
+    const handleStop = () => {
+        const run = runRef.current;
+        run.cancelled = true;
+        if (run.streamId) invoke("stop_generation", { streamId: run.streamId }).catch(() => {});
+    };
+
+    useEffect(() => handleStop, []);
+
+    const handleCompare = async () => {
+        if (!prompt.trim() || selectedModels.length < 2 || isComparing) return;
+
+        const run = { cancelled: false, streamId: null as string | null };
+        runRef.current = run;
         setIsComparing(true);
         setHasCompared(true);
-        setResponses(selectedModels.map(m => ({
-            ...m,
-            content: "",
-            isLoading: true,
-            startTime: Date.now(),
-        })));
+        setResponses(selectedModels.map(m => ({ ...m, content: "", isLoading: true })));
 
-        // Process models sequentially to avoid event listener conflicts
-        // (the backend emits to "chat-stream" for all requests)
+        const update = (index: number, changes: Partial<CompareResponse>) =>
+            setResponses(prev => prev.map((r, i) => (i === index ? { ...r, ...changes } : r)));
+
+        // Models run one at a time and each is timed from when its own
+        // request starts, so response times are comparable.
         for (let index = 0; index < selectedModels.length; index++) {
-            const model = selectedModels[index];
-            const provider = providers.value.find(p => p.id === model.provider);
-
-            if (!provider?.apiKey && provider?.id !== "ollama") {
-                setResponses(prev => prev.map((r, i) =>
-                    i === index ? { ...r, isLoading: false, error: "No API key configured", endTime: Date.now() } : r
-                ));
+            if (run.cancelled) {
+                update(index, { isLoading: false, error: "Cancelled" });
                 continue;
             }
 
-            const modelStartTime = Date.now();
+            const model = selectedModels[index];
+            const provider = providers.value.find(p => p.id === model.provider);
+            if (!provider?.apiKey && provider?.id !== "ollama") {
+                update(index, { isLoading: false, error: "No API key configured" });
+                continue;
+            }
+
+            // Only events tagged with this request's id are applied, so the
+            // main chat (or another model) can never write into this column.
+            const streamId = crypto.randomUUID();
+            run.streamId = streamId;
+            let content = "";
+            const startTime = Date.now();
+            update(index, { startTime });
+
+            const unlisten = await listen<{ streamId: string; chunk: string }>("chat-stream", (event) => {
+                if (event.payload.streamId !== streamId) return;
+                content += event.payload.chunk;
+                update(index, { content });
+            });
 
             try {
-                let fullResponse = "";
-                let unlisten: UnlistenFn | null = null;
-                let isDone = false;
-
-                unlisten = await listen<{ chunk: string; done: boolean }>("chat-stream", (event) => {
-                    if (!event.payload.done) {
-                        fullResponse += event.payload.chunk;
-                        setResponses(prev => prev.map((r, i) =>
-                            i === index ? { ...r, content: fullResponse } : r
-                        ));
-                    } else {
-                        isDone = true;
-                        setResponses(prev => prev.map((r, i) =>
-                            i === index ? { ...r, isLoading: false, endTime: Date.now() } : r
-                        ));
-                    }
-                });
-
                 await invoke("send_message_stream", {
+                    streamId,
                     message: prompt,
                     history: [],
                     documents: [],
+                    embeddingKey: null,
                     provider: model.provider,
                     model: model.model,
-                    apiKey: provider?.apiKey || "",
+                    apiKey: provider?.apiKey ?? "",
+                    baseUrl: provider?.baseUrl || null,
+                    systemPrompt: systemPrompt.value.trim() || null,
                 });
-
-                let waitCount = 0;
-                while (!isDone && waitCount < 100) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    waitCount++;
-                }
-
-                if (unlisten) unlisten();
-
-                // Ensure endTime is set if stream didn't fire done
-                setResponses(prev => prev.map((r, i) =>
-                    i === index && r.isLoading ? { ...r, isLoading: false, endTime: Date.now() } : r
-                ));
-
-            } catch (err: any) {
-                setResponses(prev => prev.map((r, i) =>
-                    i === index ? { ...r, isLoading: false, error: err?.message || "Request failed", endTime: Date.now(), startTime: modelStartTime } : r
-                ));
+                update(index, { isLoading: false, endTime: Date.now() });
+            } catch (err) {
+                update(index, { isLoading: false, error: parseApiError(err), endTime: Date.now() });
+            } finally {
+                unlisten();
+                run.streamId = null;
             }
         }
 
@@ -281,6 +282,14 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                                 rows={2}
                             />
                         </div>
+                        {isComparing && (
+                            <button
+                                onClick={handleStop}
+                                className="px-4 py-3 rounded-xl text-sm font-medium bg-error text-white hover:bg-error/90 transition-colors"
+                            >
+                                Stop
+                            </button>
+                        )}
                         <button
                             onClick={handleCompare}
                             disabled={!prompt.trim() || selectedModels.length < 2 || isComparing}
@@ -406,7 +415,9 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                                             ) : response.isLoading ? (
                                                 <div className="flex flex-col items-center justify-center h-full gap-3 py-8">
                                                     <SpinnerIcon size={24} className="text-accent-primary" />
-                                                    <span className="text-xs text-text-tertiary">Generating response...</span>
+                                                    <span className="text-xs text-text-tertiary">
+                                                        {response.startTime ? "Generating response..." : "Waiting for the previous model..."}
+                                                    </span>
                                                 </div>
                                             ) : (
                                                 <div className="text-text-tertiary text-sm italic text-center py-8">
@@ -501,7 +512,7 @@ function ModelSelector({ onSelect, excludeModels }: ModelSelectorProps) {
                     />
                     <div className="absolute top-full left-0 mt-1 w-72 bg-bg-primary border border-border rounded-xl shadow-2xl z-20 max-h-80 overflow-y-auto animate-fade-in">
                         {providers.value.map(provider => {
-                            const availableModels = provider.models.filter(
+                            const availableModels = getProviderModels(provider.id).filter(
                                 model => !excludeModels.some(e => e.provider === provider.id && e.model === model)
                             );
 
