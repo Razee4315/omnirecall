@@ -14,16 +14,16 @@ window is marked `blocked` with the reason once implemented.
 | ID | Tier | Item | Status | Note |
 |---|---|---|---|---|
 | F-01 | 1 | Input loses focus after every answer | todo | |
-| F-02 | 1 | Global cancel flag / unlabelled stream channel | todo | |
-| F-03 | 1 | Anthropic not streamed, 60s watchdog drops answers | todo | |
-| F-04 | 1 | Silent empty responses | todo | |
+| F-02 | 1 | Global cancel flag / unlabelled stream channel | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Per-request stream id + CancellationToken; frontend filtering verified (vitest: ignores other streams; browser mock) |
+| F-03 | 1 | Anthropic not streamed, 60s watchdog drops answers | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Anthropic now streams via SSE; idle watchdog kept |
+| F-04 | 1 | Silent empty responses | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for the EmptyResponse error; frontend error + retry verified (vitest + browser mock) |
 | F-05 | 1 | Mid-stream error loses the turn | todo | |
 | F-06 | 1 | Markdown: tables, nested lists, highlighting | todo | |
 | F-07 | 1 | Render-blocking Google Fonts | done | build emits woff2 assets; dist/index.html has no external stylesheet |
 | F-08 | 1 | Hotkey registration failure is silent | todo | |
 | F-09 | 1 | Hard-coded model list, Anthropic key test | todo | |
 | F-10 | 1 | First connected provider never auto-selected | verified | vitest: adoptProviderIfActiveUnusable (3 cases) |
-| F-11 | 1 | SSE parser duplicates / corrupts UTF-8 | todo | |
+| F-11 | 1 | SSE parser duplicates / corrupts UTF-8 | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. LineBuffer frames on bytes, yields each line once; unit tests cover split UTF-8 and split lines |
 | F-12 | 1 | Right-click disabled, text not selectable | done | contextmenu allowed on inputs/.selectable/.markdown-content; user bubbles and error text selectable |
 | F-13 | 1 | Spotlight parity (retry, scroll, actions, branches) | todo | |
 | F-14 | 1 | Enter submits during IME composition | todo | |
@@ -31,7 +31,7 @@ window is marked `blocked` with the reason once implemented.
 | F-16 | 1 | Esc in inline editors hides the window | done | stopPropagation in model dropdown, custom-model input, folder inputs, branch menu/rename |
 | F-17 | 1 | Context meter ignores docs; history never trimmed | todo | |
 | F-18 | 1 | Hide-on-blur vs dialogs/drag; monitor clamp | todo | |
-| F-19 | 1 | System prompt sent as document context | todo | |
+| F-19 | 1 | System prompt sent as document context | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. System prompt sent in each provider's system field; unit tests on request bodies |
 | F-20 | 2 | .docx offered but rejected; silent doc failures | todo | |
 | F-21 | 2 | Removed documents stay in the vector index | todo | |
 | F-22 | 2 | Indexing silent / no re-index / uncapped fallback | todo | |
@@ -47,7 +47,7 @@ window is marked `blocked` with the reason once implemented.
 | F-32 | 2 | History grouped by creation date | todo | |
 | F-33 | 2 | Regenerate branch pile-up (version arrows) | todo | |
 | F-34 | 3 | Onboarding opens Settings behind the tour (P0) | done | tour returns null and releases focus trap while isSettingsOpen; resumes on same step |
-| F-35 | 3 | Ollama base URL ignored for chat | todo | |
+| F-35 | 3 | Ollama base URL ignored for chat | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. baseUrl passed from the store to send_message_stream; argument verified (vitest) |
 | F-36 | 3 | API keys stored in plain JSON | todo | |
 | F-37 | 3 | Folders: no way to file a chat without HTML5 drag | todo | |
 | F-38 | 3 | Onboarding copy, Esc, hard-coded hotkey | todo | |
@@ -93,7 +93,7 @@ window is marked `blocked` with the reason once implemented.
 | C-07 | - | Unused skeleton components | todo | |
 | C-08 | - | Unused icons | todo | |
 | C-09 | - | Unused CSS | todo | |
-| C-10 | - | Non-streaming chat functions | todo | |
+| C-10 | - | Non-streaming chat functions | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Removed with the streaming rewrite; no remaining references (grep) |
 | C-11 | - | Unused embedding paths and helpers | todo | |
 | C-12 | - | Unused AppConfig fields, stale allow(dead_code) | todo | |
 | C-13 | - | Archive stale audit docs | todo | |
@@ -107,7 +107,7 @@ window is marked `blocked` with the reason once implemented.
 | ID | Tier | Item | Status | Note |
 |---|---|---|---|---|
 | O-01 | - | Bundle fonts (same change as F-07) | done | build emits woff2 assets; dist/index.html has no external stylesheet |
-| O-02 | - | Reuse HTTP clients | todo | |
+| O-02 | - | Reuse HTTP clients | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Shared OnceLock reqwest clients |
 | O-03 | - | Per-session persistence | todo | |
 | O-04 | - | Document context assembled in Rust | todo | |
 | O-05 | - | Batch embeddings | todo | |

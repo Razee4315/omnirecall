@@ -2,7 +2,6 @@ use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-#[allow(dead_code)] // RateLimited / Unknown are reserved for future use
 pub enum AppError {
     #[error("Network error: {0}")]
     Network(String),
@@ -13,8 +12,13 @@ pub enum AppError {
     #[error("Invalid API key")]
     InvalidApiKey,
 
-    #[error("Rate limited")]
+    #[error("Rate limit exceeded (429). Please wait a moment and try again.")]
     RateLimited,
+
+    /// The provider completed the request without producing any text. The
+    /// payload is an optional reason, already phrased for display.
+    #[error("No response received{0}")]
+    EmptyResponse(String),
 
     #[error("File error: {0}")]
     File(String),
@@ -24,9 +28,6 @@ pub enum AppError {
 
     #[error("Configuration error: {0}")]
     Config(String),
-
-    #[error("Unknown error: {0}")]
-    Unknown(String),
 }
 
 impl Serialize for AppError {
@@ -76,3 +77,27 @@ impl From<serde_json::Error> for AppError {
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_mapping() {
+        assert!(matches!(AppError::for_status(401, "OpenAI", ""), AppError::InvalidApiKey));
+        assert!(matches!(AppError::for_status(429, "OpenAI", ""), AppError::RateLimited));
+        assert_eq!(
+            AppError::for_status(500, "OpenAI", "boom").to_string(),
+            "API error: OpenAI error 500: boom"
+        );
+    }
+
+    #[test]
+    fn empty_response_message() {
+        assert_eq!(AppError::EmptyResponse(String::new()).to_string(), "No response received");
+        assert_eq!(
+            AppError::EmptyResponse(": the prompt was blocked (SAFETY)".to_string()).to_string(),
+            "No response received: the prompt was blocked (SAFETY)"
+        );
+    }
+}
