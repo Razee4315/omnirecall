@@ -157,7 +157,7 @@ html {
 }
 
 body {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
   background: transparent;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;

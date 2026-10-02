@@ -19,7 +19,7 @@ window is marked `blocked` with the reason once implemented.
 | F-04 | 1 | Silent empty responses | todo | |
 | F-05 | 1 | Mid-stream error loses the turn | todo | |
 | F-06 | 1 | Markdown: tables, nested lists, highlighting | todo | |
-| F-07 | 1 | Render-blocking Google Fonts | todo | |
+| F-07 | 1 | Render-blocking Google Fonts | done | build emits woff2 assets; dist/index.html has no external stylesheet |
 | F-08 | 1 | Hotkey registration failure is silent | todo | |
 | F-09 | 1 | Hard-coded model list, Anthropic key test | todo | |
 | F-10 | 1 | First connected provider never auto-selected | verified | vitest: adoptProviderIfActiveUnusable (3 cases) |
@@ -106,7 +106,7 @@ window is marked `blocked` with the reason once implemented.
 
 | ID | Tier | Item | Status | Note |
 |---|---|---|---|---|
-| O-01 | - | Bundle fonts (same change as F-07) | todo | |
+| O-01 | - | Bundle fonts (same change as F-07) | done | build emits woff2 assets; dist/index.html has no external stylesheet |
 | O-02 | - | Reuse HTTP clients | todo | |
 | O-03 | - | Per-session persistence | todo | |
 | O-04 | - | Document context assembled in Rust | todo | |
