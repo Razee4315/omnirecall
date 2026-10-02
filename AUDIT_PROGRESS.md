@@ -32,9 +32,9 @@ window is marked `blocked` with the reason once implemented.
 | F-17 | 1 | Context meter ignores docs; history never trimmed | todo | |
 | F-18 | 1 | Hide-on-blur vs dialogs/drag; monitor clamp | todo | |
 | F-19 | 1 | System prompt sent as document context | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. System prompt sent in each provider's system field; unit tests on request bodies |
-| F-20 | 2 | .docx offered but rejected; silent doc failures | todo | |
-| F-21 | 2 | Removed documents stay in the vector index | todo | |
-| F-22 | 2 | Indexing silent / no re-index / uncapped fallback | todo | |
+| F-20 | 2 | .docx offered but rejected; silent doc failures | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for the shared extension list + per-document errors; frontend feedback verified (browser mock: docx skipped, scanned PDF error shown) |
+| F-21 | 2 | Removed documents stay in the vector index | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for remove_document_index; frontend call verified (vitest + browser mock) |
+| F-22 | 2 | Indexing silent / no re-index / uncapped fallback | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for scoped search, model-tagged vectors (gemini-embedding-001), capped fallback; index state, auto-index and re-index verified (vitest + browser mock) |
 | F-23 | 2 | Esc collapses Dashboard; two adjacent X buttons | todo | |
 | F-24 | 2 | Docs always on, no sources shown | todo | |
 | F-25 | 2 | Docs list states, labels, picker types | todo | |
@@ -94,7 +94,7 @@ window is marked `blocked` with the reason once implemented.
 | C-08 | - | Unused icons | todo | |
 | C-09 | - | Unused CSS | todo | |
 | C-10 | - | Non-streaming chat functions | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Removed with the streaming rewrite; no remaining references (grep) |
-| C-11 | - | Unused embedding paths and helpers | todo | |
+| C-11 | - | Unused embedding paths and helpers | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. OpenAI/Ollama embedding paths, embed-per-chunk loop, dimension() removed |
 | C-12 | - | Unused AppConfig fields, stale allow(dead_code) | todo | |
 | C-13 | - | Archive stale audit docs | todo | |
 | C-14 | - | demo/demo.mp4 reference check | todo | |
@@ -109,9 +109,9 @@ window is marked `blocked` with the reason once implemented.
 | O-01 | - | Bundle fonts (same change as F-07) | done | build emits woff2 assets; dist/index.html has no external stylesheet |
 | O-02 | - | Reuse HTTP clients | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Shared OnceLock reqwest clients |
 | O-03 | - | Per-session persistence | todo | |
-| O-04 | - | Document context assembled in Rust | todo | |
-| O-05 | - | Batch embeddings | todo | |
-| O-06 | - | Vector search without loading every chunk body | todo | |
+| O-04 | - | Document context assembled in Rust | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Context is assembled in the backend from paths with an mtime-keyed text cache |
+| O-05 | - | Batch embeddings | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. batchEmbedContents, 50 texts per request |
+| O-06 | - | Vector search without loading every chunk body | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Scores ids+embeddings, loads bodies for the top-k only |
 | O-07 | - | Memoized message rows | todo | |
 | O-08 | - | Trim history, cap document fallback | todo | |
 | O-09 | - | Lazy-load overlays | todo | |
