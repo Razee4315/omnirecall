@@ -18,7 +18,7 @@ window is marked `blocked` with the reason once implemented.
 | F-03 | 1 | Anthropic not streamed, 60s watchdog drops answers | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine. Anthropic now streams via SSE; idle watchdog kept |
 | F-04 | 1 | Silent empty responses | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for the EmptyResponse error; frontend error + retry verified (vitest + browser mock) |
 | F-05 | 1 | Mid-stream error loses the turn | verified | vitest: partial answer saved + marked interrupted on mid-stream failure, retry regenerates; browser mock |
-| F-06 | 1 | Markdown: tables, nested lists, highlighting | todo | |
+| F-06 | 1 | Markdown: tables, nested lists, highlighting | verified | vitest (tables, nested/task lists, hr, h4, del, emphasis edge cases, streaming code block, no HTML injection) + browser |
 | F-07 | 1 | Render-blocking Google Fonts | done | build emits woff2 assets; dist/index.html has no external stylesheet |
 | F-08 | 1 | Hotkey registration failure is silent | blocked | implemented with Rust unit tests, but NOT compiled or run: no Rust toolchain on this machine for startup status + register-before-release; warning toast, Settings alert and onboarding copy verified against mock |
 | F-09 | 1 | Hard-coded model list, Anthropic key test | blocked | frontend verified (vitest verifyProvider: live list replaces built-ins, stale active model replaced; browser mock); list_models request/parse code is Rust, backend half not compiled here (no Rust toolchain). Anthropic test now uses GET /v1/models |
