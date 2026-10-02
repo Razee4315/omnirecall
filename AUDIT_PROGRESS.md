@@ -78,7 +78,7 @@ window is marked `blocked` with the reason once implemented.
 | M-08 | 3 | Restore-backup entry | verified | browser mock: Settings > Privacy > Import chats and the palette command open the import dialog without an open chat |
 | M-09 | 1 | Per-chat draft retention | verified | vitest: unsent text kept per chat across loadSession/startNewChat |
 | M-10 | 1 | Clipboard capture into the composer | blocked | frontend verified (vitest quoteForComposer; browser mock: Ctrl+Shift+V / button / palette); reads the native clipboard through the existing clipboard plugin, which only runs in the native app |
-| M-11 | all | Frontend tests | in-progress | vitest + happy-dom harness with mocked Tauri IPC; tests added alongside each change |
+| M-11 | all | Frontend tests | verified | 63 vitest cases (store, chat actions, Markdown, utilities); Rust unit tests written for sse, ai_client, chat, documents, vector_store, embedding, secrets, lib but not run |
 
 ## Cleanup
 
