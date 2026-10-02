@@ -43,8 +43,11 @@ export function App() {
     // Check onboarding status
     checkOnboardingStatus();
 
-    // Disable right-click context menu (hide devtools option)
+    // Suppress the webview context menu on chrome, but keep it where users
+    // expect copy/paste: inputs and selectable text (messages, errors).
     const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable=\"true\"], .selectable, .markdown-content")) return;
       e.preventDefault();
     };
     document.addEventListener("contextmenu", handleContextMenu);

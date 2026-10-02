@@ -259,7 +259,7 @@ export function Spotlight() {
                     : "bg-bg-tertiary text-text-primary"
                     }`}>
                     {msg.role === "user" ? (
-                      <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                      <div className="selectable whitespace-pre-wrap leading-relaxed">{msg.content}</div>
                     ) : (
                       <Markdown content={msg.content} className="text-xs leading-relaxed" />
                     )}
@@ -315,7 +315,7 @@ export function Spotlight() {
         {/* Error */}
         {error && (
           <div className="px-3 py-2 bg-error/10 border-t border-error/20 flex items-center justify-between gap-2" role="alert">
-            <p className="text-xs text-error flex-1">{error}</p>
+            <p className="selectable text-xs text-error flex-1">{error}</p>
             <div className="flex items-center gap-1 flex-shrink-0">
               {/Settings|API key/i.test(error) && (
                 <button

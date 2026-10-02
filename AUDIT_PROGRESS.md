@@ -24,7 +24,7 @@ window is marked `blocked` with the reason once implemented.
 | F-09 | 1 | Hard-coded model list, Anthropic key test | todo | |
 | F-10 | 1 | First connected provider never auto-selected | verified | vitest: adoptProviderIfActiveUnusable (3 cases) |
 | F-11 | 1 | SSE parser duplicates / corrupts UTF-8 | todo | |
-| F-12 | 1 | Right-click disabled, text not selectable | todo | |
+| F-12 | 1 | Right-click disabled, text not selectable | done | contextmenu allowed on inputs/.selectable/.markdown-content; user bubbles and error text selectable |
 | F-13 | 1 | Spotlight parity (retry, scroll, actions, branches) | todo | |
 | F-14 | 1 | Enter submits during IME composition | todo | |
 | F-15 | 1 | Ctrl+N during streaming corrupts session | todo | |

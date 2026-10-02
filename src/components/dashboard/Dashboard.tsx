@@ -822,7 +822,7 @@ export function Dashboard() {
                     )}
 
                     {message.role === "user" ? (
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      <div className="selectable whitespace-pre-wrap text-sm leading-relaxed">
                         {message.content}
                       </div>
                     ) : (
@@ -926,7 +926,7 @@ export function Dashboard() {
         {/* Error */}
         {error && (
           <div className="px-4 py-2 bg-error/10 border-t border-error/20 flex items-center justify-between gap-3" role="alert">
-            <p className="text-sm text-error flex-1">{error}</p>
+            <p className="selectable text-sm text-error flex-1">{error}</p>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {/Settings|API key/i.test(error) ? (
                 <button
