@@ -5,6 +5,39 @@ All notable changes to OmniRecall will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Implementation of the full product audit. See `AUDIT_PROGRESS.md` for the item-by-item status.
+
+### Added
+- Claude responses now stream; every provider can be stopped mid-answer
+- Model lists are fetched from each provider when its key is verified
+- Regenerated answers are kept as versions you step through with arrows
+- Per-chat switch for attached documents, and the documents an answer used are listed under it
+- "Move to folder" menu on every chat
+- Launch at login, and a single running instance
+- Quote the clipboard into a message (`Ctrl+Shift+V`)
+- Restore a backup from Settings; import no longer needs an open chat
+- Pin button to keep the Spotlight window open
+- Tables, nested lists, task lists and syntax highlighting in answers
+- Frontend and backend test suites
+
+### Changed
+- API keys are stored in the operating system's credential store (existing keys are moved automatically)
+- Chats are saved one per record instead of rewriting the whole history
+- Document text is read and assembled in the backend; large, unindexed documents are truncated instead of sent whole
+- Fonts are bundled; the app makes no network request at startup
+- `Esc` no longer collapses the Dashboard
+- The message box stays enabled and focused while an answer streams
+
+### Fixed
+- The onboarding tour opened Settings underneath itself
+- Verifying a provider did not select it when the active provider had no key
+- A stopped or failed answer could be lost or bleed into the next message
+- Removed documents could still be retrieved from the search index
+- A custom Ollama address was ignored when chatting
+- Starting a new chat while an answer streamed could corrupt the saved session
+
 ## [1.1.0] - 2025-11-30
 
 ### Added
@@ -53,13 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rust backend
 - Tailwind CSS design system
 
-## [Unreleased]
-
-### Planned
-- Streaming responses (real-time typing)
-- Clipboard integration
+## Planned
 - Voice input
 - Image support (vision models)
-- macOS and Linux builds
+- macOS builds
 - Web search integration
-- Syntax highlighting for code
+- Automatic updates

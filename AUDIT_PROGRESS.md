@@ -62,7 +62,7 @@ window is marked `blocked` with the reason once implemented.
 | F-47 | 3 | Accessibility: roles, labels, inert sidebar | verified | browser mock: tablist/tab/tabpanel roles, inert collapsed sidebar, arrow keys in model list, labels on icon buttons; contrast: see F-45 |
 | F-48 | 4 | Model Compare timing, stream sharing, cancel | verified | browser mock: models timed individually (469ms/472ms sequential), Stop cancels and skips the rest, own stream ids, custom + live models listed; depends on the stream-id contract in F-02 |
 | F-49 | 4 | RAG debug panel duplicated | verified | browser mock: panel only under Settings > Developer; Docs tab shows per-document status and re-index instead |
-| F-50 | 4 | Release pipeline / docs mismatch | todo | |
+| F-50 | 4 | Release pipeline / docs mismatch | blocked | implemented but cannot be run from here: CI now uses npm ci + npm test + cargo test; release builds Windows and Linux; Cargo.lock un-ignored (must be generated on a machine with Rust and committed); README/CHANGELOG/CONTRIBUTING updated. Needs a workflow run to prove |
 
 ## Missing must-haves
 

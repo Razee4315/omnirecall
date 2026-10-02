@@ -74,17 +74,28 @@ jobs:
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           fi
 
-  # ─── Job 2: Build + Release ────────────────────────────────
+  # ─── Job 2: Build + Release (Windows and Linux) ────────────────
   release:
     needs: check-and-bump
     if: needs.check-and-bump.outputs.should_release == 'true'
-    runs-on: windows-latest
+    strategy:
+      # A failure on one platform must not stop the other from publishing.
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository (with bumped version)
         uses: actions/checkout@v4
         with:
           ref: main
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential curl wget file
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -94,37 +105,38 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 20
+          cache: npm
 
       - name: Install frontend dependencies
-        run: bun install
+        run: npm ci
 
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tauriScript: bun run tauri
           tagName: v__VERSION__
           releaseName: 'OmniRecall v__VERSION__'
           releaseBody: |
             ## OmniRecall v__VERSION__
 
-            Download the installer below to get started.
+            Download the installer for your platform below.
 
             ### Installation
-            - **`.msi`** — Standard Windows installer (recommended)
-            - **`.exe`** — NSIS installer
+            - **Windows**: `.msi` (recommended) or `.exe`
+            - **Linux**: `.deb` or `.AppImage`
 
             ### Shortcuts
             | Action | Shortcut |
             |--------|----------|
-            | Toggle Window | `Alt` + `Space` |
+            | Show / hide | `Alt` + `Space` (Windows), `Ctrl` + `Alt` + `Space` (Linux) |
+            | Command palette | `Ctrl` + `K` |
             | Settings | `Ctrl` + `,` |
-            | Command Palette | `Ctrl` + `K` |
-            | New Chat | `Ctrl` + `N` |
+            | New chat | `Ctrl` + `N` |
+            | All shortcuts | `Ctrl` + `/` |
           releaseDraft: false
           prerelease: false
