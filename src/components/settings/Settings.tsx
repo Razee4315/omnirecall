@@ -6,7 +6,7 @@ import {
   updateProviderApiKey,
   updateProviderBaseUrl,
   setProviderConnected,
-  setActiveModel,
+  adoptProviderIfActiveUnusable,
   theme,
   setTheme,
   viewMode,
@@ -217,9 +217,7 @@ function ProviderCardCompact({ provider }: { provider: any }) {
       setTestResult("success");
       setTestMessage("✓ Connected!");
       setProviderConnected(provider.id, true);
-      if (!providers.value.some(p => p.isConnected)) {
-        setActiveModel(provider.id, provider.models[0]);
-      }
+      adoptProviderIfActiveUnusable(provider.id);
     } catch (err: any) {
       setTestResult("error");
       const msg = err?.message || err?.toString() || "Connection failed";
@@ -550,9 +548,7 @@ function ProviderCard({ provider }: { provider: any }) {
       setTestResult("success");
       setTestMessage("✓ Connection successful! API key is valid.");
       setProviderConnected(provider.id, true);
-      if (!providers.value.some(p => p.isConnected)) {
-        setActiveModel(provider.id, provider.models[0]);
-      }
+      adoptProviderIfActiveUnusable(provider.id);
     } catch (err: any) {
       setTestResult("error");
       const msg = err?.message || err?.toString() || "Connection failed";

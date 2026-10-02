@@ -646,6 +646,19 @@ export function setActiveModel(providerId: string, model: string) {
   saveActiveModel();
 }
 
+/// After a provider is verified, switch to it when the currently selected
+/// provider can't be used (no key and not a local Ollama). Without this a user
+/// who adds only an OpenAI key stays on the default Gemini model and gets
+/// "No API key" on their first message.
+export function adoptProviderIfActiveUnusable(providerId: string) {
+  if (activeProvider.value === providerId) return;
+  const active = providers.value.find(p => p.id === activeProvider.value);
+  const activeUsable = !!active && (active.apiKey !== "" || active.id === "ollama");
+  if (activeUsable) return;
+  const [firstModel] = getProviderModels(providerId);
+  if (firstModel) setActiveModel(providerId, firstModel);
+}
+
 export function updateProviderBaseUrl(providerId: string, baseUrl: string) {
   providers.value = providers.value.map((p) =>
     p.id === providerId ? { ...p, baseUrl } : p,
