@@ -91,7 +91,8 @@ npm run tauri dev
 omnirecall/
 ├── src/                    # Frontend (Preact + TypeScript)
 │   ├── components/         # UI components
-│   ├── stores/            # State management
+│   ├── stores/            # State (appStore) and chat actions
+│   ├── lib/               # Shared helpers (errors, history, downloads, shortcuts)
 │   └── styles/            # CSS styles
 ├── src-tauri/             # Backend (Rust)
 │   └── src/
@@ -141,9 +142,15 @@ Remove deprecated API endpoint
 
 Before submitting a PR:
 
-1. Ensure the app builds: `npm run build`
-2. Test in development: `npm run tauri dev`
-3. Test the production build: `npm run tauri build`
+1. Run the frontend tests: `npm test`
+2. Run the backend tests: `cargo test` (in `src-tauri/`)
+3. Ensure the app builds: `npm run build`
+4. Test in development: `npm run tauri dev`
+5. Test the production build: `npm run tauri build`
+
+Frontend tests live next to the code as `*.test.ts(x)` and run under Vitest with the
+Tauri IPC layer mocked (`src/test/setup.ts`). Backend tests are `#[cfg(test)]` modules
+in each Rust file.
 
 ## Getting Help
 

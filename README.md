@@ -66,14 +66,18 @@ macOS support is planned.
 
 ### Keyboard Shortcuts
 
-- `Alt + Space` (Windows) / `Ctrl + Alt + Space` (Linux): Open at cursor
+- `Alt + Space` (Windows) / `Ctrl + Alt + Space` (Linux): Show or hide at cursor (configurable in Settings)
+- `Ctrl + K`: Command palette (commands, models, chats, message search)
 - `Ctrl + ,`: Open settings
-- `Esc`: Hide window
+- `Ctrl + /`: List every shortcut and slash command
+- `Esc`: Close the open overlay, or hide the Spotlight window
 
 ### Documents
 
-- Add PDF, text, markdown, or code files
-- Ask questions using document context
+- Add PDF, text, markdown, or code files (file picker or drag and drop)
+- Ask questions using document context; answers list the documents they drew on
+- Switch documents on or off per chat
+- Large documents are indexed for search when a Gemini API key is set
 - Files persist across sessions
 
 ---
@@ -103,6 +107,16 @@ git clone https://github.com/Razee4315/omnirecall.git
 cd omnirecall
 npm install
 npm run tauri dev
+```
+
+### Test
+
+```bash
+npm test
+```
+
+```bash
+cd src-tauri && cargo test
 ```
 
 ### Build

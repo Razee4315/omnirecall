@@ -115,7 +115,8 @@
   --bg-tertiary: #334155;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
+  /* WCAG AA: #8091a7 is about 5.6:1 on #0f172a (was #64748b, about 3.7:1) */
+  --text-tertiary: #8091a7;
   --accent-primary: #38bdf8;
   --accent-secondary: #0ea5e9;
   --border-color: #334155;
@@ -157,7 +158,7 @@ html {
 }
 
 body {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
   background: transparent;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
@@ -285,24 +286,8 @@ button:active {
   }
 }
 
-@keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-}
-
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
-}
-
-.animate-pulse-cursor {
-  animation: pulse 1s ease-in-out infinite;
 }
 
 /* Typing indicator animation */
@@ -353,11 +338,6 @@ button:active {
   margin-bottom: 0;
 }
 
-.markdown-content ul,
-.markdown-content ol {
-  padding-left: 0.5rem;
-}
-
 .markdown-content li {
   margin: 0.125rem 0;
 }
@@ -378,20 +358,21 @@ button:active {
   text-decoration: underline;
 }
 
-.markdown-content blockquote {
-  border-left-width: 3px;
-}
-
-.markdown-content h1,
-.markdown-content h2,
-.markdown-content h3 {
+.markdown-content :is(h1, h2, h3, h4, h5, h6) {
   line-height: 1.3;
 }
 
-.markdown-content h1:first-child,
-.markdown-content h2:first-child,
-.markdown-content h3:first-child {
+.markdown-content > :first-child {
   margin-top: 0;
+}
+
+.markdown-content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Paragraphs inside list items sit tight against the marker. */
+.markdown-content li > p {
+  margin: 0;
 }
 
 /* Scale-in animation for modals and command palette */
@@ -424,24 +405,8 @@ button:active {
   }
 }
 
-@keyframes toastOut {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-}
-
 .animate-toast-in {
   animation: toastIn 0.3s ease-out;
-}
-
-.animate-toast-out {
-  animation: toastOut 0.2s ease-in forwards;
 }
 
 /* Theme transitions - applied only to root container, not every element */
@@ -481,34 +446,10 @@ button:active {
   animation: messageReveal 0.2s ease-out;
 }
 
-/* Slide-in animation for sidebar */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-slide-in {
-  animation: slideIn 0.2s ease-out;
-}
-
 /* Line clamp utilities */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -538,6 +479,25 @@ mark {
 .border-purple-500\/30 { border-color: rgba(168, 85, 247, 0.3); }
 .border-rose-500\/30 { border-color: rgba(244, 63, 94, 0.3); }
 
+/* The 400 shades fail contrast on light backgrounds; light themes (those
+   without the .dark class) use the 700 shades instead. */
+:root:not(.dark) .text-blue-400 { color: #1d4ed8; }
+:root:not(.dark) .text-emerald-400 { color: #047857; }
+:root:not(.dark) .text-orange-400 { color: #c2410c; }
+:root:not(.dark) .text-purple-400 { color: #7e22ce; }
+:root:not(.dark) .text-rose-400 { color: #be123c; }
+
+/* Syntax highlighting. Code blocks have a dark background in every theme,
+   so one light-on-dark palette serves them all. */
+.hljs-keyword, .hljs-selector-tag, .hljs-literal { color: #c4a7f5; }
+.hljs-string, .hljs-regexp, .hljs-addition { color: #a3d9a5; }
+.hljs-number, .hljs-symbol, .hljs-bullet { color: #f0b77a; }
+.hljs-comment, .hljs-quote, .hljs-meta { color: #9aa2b5; font-style: italic; }
+.hljs-title, .hljs-section { color: #82b7ff; }
+.hljs-built_in, .hljs-type { color: #7fd4d4; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable { color: #e8c07d; }
+.hljs-deletion { color: #f28b82; }
+
 /* Dragging styles */
 [draggable="true"] {
   cursor: grab;
@@ -546,11 +506,6 @@ mark {
 [draggable="true"]:active {
   cursor: grabbing;
   opacity: 0.7;
-}
-
-/* Token counter gradient */
-.token-gradient {
-  background: linear-gradient(90deg, var(--success) 0%, var(--warning) 50%, var(--error) 100%);
 }
 
 /* Shimmer animation for skeleton loaders */

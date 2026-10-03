@@ -1,352 +1,306 @@
-import { useState, useRef } from "preact/hooks";
+import { useMemo, useRef, useState } from "preact/hooks";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
-    exportSession,
-    importSession,
-    importAllSessions,
+    activeBranchId,
+    activeSessionId,
     chatHistory,
-    ChatSession,
+    exportAllSessions,
+    exportDialog,
+    exportSession,
+    getBranchesForSession,
+    importChats,
 } from "../../stores/appStore";
-import {
-    DownloadIcon,
-    UploadIcon,
-    CloseIcon,
-    CheckIcon,
-    DocumentIcon,
-    BranchIcon,
-} from "../icons";
+import { toast } from "../../stores/toastStore";
+import { saveTextFile } from "../../lib/download";
+import { errorMessage } from "../../lib/errors";
+import { BranchIcon, CloseIcon, DownloadIcon, UploadIcon } from "../icons";
 
-interface ExportImportProps {
-    session?: ChatSession | null;
-    onClose?: () => void;
+type Format = "json" | "md";
+
+const PREVIEW_CHARS = 1200;
+
+function safeFileName(title: string): string {
+    return title.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "chat";
 }
 
-export function ExportImport({ session, onClose }: ExportImportProps) {
-    const [mode, setMode] = useState<"export" | "import">(session ? "export" : "import");
-    const [format, setFormat] = useState<"json" | "md">("json");
-    const [importText, setImportText] = useState("");
-    const [importResult, setImportResult] = useState<"success" | "error" | null>(null);
-    const [exportContent, setExportContent] = useState("");
-    const [copied, setCopied] = useState(false);
-    const [selectedBranch, setSelectedBranch] = useState<string | null>(null); // null = main
+export function backupFileName(): string {
+    return `omnirecall-backup-${new Date().toISOString().slice(0, 10)}.json`;
+}
+
+/// Save every chat and folder as one backup file.
+export async function exportAllChats(): Promise<void> {
+    const count = chatHistory.value.length;
+    try {
+        const saved = await saveTextFile(backupFileName(), exportAllSessions(), "json");
+        if (saved) toast.success(`Exported ${count} chat${count === 1 ? "" : "s"}`);
+    } catch (e) {
+        toast.error(errorMessage(e, "Export failed"));
+    }
+}
+
+/// Export the open chat, or import a chat / restore a backup. Opened from the
+/// Dashboard header, the command palette and Settings.
+export function ExportImport() {
+    const mode = exportDialog.value;
     const panelRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    useFocusTrap(panelRef, true, onClose);
+    const close = () => {
+        exportDialog.value = null;
+    };
+    useFocusTrap(panelRef, mode !== null, close);
+
+    const sessionId = activeSessionId.value;
+    const session = chatHistory.value.find(s => s.id === sessionId) ?? null;
+    const [format, setFormat] = useState<Format>("md");
+    // Default to the thread the user is looking at.
+    const [branchId, setBranchId] = useState<string | null>(activeBranchId.value);
+    const [copied, setCopied] = useState(false);
+    const [importText, setImportText] = useState("");
+    const [importError, setImportError] = useState<string | null>(null);
+
+    const branches = session ? getBranchesForSession(session.id) : [];
+    const exportBranch = branches.some(b => b.id === branchId) ? branchId : null;
+    // Always derived from the current choices, so what is copied or saved can
+    // never be a stale export in a different format.
+    const content = useMemo(
+        () => (session ? exportSession(session, format, exportBranch) : ""),
+        [session, format, exportBranch],
+    );
+
+    if (mode === null) return null;
+
+    const handleSave = async () => {
+        if (!session) return;
+        try {
+            const saved = await saveTextFile(`${safeFileName(session.title)}.${format}`, content, format);
+            if (saved) {
+                toast.success("Chat exported");
+                close();
+            }
+        } catch (e) {
+            toast.error(errorMessage(e, "Export failed"));
+        }
+    };
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(content);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            toast.error("Couldn't copy to the clipboard");
+        }
+    };
 
     const handleFile = async (e: Event) => {
         const input = e.target as HTMLInputElement;
         const file = input.files?.[0];
+        input.value = "";
         if (!file) return;
         try {
-            const text = await file.text();
-            setImportText(text);
-            setImportResult(null);
+            setImportText(await file.text());
+            setImportError(null);
         } catch {
-            setImportResult("error");
+            setImportError("That file couldn't be read.");
         }
-        input.value = "";
-    };
-
-    // Get branches for current session
-    const getBranches = () => {
-        if (!session || !session.branches) return [];
-        return [
-            { id: null, name: "Main" },
-            ...session.branches.map(b => ({ id: b.id, name: b.name }))
-        ];
-    };
-    const branches = getBranches();
-    const hasBranches = branches.length > 1;
-
-    const handleExport = () => {
-        if (!session) return;
-        // Get messages for selected branch or main
-        const branchMessages = selectedBranch && session.branchMessages?.[selectedBranch];
-        const content = exportSession(session, format, branchMessages || undefined);
-        setExportContent(content);
-    };
-
-    const handleDownload = () => {
-        if (!session || !exportContent) return;
-
-        const blob = new Blob([exportContent], {
-            type: format === "json" ? "application/json" : "text/markdown"
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${session.title.replace(/[^a-z0-9]/gi, "_")}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    const handleCopy = async () => {
-        await navigator.clipboard.writeText(exportContent);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
     };
 
     const handleImport = () => {
-        // Try the full-backup envelope first (version/sessions/folders), then
-        // fall back to a single-session import.
-        const bulk = importAllSessions(importText);
-        if (bulk !== null) {
-            setImportResult("success");
-            setImportText("");
-            setTimeout(() => { onClose?.(); }, 1500);
+        const result = importChats(importText);
+        if (!result.ok) {
+            setImportError(result.reason);
             return;
         }
-        const result = importSession(importText);
-        if (result) {
-            setImportResult("success");
-            setImportText("");
-            setTimeout(() => { onClose?.(); }, 1500);
-        } else {
-            setImportResult("error");
+        if (result.sessions === 0) {
+            setImportError(
+                result.skipped > 0
+                    ? "Nothing new to import: every chat in this file is already here."
+                    : "The file contains no chats.",
+            );
+            return;
         }
+        const skipped = result.skipped > 0 ? ` (${result.skipped} already present or invalid)` : "";
+        toast.success(`Imported ${result.sessions} chat${result.sessions === 1 ? "" : "s"}${skipped}`);
+        setImportText("");
+        close();
     };
 
+    const tabClass = (active: boolean) =>
+        `px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${
+            active ? "bg-accent-primary text-on-accent" : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+        }`;
+    const choiceClass = (active: boolean) =>
+        `px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+            active
+                ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
+                : "border-border text-text-secondary hover:bg-bg-tertiary"
+        }`;
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" onClick={close}>
             <div
                 ref={panelRef}
                 role="dialog"
                 aria-modal="true"
-                aria-label="Export or import chat"
+                aria-label="Export or import chats"
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-lg bg-bg-primary border border-border rounded-xl shadow-2xl overflow-hidden"
+                className="w-full max-w-lg max-h-[90vh] flex flex-col bg-bg-primary border border-border rounded-xl shadow-2xl overflow-hidden animate-scale-in"
             >
-                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                    <div className="flex items-center gap-3">
-                        <div className="flex rounded-lg overflow-hidden border border-border">
-                            <button
-                                onClick={() => setMode("export")}
-                                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${mode === "export"
-                                    ? "bg-accent-primary text-on-accent"
-                                    : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
-                                    }`}
-                            >
-                                <DownloadIcon size={14} />
-                                Export
-                            </button>
-                            <button
-                                onClick={() => setMode("import")}
-                                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${mode === "import"
-                                    ? "bg-accent-primary text-on-accent"
-                                    : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
-                                    }`}
-                            >
-                                <UploadIcon size={14} />
-                                Import
-                            </button>
-                        </div>
+                    <div className="flex rounded-lg overflow-hidden border border-border" role="tablist" aria-label="Export or import">
+                        <button role="tab" aria-selected={mode === "export"} onClick={() => (exportDialog.value = "export")} className={tabClass(mode === "export")}>
+                            <DownloadIcon size={14} />
+                            Export
+                        </button>
+                        <button role="tab" aria-selected={mode === "import"} onClick={() => (exportDialog.value = "import")} className={tabClass(mode === "import")}>
+                            <UploadIcon size={14} />
+                            Import
+                        </button>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={close}
                         className="p-1.5 hover:bg-bg-tertiary rounded text-text-tertiary hover:text-text-primary"
-                        aria-label="Close export dialog"
+                        aria-label="Close"
                     >
                         <CloseIcon size={16} />
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-4">
+                <div className="p-4 overflow-y-auto">
                     {mode === "export" ? (
-                        <div className="space-y-4">
-                            {/* Session Selector */}
-                            {!session && (
+                        session ? (
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="text-sm text-text-secondary mb-2 block">Select Chat</label>
-                                    <select className="w-full px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary">
-                                        <option value="">Choose a chat...</option>
-                                        {chatHistory.value.map((s) => (
-                                            <option key={s.id} value={s.id}>
-                                                {s.title}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Format Selection */}
-                            <div>
-                                <label className="text-sm text-text-secondary mb-2 block">Format</label>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setFormat("json")}
-                                        className={`flex-1 px-3 py-2 rounded-lg border text-sm ${format === "json"
-                                            ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                                            : "border-border text-text-secondary hover:bg-bg-tertiary"
-                                            }`}
-                                    >
-                                        JSON
-                                    </button>
-                                    <button
-                                        onClick={() => setFormat("md")}
-                                        className={`flex-1 px-3 py-2 rounded-lg border text-sm ${format === "md"
-                                            ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                                            : "border-border text-text-secondary hover:bg-bg-tertiary"
-                                            }`}
-                                    >
-                                        Markdown
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Branch Selection (only when session has branches) */}
-                            {hasBranches && (
-                                <div>
-                                    <label className="text-sm text-text-secondary mb-2 flex items-center gap-1.5">
-                                        <BranchIcon size={12} />
-                                        Export Branch
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {branches.map((branch) => (
-                                            <button
-                                                key={branch.id ?? "main"}
-                                                onClick={() => {
-                                                    setSelectedBranch(branch.id);
-                                                    setExportContent(""); // Reset export when branch changes
-                                                }}
-                                                className={`px-3 py-1.5 rounded-lg border text-xs ${selectedBranch === branch.id
-                                                    ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                                                    : "border-border text-text-secondary hover:bg-bg-tertiary"
-                                                    }`}
-                                            >
-                                                {branch.name}
-                                            </button>
-                                        ))}
+                                    <div className="text-sm text-text-secondary mb-2">Format</div>
+                                    <div className="flex gap-2" role="radiogroup" aria-label="Export format">
+                                        <button role="radio" aria-checked={format === "md"} onClick={() => setFormat("md")} className={choiceClass(format === "md")}>
+                                            Markdown (readable)
+                                        </button>
+                                        <button role="radio" aria-checked={format === "json"} onClick={() => setFormat("json")} className={choiceClass(format === "json")}>
+                                            JSON (re-importable)
+                                        </button>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Export Button */}
-                            {session && !exportContent && (
-                                <button
-                                    onClick={handleExport}
-                                    className="w-full px-4 py-2 bg-accent-primary text-on-accent rounded-lg hover:bg-accent-primary/90 text-sm font-medium"
-                                >
-                                    Generate Export
-                                </button>
-                            )}
-
-                            {/* Export Preview */}
-                            {exportContent && (
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-text-secondary">Preview</span>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={handleCopy}
-                                                className="px-3 py-1.5 text-xs bg-bg-secondary rounded border border-border hover:bg-bg-tertiary"
-                                            >
-                                                {copied ? "Copied!" : "Copy"}
-                                            </button>
-                                            <button
-                                                onClick={handleDownload}
-                                                className="px-3 py-1.5 text-xs bg-accent-primary text-on-accent rounded hover:bg-accent-primary/90"
-                                            >
-                                                Download
-                                            </button>
+                                {branches.length > 1 && (
+                                    <div>
+                                        <div className="text-sm text-text-secondary mb-2 flex items-center gap-1.5">
+                                            <BranchIcon size={12} />
+                                            Branch
                                         </div>
+                                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Branch to export">
+                                            {branches.map((branch) => (
+                                                <button
+                                                    key={branch.id ?? "main"}
+                                                    role="radio"
+                                                    aria-checked={exportBranch === branch.id}
+                                                    onClick={() => setBranchId(branch.id)}
+                                                    className={choiceClass(exportBranch === branch.id)}
+                                                >
+                                                    {branch.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {format === "json" && exportBranch === null && (
+                                            <p className="text-[11px] text-text-tertiary mt-1.5">The JSON export of Main includes every branch.</p>
+                                        )}
                                     </div>
-                                    <pre className="p-3 bg-bg-secondary rounded-lg border border-border text-xs text-text-secondary max-h-60 overflow-auto font-mono">
-                                        {exportContent.slice(0, 1000)}
-                                        {exportContent.length > 1000 && "\n..."}
+                                )}
+
+                                <div>
+                                    <div className="text-sm text-text-secondary mb-2">Preview</div>
+                                    <pre className="p-3 bg-bg-secondary rounded-lg border border-border text-xs text-text-secondary max-h-48 overflow-auto font-mono whitespace-pre-wrap break-words">
+                                        {content.slice(0, PREVIEW_CHARS)}
+                                        {content.length > PREVIEW_CHARS && "\n…"}
                                     </pre>
                                 </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="text-sm text-text-secondary">
-                                        Paste JSON, or import a file
-                                    </label>
+
+                                <div className="flex gap-2">
                                     <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-bg-secondary border border-border rounded hover:bg-bg-tertiary text-text-secondary"
+                                        onClick={() => void handleCopy()}
+                                        className="flex-1 px-4 py-2 rounded-lg text-sm border border-border text-text-secondary hover:bg-bg-tertiary transition-colors"
                                     >
-                                        <UploadIcon size={12} />
-                                        Choose file…
+                                        {copied ? "Copied!" : "Copy"}
                                     </button>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".json,application/json"
-                                        onChange={handleFile}
-                                        className="hidden"
-                                        aria-hidden="true"
-                                    />
+                                    <button
+                                        onClick={() => void handleSave()}
+                                        className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-accent-primary text-on-accent hover:bg-accent-primary/90 transition-colors"
+                                    >
+                                        Save as…
+                                    </button>
                                 </div>
-                                <textarea
-                                    value={importText}
-                                    onInput={(e) => {
-                                        setImportText((e.target as HTMLTextAreaElement).value);
-                                        setImportResult(null);
-                                    }}
-                                    placeholder='{"id": "...", "title": "...", "messages": [...]}'
-                                    className="w-full h-40 px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary text-sm font-mono resize-none outline-none focus:border-accent-primary"
+                            </div>
+                        ) : (
+                            <div className="text-center py-6">
+                                <p className="text-sm text-text-secondary">Open a saved chat to export it on its own.</p>
+                                {chatHistory.value.length > 0 && (
+                                    <button
+                                        onClick={() => void exportAllChats()}
+                                        className="mt-4 px-4 py-2 rounded-lg text-sm font-medium bg-accent-primary text-on-accent hover:bg-accent-primary/90 transition-colors"
+                                    >
+                                        Export all {chatHistory.value.length} chats
+                                    </button>
+                                )}
+                            </div>
+                        )
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <label htmlFor="import-json" className="text-sm text-text-secondary">
+                                    Choose a backup or exported chat (JSON), or paste it below
+                                </label>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-xs bg-bg-secondary border border-border rounded hover:bg-bg-tertiary text-text-secondary"
+                                >
+                                    <UploadIcon size={12} />
+                                    Choose file…
+                                </button>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".json,application/json"
+                                    onChange={(e) => void handleFile(e)}
+                                    className="hidden"
+                                    tabIndex={-1}
+                                    aria-hidden="true"
                                 />
                             </div>
+                            <textarea
+                                id="import-json"
+                                value={importText}
+                                onInput={(e) => {
+                                    setImportText((e.target as HTMLTextAreaElement).value);
+                                    setImportError(null);
+                                }}
+                                placeholder='{"title": "...", "messages": [...]}'
+                                className="w-full h-40 px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary text-xs font-mono resize-none outline-none focus:border-accent-primary"
+                            />
 
-                            {importResult === "success" && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-lg text-success text-sm">
-                                    <CheckIcon size={16} />
-                                    Chat imported successfully!
+                            {importError && (
+                                <div className="px-3 py-2 bg-error/10 border border-error/20 rounded-lg text-error text-sm" role="alert">
+                                    {importError}
                                 </div>
                             )}
 
-                            {importResult === "error" && (
-                                <div className="flex items-center gap-2 px-3 py-2 bg-error/10 border border-error/20 rounded-lg text-error text-sm">
-                                    <CloseIcon size={16} />
-                                    Invalid format. Please check your JSON.
-                                </div>
-                            )}
-
+                            <p className="text-[11px] text-text-tertiary">
+                                Importing adds chats; nothing you already have is replaced.
+                            </p>
                             <button
                                 onClick={handleImport}
                                 disabled={!importText.trim()}
-                                className={`w-full px-4 py-2 rounded-lg text-sm font-medium ${importText.trim()
-                                    ? "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-                                    : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                                    }`}
+                                className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    importText.trim()
+                                        ? "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
+                                        : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
+                                }`}
                             >
-                                Import Chat
+                                Import
                             </button>
                         </div>
                     )}
                 </div>
             </div>
         </div>
-    );
-}
-
-// Quick export button for use in message actions
-interface QuickExportButtonProps {
-    session: ChatSession;
-    className?: string;
-}
-
-export function QuickExportButton({ session, className = "" }: QuickExportButtonProps) {
-    const handleQuickExport = async () => {
-        const content = exportSession(session, "json");
-        await navigator.clipboard.writeText(content);
-    };
-
-    return (
-        <button
-            onClick={handleQuickExport}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors ${className}`}
-            title="Copy chat as JSON"
-        >
-            <DocumentIcon size={12} />
-            Export
-        </button>
     );
 }

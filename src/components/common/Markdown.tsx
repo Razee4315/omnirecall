@@ -1,314 +1,258 @@
-import { useState, useMemo, memo } from "preact/compat";
+import { useEffect, useMemo, useState, memo } from "preact/compat";
+import { ComponentChild } from "preact";
+import { marked, Token, Tokens } from "marked";
 import { CopyIcon, CheckIcon } from "../icons";
-
-// Pre-compiled regex patterns for inline markdown parsing
-const RE_INLINE_CODE = /^`([^`]+)`/;
-const RE_BOLD = /^(\*\*|__)([^*_]+)\1/;
-const RE_ITALIC = /^(\*|_)([^*_]+)\1/;
-const RE_LINK = /^\[([^\]]+)\]\(([^)]+)\)/;
-const RE_NEXT_SPECIAL = /[`*_\[]/;
-const RE_UNORDERED_LIST = /^[-*]\s/;
-const RE_ORDERED_LIST = /^\d+\.\s/;
 
 interface MarkdownProps {
   content: string;
   className?: string;
 }
 
-// Memoized Markdown component - prevents re-parsing when content hasn't changed
+/// Renders model output as GitHub-flavoured Markdown: headings, nested and
+/// task lists, tables, block quotes, rules, links and highlighted code.
+///
+/// The text is tokenised by `marked` and the tokens are turned into elements
+/// here, so nothing from the model is ever injected as HTML.
 export const Markdown = memo(function Markdown({ content, className = "" }: MarkdownProps) {
-  // Memoize parsed elements to avoid re-parsing on every render
-  const elements = useMemo(() => parseMarkdown(content), [content]);
-
-  return (
-    <div className={`markdown-content ${className}`}>
-      {elements}
-    </div>
-  );
+  const tokens = useMemo(() => marked.lexer(content), [content]);
+  return <div className={`markdown-content ${className}`}>{renderBlocks(tokens)}</div>;
 });
 
-function parseMarkdown(text: string): preact.JSX.Element[] {
-  const lines = text.split('\n');
-  const elements: preact.JSX.Element[] = [];
-  let i = 0;
-  let key = 0;
+const SAFE_LINK = /^(https?:|mailto:)/i;
 
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Code block (```)
-    if (line.trim().startsWith('```')) {
-      const lang = line.trim().slice(3).trim();
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].trim().startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      elements.push(<CodeBlock key={key++} code={codeLines.join('\n')} language={lang} />);
-      i++;
-      continue;
-    }
-
-    // Headers
-    if (line.startsWith('### ')) {
-      elements.push(<h3 key={key++} className="text-base font-semibold text-text-primary mt-3 mb-1">{parseInline(line.slice(4))}</h3>);
-      i++;
-      continue;
-    }
-    if (line.startsWith('## ')) {
-      elements.push(<h2 key={key++} className="text-lg font-semibold text-text-primary mt-3 mb-1">{parseInline(line.slice(3))}</h2>);
-      i++;
-      continue;
-    }
-    if (line.startsWith('# ')) {
-      elements.push(<h1 key={key++} className="text-xl font-bold text-text-primary mt-3 mb-2">{parseInline(line.slice(2))}</h1>);
-      i++;
-      continue;
-    }
-
-    // Unordered list
-    if (RE_UNORDERED_LIST.test(line.trim())) {
-      const listItems: string[] = [];
-      while (i < lines.length && RE_UNORDERED_LIST.test(lines[i].trim())) {
-        listItems.push(lines[i].trim().slice(2));
-        i++;
-      }
-      elements.push(
-        <ul key={key++} className="list-disc list-inside my-2 space-y-1">
-          {listItems.map((item, idx) => (
-            <li key={idx} className="text-text-primary">{parseInline(item)}</li>
-          ))}
-        </ul>
-      );
-      continue;
-    }
-
-    // Ordered list
-    if (RE_ORDERED_LIST.test(line.trim())) {
-      const listItems: string[] = [];
-      while (i < lines.length && RE_ORDERED_LIST.test(lines[i].trim())) {
-        listItems.push(lines[i].trim().replace(/^\d+\.\s/, ''));
-        i++;
-      }
-      elements.push(
-        <ol key={key++} className="list-decimal list-inside my-2 space-y-1">
-          {listItems.map((item, idx) => (
-            <li key={idx} className="text-text-primary">{parseInline(item)}</li>
-          ))}
-        </ol>
-      );
-      continue;
-    }
-
-    // Blockquote
-    if (line.startsWith('> ')) {
-      const quoteLines: string[] = [];
-      while (i < lines.length && lines[i].startsWith('> ')) {
-        quoteLines.push(lines[i].slice(2));
-        i++;
-      }
-      elements.push(
-        <blockquote key={key++} className="border-l-3 border-accent-primary pl-3 my-2 text-text-secondary italic">
-          {quoteLines.map((l, idx) => <p key={idx}>{parseInline(l)}</p>)}
-        </blockquote>
-      );
-      continue;
-    }
-
-    // Empty line
-    if (line.trim() === '') {
-      i++;
-      continue;
-    }
-
-    // Regular paragraph
-    elements.push(<p key={key++} className="my-1">{parseInline(line)}</p>);
-    i++;
-  }
-
-  return elements;
+// marked escapes the text of inline tokens for its own HTML renderer; undo
+// that, since these strings are rendered as text nodes.
+function unescapeHtml(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
-function parseInline(text: string): (preact.JSX.Element | string)[] {
-  const parts: (preact.JSX.Element | string)[] = [];
-  let remaining = text;
-  let key = 0;
-
-  while (remaining.length > 0) {
-    // Inline code `code`
-    const codeMatch = remaining.match(RE_INLINE_CODE);
-    if (codeMatch) {
-      parts.push(
-        <code key={key++} className="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-primary font-mono text-[0.9em]">
-          {codeMatch[1]}
-        </code>
-      );
-      remaining = remaining.slice(codeMatch[0].length);
-      continue;
+function renderInline(tokens: Token[] | undefined): ComponentChild[] {
+  if (!tokens) return [];
+  return tokens.map((token, key) => {
+    switch (token.type) {
+      case "strong":
+        return <strong key={key} className="font-semibold">{renderInline(token.tokens)}</strong>;
+      case "em":
+        return <em key={key}>{renderInline(token.tokens)}</em>;
+      case "del":
+        return <del key={key}>{renderInline(token.tokens)}</del>;
+      case "codespan":
+        return (
+          <code key={key} className="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-primary font-mono text-[0.9em]">
+            {unescapeHtml(token.text)}
+          </code>
+        );
+      case "br":
+        return <br key={key} />;
+      case "link": {
+        const link = token as Tokens.Link;
+        // Only web and mail links are made clickable; anything else
+        // (javascript:, file:, custom schemes) is shown as plain text.
+        if (!SAFE_LINK.test(link.href)) return <span key={key}>{renderInline(link.tokens)}</span>;
+        return (
+          <a key={key} href={link.href} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
+            {renderInline(link.tokens)}
+          </a>
+        );
+      }
+      case "image": {
+        const image = token as Tokens.Image;
+        const label = image.text || "image";
+        if (!SAFE_LINK.test(image.href)) return <span key={key}>[{label}]</span>;
+        return (
+          <a key={key} href={image.href} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
+            [{label}]
+          </a>
+        );
+      }
+      case "text": {
+        const text = token as Tokens.Text;
+        return text.tokens ? <span key={key}>{renderInline(text.tokens)}</span> : unescapeHtml(text.text);
+      }
+      case "escape":
+        return unescapeHtml(token.text);
+      default:
+        // Raw HTML and anything unrecognised is shown literally.
+        return token.raw;
     }
-
-    // Bold **text** or __text__
-    const boldMatch = remaining.match(RE_BOLD);
-    if (boldMatch) {
-      parts.push(<strong key={key++} className="font-semibold">{boldMatch[2]}</strong>);
-      remaining = remaining.slice(boldMatch[0].length);
-      continue;
-    }
-
-    // Italic *text* or _text_
-    const italicMatch = remaining.match(RE_ITALIC);
-    if (italicMatch) {
-      parts.push(<em key={key++} className="italic">{italicMatch[2]}</em>);
-      remaining = remaining.slice(italicMatch[0].length);
-      continue;
-    }
-
-    // Link [text](url)
-    const linkMatch = remaining.match(RE_LINK);
-    if (linkMatch) {
-      parts.push(
-        <a key={key++} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
-          className="text-accent-primary hover:underline">
-          {linkMatch[1]}
-        </a>
-      );
-      remaining = remaining.slice(linkMatch[0].length);
-      continue;
-    }
-
-    // Regular text until next special character
-    const nextSpecial = remaining.search(RE_NEXT_SPECIAL);
-    if (nextSpecial === -1) {
-      parts.push(remaining);
-      break;
-    } else if (nextSpecial === 0) {
-      // Special char but didn't match pattern, treat as text
-      parts.push(remaining[0]);
-      remaining = remaining.slice(1);
-    } else {
-      parts.push(remaining.slice(0, nextSpecial));
-      remaining = remaining.slice(nextSpecial);
-    }
-  }
-
-  return parts;
+  });
 }
 
-// Language icon mapping
-function getLanguageIcon(lang: string): string {
-  const icons: Record<string, string> = {
-    javascript: "JS",
-    typescript: "TS",
-    python: "PY",
-    rust: "RS",
-    go: "GO",
-    java: "JV",
-    cpp: "C++",
-    c: "C",
-    csharp: "C#",
-    ruby: "RB",
-    php: "PHP",
-    swift: "SW",
-    kotlin: "KT",
-    html: "HTML",
-    css: "CSS",
-    json: "JSON",
-    yaml: "YAML",
-    sql: "SQL",
-    bash: "SH",
-    shell: "SH",
-    markdown: "MD",
-    tsx: "TSX",
-    jsx: "JSX",
+const HEADING_CLASS: Record<number, string> = {
+  1: "text-xl font-bold mt-3 mb-2",
+  2: "text-lg font-semibold mt-3 mb-1",
+  3: "text-base font-semibold mt-3 mb-1",
+  4: "font-semibold mt-2 mb-1",
+  5: "font-semibold mt-2 mb-1",
+  6: "font-medium text-text-secondary mt-2 mb-1",
+};
+
+function renderList(list: Tokens.List, key: number): ComponentChild {
+  const items = list.items.map((item, index) => (
+    <li key={index} className={item.task ? "list-none -ml-4" : undefined}>
+      {item.task && (
+        <input type="checkbox" checked={item.checked} disabled className="mr-1.5 align-middle" aria-label={item.checked ? "Done" : "Not done"} />
+      )}
+      {renderBlocks(item.tokens, true)}
+    </li>
+  ));
+  return list.ordered ? (
+    <ol key={key} start={typeof list.start === "number" ? list.start : undefined} className="list-decimal pl-5 my-2 space-y-1">
+      {items}
+    </ol>
+  ) : (
+    <ul key={key} className="list-disc pl-5 my-2 space-y-1">{items}</ul>
+  );
+}
+
+function renderTable(table: Tokens.Table, key: number): ComponentChild {
+  const align = (index: number) => {
+    const value = table.align[index];
+    return value ? { textAlign: value } : undefined;
   };
-  return icons[lang.toLowerCase()] || lang.toUpperCase().slice(0, 4);
+  return (
+    <div key={key} className="my-2 overflow-x-auto rounded-lg border border-border">
+      <table className="w-full border-collapse text-left">
+        <thead className="bg-bg-tertiary">
+          <tr>
+            {table.header.map((cell, index) => (
+              <th key={index} scope="col" style={align(index)} className="px-3 py-1.5 font-semibold border-b border-border">
+                {renderInline(cell.tokens)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-b border-border last:border-b-0">
+              {row.map((cell, index) => (
+                <td key={index} style={align(index)} className="px-3 py-1.5 align-top">
+                  {renderInline(cell.tokens)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-// Detect language from code if not specified
-function detectLanguage(code: string): string {
-  if (code.includes("function") && (code.includes("const") || code.includes("let"))) return "javascript";
-  if (code.includes("def ") && code.includes(":")) return "python";
-  if (code.includes("fn ") && code.includes("->")) return "rust";
-  if (code.includes("func ") && code.includes("package")) return "go";
-  if (code.includes("import React") || code.includes("useState")) return "tsx";
-  if (code.includes("SELECT") || code.includes("FROM")) return "sql";
-  if (code.includes("<!DOCTYPE") || code.includes("<html")) return "html";
-  return "";
+/// `tight` renders bare text (inside list items) without paragraph wrappers.
+function renderBlocks(tokens: Token[], tight = false): ComponentChild[] {
+  return tokens.map((token, key) => {
+    switch (token.type) {
+      case "space":
+        return null;
+      case "heading": {
+        const heading = token as Tokens.Heading;
+        const Tag = `h${heading.depth}` as "h1";
+        return <Tag key={key} className={HEADING_CLASS[heading.depth]}>{renderInline(heading.tokens)}</Tag>;
+      }
+      case "paragraph":
+        return <p key={key} className="my-1">{renderInline((token as Tokens.Paragraph).tokens)}</p>;
+      case "text": {
+        const text = token as Tokens.Text;
+        const children = text.tokens ? renderInline(text.tokens) : unescapeHtml(text.text);
+        return tight ? <span key={key}>{children}</span> : <p key={key} className="my-1">{children}</p>;
+      }
+      case "code": {
+        const code = token as Tokens.Code;
+        return <CodeBlock key={key} code={code.text} language={(code.lang ?? "").split(/\s+/)[0]} />;
+      }
+      case "blockquote":
+        return (
+          <blockquote key={key} className="border-l-[3px] border-accent-primary pl-3 my-2 text-text-secondary italic">
+            {renderBlocks((token as Tokens.Blockquote).tokens)}
+          </blockquote>
+        );
+      case "list":
+        return renderList(token as Tokens.List, key);
+      case "table":
+        return renderTable(token as Tokens.Table, key);
+      case "hr":
+        return <hr key={key} className="my-3 border-border" />;
+      default:
+        return <p key={key} className="my-1 whitespace-pre-wrap">{token.raw}</p>;
+    }
+  });
 }
+
+const HIGHLIGHT_DELAY_MS = 150;
 
 function CodeBlock({ code, language }: { code: string; language: string }) {
   const [copied, setCopied] = useState(false);
-  const lines = code.split('\n');
-  const detectedLang = language || detectLanguage(code) || "code";
-  const langIcon = getLanguageIcon(detectedLang);
+  const [highlighted, setHighlighted] = useState<{ code: string; html: string } | null>(null);
+  const lineCount = code.split("\n").length;
+
+  // Highlight once the code has stopped changing (it grows while streaming),
+  // loading the highlighter on first use.
+  useEffect(() => {
+    if (!language) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      import("../../lib/highlight")
+        .then(({ highlightCode }) => {
+          const html = highlightCode(code, language);
+          if (!cancelled && html !== null) setHighlighted({ code, html });
+        })
+        .catch(() => {});
+    }, HIGHLIGHT_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [code, language]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
   };
 
-  const CopyButton = ({ className = "" }: { className?: string }) => (
-    <button
-      onClick={handleCopy}
-      className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors ${className}`}
-    >
-      {copied ? (
-        <>
-          <CheckIcon size={12} className="text-success" />
-          <span className="text-success">Copied!</span>
-        </>
-      ) : (
-        <>
-          <CopyIcon size={12} />
-          <span>Copy</span>
-        </>
-      )}
-    </button>
-  );
+  const html = highlighted && highlighted.code === code ? highlighted.html : null;
+  const gutter = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
 
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-border bg-code-block relative">
-      {/* Header with language badge */}
+    <div className="my-2 rounded-lg overflow-hidden border border-border bg-code-block not-italic">
       <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border">
-        <div className="flex items-center gap-2">
-          <span className="px-1.5 py-0.5 bg-accent-primary/20 text-accent-primary rounded text-[10px] font-bold">
-            {langIcon}
-          </span>
-          <span className="text-xs text-text-tertiary font-mono">{detectedLang}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-text-tertiary">{lines.length} lines</span>
-          <CopyButton />
-        </div>
+        <span className="text-xs text-text-tertiary font-mono">{language || "code"}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
+          aria-label="Copy code"
+        >
+          {copied ? (
+            <>
+              <CheckIcon size={12} className="text-success" />
+              <span className="text-success">Copied!</span>
+            </>
+          ) : (
+            <>
+              <CopyIcon size={12} />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Code with line numbers */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
-        <table className="w-full border-collapse">
-          <tbody>
-            {lines.map((line, idx) => (
-              <tr key={idx} className="hover:bg-white/5">
-                <td className="px-3 py-0 text-right text-[10px] text-text-tertiary/50 font-mono select-none border-r border-border/30 w-10 align-top leading-relaxed">
-                  {idx + 1}
-                </td>
-                <td className="px-3 py-0 text-xs font-mono text-code-text leading-relaxed whitespace-pre">
-                  {line || " "}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex overflow-auto max-h-[400px] text-xs font-mono leading-relaxed">
+        <pre aria-hidden="true" className="select-none text-right text-text-tertiary/60 px-3 py-2 border-r border-border/30 sticky left-0 bg-code-block">
+          {gutter}
+        </pre>
+        <pre className="px-3 py-2 text-code-text flex-1">
+          {html !== null ? <code className="hljs" dangerouslySetInnerHTML={{ __html: html }} /> : <code>{code}</code>}
+        </pre>
       </div>
-
-      {/* Sticky copy button for long code blocks */}
-      {lines.length > 10 && (
-        <div className="absolute bottom-2 right-2">
-          <CopyButton className="bg-bg-tertiary/90 backdrop-blur-sm border border-border" />
-        </div>
-      )}
     </div>
   );
 }
-

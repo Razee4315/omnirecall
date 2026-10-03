@@ -1,22 +1,25 @@
 {
   "name": "omnirecall",
   "private": true,
-  "version": "1.1.5",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "tauri": "tauri"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@preact/signals": "^1.2.2",
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-autostart": "^2.7.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.4.2",
-    "@tauri-apps/plugin-global-shortcut": "^2.0.0",
     "@tauri-apps/plugin-store": "^2.0.0",
-    "clsx": "^2.1.0",
     "highlight.js": "^11.9.0",
     "marked": "^11.1.1",
     "preact": "^10.19.3"
@@ -25,9 +28,11 @@
     "@preact/preset-vite": "^2.8.1",
     "@tauri-apps/cli": "^2.0.0",
     "autoprefixer": "^10.4.17",
+    "happy-dom": "^15.11.7",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
-    "vite": "^5.0.11"
+    "vite": "^5.0.11",
+    "vitest": "^2.1.9"
   }
 }
