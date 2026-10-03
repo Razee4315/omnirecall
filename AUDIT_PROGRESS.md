@@ -4,6 +4,8 @@ Branch: `audit/full-implementation`. Single source of truth for what is left.
 
 Status values: `todo` / `in-progress` / `done` / `verified` / `blocked`.
 
+**Update 2026-10-03:** PR #15 CI (run 37088550281, windows-latest) compiled the Rust backend and all 36 Rust unit tests passed. Items marked `blocked` for "not compiled" are now compile- and unit-test-verified; what remains for them is the manual check in the native app.
+
 **Environment constraint:** this machine has no Rust toolchain (no `cargo`, `rustc`, or MSVC build tools), so the
 Tauri backend cannot be compiled or run here. Frontend work is verified with `tsc`, `vitest`, a production build, and
 a browser session against a mocked Tauri IPC layer. Anything whose proof needs the compiled backend or the native
