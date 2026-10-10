@@ -1,0 +1,34 @@
+{
+  "pointer-white": {
+    "w": 531,
+    "h": 760
+  },
+  "pointer-black": {
+    "w": 531,
+    "h": 760
+  },
+  "paper-sheet": {
+    "w": 480,
+    "h": 620
+  },
+  "paper-notebook": {
+    "w": 422,
+    "h": 620
+  },
+  "paper-stack": {
+    "w": 520,
+    "h": 454
+  },
+  "paper-folded": {
+    "w": 420,
+    "h": 385
+  },
+  "paper-listing": {
+    "w": 200,
+    "h": 420
+  },
+  "key-steel": {
+    "w": 1100,
+    "h": 508
+  }
+}

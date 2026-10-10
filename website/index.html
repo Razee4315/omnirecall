@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OmniRecall — AI chat that opens at your cursor</title>
+    <meta
+      name="description"
+      content="OmniRecall is a desktop app for Windows and Linux. Press Alt + Space in any app and an AI chat opens at your cursor, with Gemini, OpenAI, Claude, GLM or local Ollama models, and your own documents."
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="OmniRecall — AI chat that opens at your cursor" />
+    <meta property="og:description" content="Press Alt + Space in any app. Ask your question. Press Esc and carry on." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" as="image" href="/img/pointer-black.webp" type="image/webp" />
+    <script>
+      document.documentElement.classList.add('js')
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#download">Skip to download</a>
+
+    <main id="main">
+      <!-- 1. What it is -->
+      <section class="panel panel--white hero" id="top">
+        <header class="bar wrap">
+          <a class="brand" href="#top" aria-label="OmniRecall">
+            <svg class="brand__mark" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+              <path d="M65 35L50 50L65 65" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+              <path
+                d="M50 50H70C81.0457 50 90 41.0457 90 30C90 18.9543 81.0457 10 70 10H50C27.9086 10 10 27.9086 10 50C10 72.0914 27.9086 90 50 90C72.0914 90 90 72.0914 90 50"
+                stroke="currentColor"
+                stroke-width="9"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span>OmniRecall</span>
+          </a>
+          <nav class="bar__nav" aria-label="Main">
+            <a href="https://github.com/Razee4315/omnirecall" rel="noopener">GitHub</a>
+            <a class="bar__cta" href="#download">Download</a>
+          </nav>
+        </header>
+
+        <div class="wrap hero__grid">
+          <div class="hero__copy">
+            <h1 class="h h--xl" data-reveal>
+              <span class="ln"><span>AI chat that opens</span></span>
+              <span class="ln"><span>at your cursor.</span></span>
+            </h1>
+            <p class="lede" data-reveal>Press <kbd>Alt</kbd> <kbd>Space</kbd> in any app. Ask your question. Press <kbd>Esc</kbd> and carry on.</p>
+            <div class="actions" data-reveal>
+              <a class="btn" href="#download">Download</a>
+              <button class="btn btn--quiet" type="button" data-summon>
+                <span class="only-fine">Try it here: press <kbd>Alt</kbd> <kbd>Space</kbd></span>
+                <span class="only-coarse">See it open</span>
+              </button>
+            </div>
+            <p class="note" data-reveal>Windows and Linux. Free for personal use.</p>
+          </div>
+          <div class="card card--hero"><div class="demo" data-demo="hero" aria-hidden="true"></div></div>
+        </div>
+      </section>
+
+      <!-- 2. Why -->
+      <section class="panel panel--black why" id="focus">
+        <div class="wrap">
+          <h2 class="h h--xl" data-reveal>
+            <span class="ln"><span>Small questions</span></span>
+            <span class="ln"><span>break focus.</span></span>
+          </h2>
+          <div class="paths" data-reveal>
+            <div class="path">
+              <p class="path__name">In a browser</p>
+              <ol class="path__steps">
+                <li>Open the browser</li>
+                <li>Find the tab</li>
+                <li>Type the prompt</li>
+                <li>Wait</li>
+                <li>Find your place again</li>
+              </ol>
+            </div>
+            <div class="path path--short">
+              <p class="path__name">With OmniRecall</p>
+              <ol class="path__steps">
+                <li><kbd>Alt</kbd> <kbd>Space</kbd></li>
+                <li>Ask</li>
+                <li><kbd>Esc</kbd></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. The shortcut -->
+      <section class="panel panel--white chapter" id="shortcut">
+        <div class="wrap chapter__grid">
+          <div class="chapter__copy">
+            <h2 class="h" data-reveal>
+              <span class="ln"><span>It opens where</span></span>
+              <span class="ln"><span>you are working.</span></span>
+            </h2>
+            <p class="lede" data-reveal>The window appears under your cursor, takes your question, and hides when you press Esc or click away.</p>
+            <div class="caps" data-reveal aria-hidden="true">
+              <span class="cap" data-key="alt"><i>Alt</i></span>
+              <span class="cap cap--wide" data-key="space"><i>Space</i></span>
+              <span class="cap cap--apart" data-key="esc"><i>Esc</i></span>
+            </div>
+          </div>
+          <div class="card" data-reveal><div class="demo" data-demo="shortcut" aria-hidden="true"></div></div>
+        </div>
+      </section>
+
+      <!-- 4. Your files -->
+      <section class="panel panel--white chapter" id="documents">
+        <div class="wrap chapter__grid">
+          <div class="chapter__copy">
+            <h2 class="h" data-reveal>
+              <span class="ln"><span>Ask about</span></span>
+              <span class="ln"><span>your own files.</span></span>
+            </h2>
+            <p class="lede" data-reveal>Add PDFs, notes or code. Each answer lists the documents it used.</p>
+            <ul class="files" data-reveal aria-hidden="true">
+              <li class="file" data-file="api-spec.md">
+                <span class="file__art"><img src="/img/paper-notebook.webp" width="422" height="620" alt="" loading="lazy" /></span>
+                <span class="file__name">api-spec.md</span>
+              </li>
+              <li class="file" data-file="migration-notes.pdf">
+                <span class="file__art"><img src="/img/paper-stack.webp" width="520" height="454" alt="" loading="lazy" /></span>
+                <span class="file__name">migration-notes.pdf</span>
+              </li>
+              <li class="file" data-file="meeting-notes.md">
+                <span class="file__art"><img src="/img/paper-folded.webp" width="420" height="385" alt="" loading="lazy" /></span>
+                <span class="file__name">meeting-notes.md</span>
+              </li>
+              <li class="file" data-file="parser.ts">
+                <span class="file__art"><img src="/img/paper-listing.webp" width="200" height="420" alt="" loading="lazy" /></span>
+                <span class="file__name">parser.ts</span>
+              </li>
+            </ul>
+          </div>
+          <div class="card" data-reveal><div class="demo" data-demo="documents" aria-hidden="true"></div></div>
+        </div>
+      </section>
+
+      <!-- 5. The models -->
+      <section class="panel panel--white chapter" id="models">
+        <div class="wrap chapter__grid">
+          <div class="chapter__copy">
+            <h2 class="h" data-reveal>
+              <span class="ln"><span>Use the model</span></span>
+              <span class="ln"><span>you want.</span></span>
+            </h2>
+            <p class="lede" data-reveal>Bring your own API key, or run Ollama on your machine with no key. Compare up to four models side by side.</p>
+            <ul class="picks" data-models data-reveal>
+              <li><button type="button" aria-pressed="true"><i style="--c: #3b82f6"></i>Gemini</button></li>
+              <li><button type="button" aria-pressed="false"><i style="--c: #10b981"></i>OpenAI</button></li>
+              <li><button type="button" aria-pressed="false"><i style="--c: #f97316"></i>Claude</button></li>
+              <li><button type="button" aria-pressed="false"><i style="--c: #a855f7"></i>GLM</button></li>
+              <li><button type="button" aria-pressed="false"><i style="--c: #f43f5e"></i>Ollama</button></li>
+            </ul>
+          </div>
+          <div class="card" data-card="models" data-model="0" data-reveal>
+            <span class="card__tints" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <div class="demo" data-demo="models" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Where things are kept -->
+      <section class="panel panel--black local" id="local">
+        <div class="wrap">
+          <img class="local__key" src="/img/key-steel.webp" width="1100" height="508" alt="" loading="lazy" data-reveal />
+          <h2 class="h h--xl" data-reveal>
+            <span class="ln"><span>Your chats stay</span></span>
+            <span class="ln"><span>on your computer.</span></span>
+          </h2>
+          <ul class="facts" data-reveal>
+            <li>
+              <h3>Stored locally</h3>
+              <p>Chat history and the document index live on your machine.</p>
+            </li>
+            <li>
+              <h3>Keys in the system store</h3>
+              <p>API keys go in your operating system’s credential store.</p>
+            </li>
+            <li>
+              <h3>Fully local with Ollama</h3>
+              <p>Run Ollama with no API keys and nothing leaves your machine.</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 7. The Dashboard, in the app's six themes -->
+      <section class="panel theme" id="dashboard" data-theme="dark">
+        <div class="theme__bg" aria-hidden="true">
+          <i data-bg="dark"></i><i data-bg="light"></i><i data-bg="transparent"></i><i data-bg="paper"></i><i data-bg="rose"></i><i data-bg="ocean"></i>
+        </div>
+        <div class="wrap">
+          <div class="theme__head">
+            <h2 class="h" data-reveal>
+              <span class="ln"><span>More room when</span></span>
+              <span class="ln"><span>you want it.</span></span>
+            </h2>
+            <div class="theme__side" data-reveal>
+              <p class="lede">Expand to the Dashboard for history, folders, search, branches and export. Six themes.</p>
+              <ul class="picks picks--plain" data-themes aria-label="Theme">
+                <li><button type="button" data-set-theme="dark" aria-pressed="true">Dark</button></li>
+                <li><button type="button" data-set-theme="light" aria-pressed="false">Light</button></li>
+                <li><button type="button" data-set-theme="transparent" aria-pressed="false">Glass</button></li>
+                <li><button type="button" data-set-theme="paper" aria-pressed="false">Paper</button></li>
+                <li><button type="button" data-set-theme="rose" aria-pressed="false">Rose</button></li>
+                <li><button type="button" data-set-theme="ocean" aria-pressed="false">Ocean</button></li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot" data-reveal>
+            <div class="shot__frame" data-shots>
+              <img
+                class="is-on"
+                data-shot="dark"
+                src="/img/dashboard-dark.1x.webp"
+                srcset="/img/dashboard-dark.1x.webp 1000w, /img/dashboard-dark.webp 2000w"
+                sizes="(max-width: 760px) 760px, min(1000px, 88vw)"
+                width="1000"
+                height="640"
+                loading="lazy"
+                decoding="async"
+                alt="The OmniRecall Dashboard: a sidebar of chats, folders and documents beside a conversation that cites its source files."
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Get it -->
+      <section class="panel panel--black end" id="download">
+        <div class="wrap end__body">
+          <img class="end__icon" src="/favicon.svg" width="64" height="64" alt="" data-reveal />
+          <h2 class="h h--xl" data-reveal>
+            <span class="ln"><span>Get OmniRecall.</span></span>
+          </h2>
+          <p class="lede" data-reveal>Free for personal and educational use. Installers for Windows and Linux; macOS is planned.</p>
+          <div class="actions" data-reveal>
+            <span class="end__cta">
+              <a class="btn" href="https://github.com/Razee4315/omnirecall/releases" rel="noopener">Download v1.2.0</a>
+              <img class="end__cursor" src="/img/pointer-white.webp" width="531" height="760" alt="" loading="lazy" />
+            </span>
+            <a class="btn btn--quiet" href="https://github.com/Razee4315/omnirecall" rel="noopener">Read the source</a>
+          </div>
+        </div>
+        <footer class="foot wrap">
+          <p>© 2025 Saqlain Razee</p>
+          <p class="foot__links">
+            <a href="https://github.com/Razee4315" rel="noopener">GitHub</a>
+            <a href="https://linkedin.com/in/saqlainrazee" rel="noopener">LinkedIn</a>
+            <a href="https://github.com/Razee4315/omnirecall/blob/main/LICENSE" rel="noopener">Licence</a>
+          </p>
+          <p class="foot__fine">Commercial use needs a licence. The interface is the real app with demo data; the cursor, paper and key photographs were generated with AI.</p>
+        </footer>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

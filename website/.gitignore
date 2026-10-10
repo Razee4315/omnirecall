@@ -1,0 +1,8 @@
+node_modules/
+# Working files kept on the machine that made them: raw generated PNGs and an abandoned direction.
+assets-raw/
+archive/
+dist/
+tools/logs/
+tools/shots/
+.vite-capture/

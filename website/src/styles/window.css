@@ -1,0 +1,569 @@
+/* The stage the window performs on, and the visitor's own layer. */
+.demo,
+#summon {
+  --k: 1;
+  --px: calc(1px * var(--k));
+}
+.demo {
+  position: relative;
+  justify-self: end;
+  width: 100%;
+  min-height: 300px;
+}
+.card .demo {
+  justify-self: stretch;
+}
+.demo__cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: calc(22 * var(--px));
+  margin: calc(-0.5 * var(--px)) 0 0 calc(-1 * var(--px));
+  filter: drop-shadow(0 calc(5 * var(--px)) calc(5 * var(--px)) rgba(0, 0, 0, 0.5));
+  opacity: 0;
+  transition-property: transform, opacity;
+  transition-timing-function: var(--ease-glide), ease;
+  transition-duration: 950ms, 400ms;
+  will-change: transform;
+}
+.demo__cursor.is-on {
+  opacity: 1;
+}
+.demo__cursor img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#summon {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s linear 0.3s;
+}
+#summon.is-on {
+  visibility: visible;
+  transition: visibility 0s;
+}
+/* A light scrim: the page steps back while your own window is open. */
+#summon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#summon.is-on::before {
+  opacity: 0.45;
+}
+
+/* OmniRecall's Spotlight window. Values are the product's own (src/styles/globals.css, dark theme,
+   and the Tailwind classes in Spotlight.tsx / MessageBubble.tsx / ChatComposer.tsx), multiplied by
+   --px so the window can be shown a little larger than life without blurring its text. */
+
+.orw {
+  --bg-primary: #0d0d0f;
+  --bg-tertiary: #252529;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a8;
+  --text-tertiary: #8a8a93;
+  --accent-primary: #4a9eff;
+  --on-accent: #07203a;
+  --border-color: #2e2e35;
+  --success: #22c55e;
+
+  position: absolute;
+  left: 0;
+  top: 0;
+  --w: 420;
+  width: min(calc(var(--w) * var(--px)), calc(100vw - 24px));
+  visibility: hidden;
+  font-family: var(--sans);
+  font-size: calc(12 * var(--px));
+  line-height: 1.5;
+  color: var(--text-primary);
+  will-change: transform;
+  transition: visibility 0s linear 0.2s;
+}
+.orw.is-open {
+  visibility: visible;
+  transition: visibility 0s;
+}
+.orw.is-live {
+  pointer-events: auto;
+}
+
+.orw__card {
+  display: flex;
+  flex-direction: column;
+  height: calc(360 * var(--px));
+  border: 1px solid var(--border-color);
+  border-radius: calc(12 * var(--px));
+  background: #0d0d0f;
+  box-shadow: 0 calc(28 * var(--px)) calc(56 * var(--px)) calc(-20 * var(--px)) rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  position: relative;
+  /* The app's own entrance: fade in from 10px above. */
+  opacity: 0;
+  transform: translateY(calc(-10 * var(--px)));
+  transition: opacity 0.16s ease-in, transform 0.16s ease-in;
+}
+.orw.is-open .orw__card {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.24s ease-out, transform 0.42s var(--ease-out);
+}
+
+.orw svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* header */
+.orw__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8 * var(--px));
+  padding: calc(8 * var(--px)) calc(12 * var(--px));
+  border-bottom: 1px solid var(--border-color);
+  flex: none;
+}
+.orw__head-left,
+.orw__head-right {
+  display: flex;
+  align-items: center;
+}
+.orw__head-left {
+  gap: calc(8 * var(--px));
+  min-width: 0;
+}
+.orw__head-right {
+  gap: calc(2 * var(--px));
+  flex: none;
+}
+.orw__logo {
+  width: calc(18 * var(--px));
+  height: calc(18 * var(--px));
+  color: var(--accent-primary);
+  flex: none;
+}
+.orw__model {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--px));
+  min-width: calc(86 * var(--px));
+  padding: calc(4 * var(--px)) calc(8 * var(--px));
+  border-radius: calc(8 * var(--px));
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+.orw__model i {
+  width: calc(6 * var(--px));
+  height: calc(6 * var(--px));
+  border-radius: 50%;
+  background: var(--success);
+  flex: none;
+}
+.orw__model b {
+  font-weight: 400;
+  max-width: calc(120 * var(--px));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orw__model svg {
+  width: calc(10 * var(--px));
+  height: calc(10 * var(--px));
+  flex: none;
+}
+.orw__usage {
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--px));
+  color: var(--success);
+  flex: none;
+}
+.orw__usage svg {
+  width: calc(14 * var(--px));
+  height: calc(14 * var(--px));
+}
+.orw__docs {
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--px));
+  padding: calc(2 * var(--px)) calc(6 * var(--px));
+  border-radius: calc(4 * var(--px));
+  background: rgba(74, 158, 255, 0.1);
+  color: var(--accent-primary);
+  flex: none;
+}
+.orw__docs svg {
+  width: calc(12 * var(--px));
+  height: calc(12 * var(--px));
+}
+.orw [hidden] {
+  display: none;
+}
+.orw__btn {
+  display: block;
+  width: calc(26 * var(--px));
+  height: calc(26 * var(--px));
+  padding: calc(6 * var(--px));
+  border-radius: calc(6 * var(--px));
+  color: var(--text-tertiary);
+}
+button.orw__btn {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.orw.is-live button.orw__btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* conversation */
+.orw__log {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+.orw__empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16 * var(--px));
+  text-align: center;
+}
+.orw__empty-mark {
+  width: calc(40 * var(--px));
+  height: calc(40 * var(--px));
+  padding: calc(9 * var(--px));
+  margin-bottom: calc(12 * var(--px));
+  border-radius: calc(12 * var(--px));
+  background: rgba(74, 158, 255, 0.1);
+  color: var(--accent-primary);
+}
+.orw__empty-title {
+  margin-bottom: calc(4 * var(--px));
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.orw__empty-sub {
+  margin-bottom: calc(12 * var(--px));
+  font-size: calc(11 * var(--px));
+  color: var(--text-tertiary);
+}
+.orw__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(6 * var(--px));
+  margin-bottom: calc(12 * var(--px));
+}
+.orw__chips span {
+  padding: calc(4 * var(--px)) calc(8 * var(--px));
+  border: 1px solid var(--border-color);
+  border-radius: calc(6 * var(--px));
+  font-size: calc(11 * var(--px));
+  color: var(--text-secondary);
+}
+.orw__hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(4 * var(--px)) calc(12 * var(--px));
+  font-size: calc(10 * var(--px));
+  color: var(--text-tertiary);
+}
+.orw kbd {
+  padding: calc(2 * var(--px)) calc(4 * var(--px));
+  border: 1px solid var(--border-color);
+  border-radius: calc(4 * var(--px));
+  background: var(--bg-tertiary);
+  font-family: var(--mono);
+  font-size: 1em;
+  font-weight: 400;
+  color: inherit;
+  line-height: inherit;
+}
+.orw__thread {
+  padding: calc(12 * var(--px)) calc(12 * var(--px)) calc(24 * var(--px));
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--px));
+}
+.orw__thread:empty {
+  display: none;
+}
+.orw__row {
+  display: flex;
+  animation: orw-reveal 0.2s ease-out;
+}
+.orw__row--user {
+  justify-content: flex-end;
+}
+@keyframes orw-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(calc(8 * var(--px)));
+  }
+}
+.orw__bubble {
+  max-width: 90%;
+  padding: calc(8 * var(--px)) calc(12 * var(--px));
+  border-radius: calc(8 * var(--px));
+  line-height: 1.625;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.orw__row--user .orw__bubble {
+  background: var(--accent-primary);
+  color: var(--on-accent);
+}
+.orw__bubble strong {
+  font-weight: 600;
+}
+.orw__bubble code {
+  padding: calc(2 * var(--px)) calc(6 * var(--px));
+  border-radius: calc(4 * var(--px));
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent-primary);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+.orw__bubble--dots {
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--px));
+  padding: calc(13 * var(--px)) calc(12 * var(--px));
+  color: var(--accent-primary);
+}
+.orw__bubble--dots i {
+  width: calc(6 * var(--px));
+  height: calc(6 * var(--px));
+  border-radius: 50%;
+  background: currentColor;
+  animation: orw-dot 1.4s ease-in-out infinite;
+}
+.orw__bubble--dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.orw__bubble--dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes orw-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(calc(-4 * var(--px)));
+  }
+}
+.orw__sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(4 * var(--px));
+  margin-top: calc(8 * var(--px));
+  font-size: calc(10 * var(--px));
+  color: var(--text-tertiary);
+  animation: orw-reveal 0.3s ease-out;
+}
+.orw__sources em {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4 * var(--px));
+  padding: calc(2 * var(--px)) calc(6 * var(--px));
+  border-radius: calc(4 * var(--px));
+  background: rgba(74, 158, 255, 0.1);
+  color: var(--accent-primary);
+  font-style: normal;
+}
+.orw__sources em svg {
+  width: calc(10 * var(--px));
+  height: calc(10 * var(--px));
+  flex: none;
+}
+
+/* the model list that drops from the header chip (ModelSelector.tsx) */
+.orw__menu {
+  position: absolute;
+  left: calc(38 * var(--px));
+  top: calc(40 * var(--px));
+  z-index: 3;
+  width: calc(256 * var(--px));
+  max-height: calc(288 * var(--px));
+  padding: calc(4 * var(--px)) 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: calc(8 * var(--px));
+  background: var(--bg-primary);
+  box-shadow: 0 calc(20 * var(--px)) calc(25 * var(--px)) calc(-5 * var(--px)) rgba(0, 0, 0, 0.5);
+  animation: orw-reveal 0.2s ease-out;
+}
+.orw__group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(6 * var(--px)) calc(12 * var(--px));
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+.orw__ok {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--px));
+  font-size: calc(10 * var(--px));
+  font-weight: 400;
+  color: var(--success);
+}
+.orw__ok svg {
+  width: calc(10 * var(--px));
+  height: calc(10 * var(--px));
+}
+.orw__opt {
+  padding: calc(8 * var(--px)) calc(12 * var(--px));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.orw__opt.is-active {
+  background: rgba(74, 158, 255, 0.1);
+  color: var(--accent-primary);
+}
+.orw__add {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--px));
+  padding: calc(8 * var(--px)) calc(12 * var(--px));
+  border-top: 1px solid var(--border-color);
+  background: rgba(26, 26, 31, 0.3);
+  color: var(--text-tertiary);
+}
+.orw__add svg {
+  width: calc(12 * var(--px));
+  height: calc(12 * var(--px));
+}
+
+/* With the list open, what is behind it steps back so the list reads cleanly. */
+.orw__log > * {
+  transition: opacity 0.3s ease;
+}
+.orw.has-menu .orw__log > * {
+  opacity: 0.22;
+}
+
+/* composer */
+.orw__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(6 * var(--px));
+  padding: calc(8 * var(--px));
+  border-top: 1px solid var(--border-color);
+  flex: none;
+}
+.orw__composer textarea {
+  flex: 1;
+  min-width: 0;
+  height: calc(35.5 * var(--px));
+  padding: calc(8 * var(--px)) calc(12 * var(--px));
+  border: 0;
+  border-radius: calc(8 * var(--px));
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.625;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.orw__composer textarea::placeholder {
+  color: var(--text-tertiary);
+}
+.orw.is-live .orw__composer textarea:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: calc(8 * var(--px));
+}
+.orw__tool,
+.orw__send {
+  width: calc(30 * var(--px));
+  height: calc(30 * var(--px));
+  padding: calc(8 * var(--px));
+  border-radius: calc(8 * var(--px));
+  color: var(--text-tertiary);
+  flex: none;
+}
+.orw__send {
+  background: var(--bg-tertiary);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.orw__send.is-ready {
+  background: var(--accent-primary);
+  color: var(--on-accent);
+}
+
+/* Not part of the app: a line under the visitor's own window saying what it is. */
+.orw__caption {
+  margin: calc(10 * var(--px)) 0 0;
+  text-align: center;
+  font-size: 0.9375rem;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.orw.is-open .orw__caption:not(:empty) {
+  opacity: 1;
+  transition: opacity 0.5s ease 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orw__card,
+  .orw.is-open .orw__card {
+    transform: none;
+    transition: opacity 0.15s ease;
+  }
+  .orw__row,
+  .orw__sources,
+  .orw__bubble--dots i {
+    animation: none;
+  }
+}
+
+/* While your own window is open, the staged ones step aside: there is one window, and it is at your cursor. */
+.demo {
+  transition: opacity 0.35s ease;
+}
+.is-summoned .demo {
+  opacity: 0;
+}
+
+/* On a narrow stage the window narrows with it rather than running off the card. */
+.demo .orw {
+  max-width: 100%;
+}
+
+/* Narrower than the app's own minimum (a phone): the usage meter keeps its icon and drops its number. */
+.orw {
+  container-type: inline-size;
+}
+@container (max-width: 350px) {
+  .orw__usage span {
+    display: none;
+  }
+  .orw__head-left {
+    gap: calc(6 * var(--px));
+  }
+}
