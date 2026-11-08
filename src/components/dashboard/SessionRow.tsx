@@ -1,10 +1,11 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   activeSessionId,
   chatFolders,
   chatHistory,
   ChatSession,
   deleteChatSession,
+  exportDialog,
   loadSession,
   restoreChatSession,
   toggleSessionPinned,
@@ -15,90 +16,8 @@ import {
 import { chatError } from "../../stores/chatActions";
 import { toast } from "../../stores/toastStore";
 import { useClickOutside } from "../../hooks/useClickOutside";
-import { BranchIcon, CheckIcon, CloseIcon, EditIcon, FolderIcon, PinIcon } from "../icons";
 import { selectOnMount } from "../../lib/dom";
-
-const rowAction =
-  "p-1 rounded min-w-[24px] min-h-[24px] flex items-center justify-center transition-opacity text-text-tertiary hover:text-text-primary";
-
-/// Keyboard- and mouse-accessible way to file a chat into a folder (the only
-/// alternative, dragging, isn't available to everyone or on every platform).
-function MoveToFolderMenu({ session }: { session: ChatSession }) {
-  const [open, setOpen] = useState(false);
-  const ref = useClickOutside<HTMLDivElement>(() => setOpen(false), open);
-  const folders = chatFolders.value;
-  if (folders.length === 0) return null;
-
-  const move = (folderId: string | null) => {
-    updateSessionFolder(session.id, folderId);
-    setOpen(false);
-    const name = folderId ? folders.find(f => f.id === folderId)?.name : "Uncategorized";
-    toast.success(`Moved to ${name}`);
-  };
-
-  const options: { id: string | null; name: string; color?: string }[] = [
-    ...folders,
-    { id: null, name: "Uncategorized" },
-  ];
-
-  return (
-    <div
-      className="relative"
-      ref={ref}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && open) {
-          e.stopPropagation();
-          setOpen(false);
-        }
-      }}
-    >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(o => !o);
-        }}
-        className={`${rowAction} ${open ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Move to folder"
-        title="Move to folder"
-      >
-        <FolderIcon size={12} />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          aria-label="Move to folder"
-          className="absolute right-0 top-full mt-1 z-30 min-w-[160px] max-h-56 overflow-y-auto bg-bg-primary border border-border rounded-lg shadow-xl py-1 animate-fade-in"
-        >
-          {options.map(option => {
-            const current = (session.folderId ?? null) === option.id;
-            return (
-              <button
-                key={option.id ?? "none"}
-                role="menuitemradio"
-                aria-checked={current}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  move(option.id);
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-bg-tertiary ${
-                  current ? "text-accent-primary" : "text-text-primary"
-                }`}
-              >
-                <span style={option.color ? { color: option.color } : undefined} className={option.color ? "" : "text-text-tertiary"}>
-                  <FolderIcon size={12} />
-                </span>
-                <span className="truncate flex-1">{option.name}</span>
-                {current && <CheckIcon size={12} />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+import { BranchIcon, CheckIcon, DownloadIcon, EditIcon, FolderIcon, MoreIcon, PinIcon, TrashIcon } from "../icons";
 
 interface SessionRowProps {
   session: ChatSession;
@@ -106,14 +25,33 @@ interface SessionRowProps {
   onDragStart?: (sessionId: string, e: DragEvent) => void;
 }
 
-/// A chat in the sidebar: open, rename, pin, move to a folder, delete.
+/// A chat in the sidebar. Click to open, double-click to rename; everything
+/// else (pin, rename, move to folder, export, delete) is in the ⋯ menu.
 export function SessionRow({ session, onDragStart }: SessionRowProps) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Fixed-position coordinates, so the menu isn't clipped by the scrolling list.
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
+  const menuRef = useClickOutside<HTMLDivElement>(() => setMenuOpen(false), menuOpen);
+  // A fixed menu would float away from its row if the list scrolled.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: Event) => {
+      // Scrolling inside the menu itself (a long folder list) is fine.
+      if (e.type === "scroll" && menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [menuOpen]);
   const isActive = activeSessionId.value === session.id;
   const threads = visibleThreadCount(session);
-  const hidden = "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100";
+  const folders = chatFolders.value;
 
   const open = () => {
     loadSession(session);
@@ -121,6 +59,7 @@ export function SessionRow({ session, onDragStart }: SessionRowProps) {
   };
 
   const startRename = () => {
+    setMenuOpen(false);
     setDraft(session.title);
     setRenaming(true);
   };
@@ -131,25 +70,29 @@ export function SessionRow({ session, onDragStart }: SessionRowProps) {
   };
 
   const handleDelete = () => {
-    if (!confirmingDelete) {
-      // First click arms the button; it disarms itself if not confirmed.
-      setConfirmingDelete(true);
-      setTimeout(() => setConfirmingDelete(false), 3000);
-      return;
-    }
+    setMenuOpen(false);
     const index = chatHistory.value.findIndex(s => s.id === session.id);
     deleteChatSession(session.id);
-    toast.action("Chat deleted", { label: "Undo", onClick: () => restoreChatSession(session, index) }, "info");
+    toast.action(`Deleted “${session.title.slice(0, 40)}”`, { label: "Undo", onClick: () => restoreChatSession(session, index) }, "info");
+  };
+
+  const moveTo = (folderId: string | null) => {
+    updateSessionFolder(session.id, folderId);
+    setMenuOpen(false);
+    const name = folderId ? folders.find(f => f.id === folderId)?.name : "Uncategorized";
+    toast.success(`Moved to ${name}`);
   };
 
   return (
     <div
       draggable={!renaming && !!onDragStart}
       onDragStart={onDragStart ? (e) => onDragStart(session.id, e) : undefined}
-      className={`group flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors ${
-        isActive ? "bg-accent-primary/10 text-accent-primary" : "hover:bg-bg-tertiary text-text-primary"
+      className={`group relative flex items-center h-8 rounded-lg transition-colors ${
+        isActive ? "bg-surface-3 text-fg" : menuOpen ? "bg-surface-2" : "text-fg-muted hover:bg-surface-2 hover:text-fg"
       }`}
     >
+      {isActive && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-accent" aria-hidden="true" />}
+
       {renaming ? (
         <input
           value={draft}
@@ -163,7 +106,7 @@ export function SessionRow({ session, onDragStart }: SessionRowProps) {
           ref={selectOnMount}
           maxLength={120}
           aria-label="Rename chat"
-          className="flex-1 min-w-0 bg-bg-primary border border-accent-primary rounded px-1 py-0.5 text-sm text-text-primary outline-none"
+          className="flex-1 min-w-0 mx-1 h-7 px-2 rounded-md bg-canvas border border-accent/60 text-[13px] text-fg outline-none"
         />
       ) : (
         <button
@@ -171,47 +114,111 @@ export function SessionRow({ session, onDragStart }: SessionRowProps) {
           onDblClick={startRename}
           aria-current={isActive ? "true" : undefined}
           title={session.title}
-          className="flex-1 min-w-0 text-left text-sm truncate py-0.5 rounded"
+          className="flex-1 min-w-0 h-full flex items-center gap-2 pl-2.5 pr-1 text-left text-[13px] rounded-lg"
         >
-          {session.title}
+          {session.isPinned && <PinIcon size={11} className="flex-shrink-0 text-accent" />}
+          <span className="truncate">{session.title}</span>
+          {threads > 1 && (
+            <span className="ml-auto flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] text-fg-subtle" title={`${threads} branches`}>
+              <BranchIcon size={10} />
+              {threads}
+            </span>
+          )}
         </button>
       )}
 
-      {threads > 1 && !renaming && (
-        <span
-          className="flex items-center gap-0.5 text-[10px] text-text-tertiary bg-bg-tertiary px-1.5 py-0.5 rounded-full flex-shrink-0"
-          title={`${threads} branches`}
-        >
-          <BranchIcon size={8} />
-          {threads}
-        </span>
-      )}
-
       {!renaming && (
-        <div className="flex items-center flex-shrink-0">
+        <div
+          ref={menuRef}
+          className="relative flex-shrink-0 pr-1"
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && menuOpen) {
+              e.stopPropagation();
+              setMenuOpen(false);
+            }
+          }}
+        >
           <button
-            onClick={() => toggleSessionPinned(session.id)}
-            className={`${rowAction} ${session.isPinned ? "opacity-100 !text-accent-primary" : hidden}`}
-            aria-label={session.isPinned ? "Unpin chat" : "Pin chat"}
-            aria-pressed={!!session.isPinned}
-            title={session.isPinned ? "Unpin" : "Pin"}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!menuOpen) {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const estimate = 150 + (folders.length > 0 ? 40 + Math.min(folders.length + 1, 5) * 32 : 0);
+                const right = window.innerWidth - rect.right;
+                setMenuPos(
+                  rect.bottom + estimate + 8 > window.innerHeight
+                    ? { bottom: window.innerHeight - rect.top + 4, right }
+                    : { top: rect.bottom + 4, right },
+                );
+              }
+              setMenuOpen(o => !o);
+            }}
+            className={`icon-btn icon-btn-sm ${menuOpen ? "opacity-100 bg-surface-3 text-fg" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label={`Actions for ${session.title}`}
+            title="More"
           >
-            <PinIcon size={12} />
+            <MoreIcon size={14} />
           </button>
-          <button onClick={startRename} className={`${rowAction} ${hidden}`} aria-label="Rename chat" title="Rename">
-            <EditIcon size={12} />
-          </button>
-          <MoveToFolderMenu session={session} />
-          <button
-            onClick={handleDelete}
-            className={`${rowAction} ${
-              confirmingDelete ? "opacity-100 bg-error/20 !text-error px-1.5" : `${hidden} hover:bg-error/20 hover:!text-error`
-            }`}
-            aria-label={confirmingDelete ? "Click again to confirm delete" : "Delete chat"}
-            title={confirmingDelete ? "Click again to delete" : "Delete"}
-          >
-            {confirmingDelete ? <span className="text-[10px] font-medium">Delete?</span> : <CloseIcon size={12} />}
-          </button>
+
+          {menuOpen && (
+            <div role="menu" aria-label="Chat actions" className="menu fixed z-[60] w-52" style={menuPos}>
+              <button role="menuitem" className="menu-item" onClick={() => { toggleSessionPinned(session.id); setMenuOpen(false); }}>
+                <PinIcon size={14} className="text-fg-subtle" />
+                {session.isPinned ? "Unpin" : "Pin to top"}
+              </button>
+              <button role="menuitem" className="menu-item" onClick={startRename}>
+                <EditIcon size={14} className="text-fg-subtle" />
+                Rename
+              </button>
+              <button
+                role="menuitem"
+                className="menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  loadSession(session);
+                  exportDialog.value = "export";
+                }}
+              >
+                <DownloadIcon size={14} className="text-fg-subtle" />
+                Export…
+              </button>
+
+              {folders.length > 0 && (
+                <>
+                  <div className="h-px bg-line my-1" />
+                  <div className="menu-label">Move to folder</div>
+                  <div className="max-h-40 overflow-y-auto">
+                    {[...folders, { id: null as string | null, name: "Uncategorized", color: "" }].map(folder => {
+                      const current = (session.folderId ?? null) === folder.id;
+                      return (
+                        <button
+                          key={folder.id ?? "none"}
+                          role="menuitemradio"
+                          aria-checked={current}
+                          className="menu-item"
+                          onClick={() => moveTo(folder.id)}
+                        >
+                          <span style={folder.color ? { color: folder.color } : undefined} className={folder.color ? "" : "text-fg-subtle"}>
+                            <FolderIcon size={14} />
+                          </span>
+                          <span className="truncate flex-1">{folder.name}</span>
+                          {current && <CheckIcon size={13} className="text-accent" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              <div className="h-px bg-line my-1" />
+              <button role="menuitem" className="menu-item !text-danger hover:!bg-danger/10" onClick={handleDelete}>
+                <TrashIcon size={14} />
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

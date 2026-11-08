@@ -88,14 +88,14 @@ export function RagDebugPanel() {
     }, []);
 
     return (
-        <div className="p-3 bg-bg-secondary rounded-lg border border-border space-y-3">
+        <div className="card p-4 space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium text-text-primary">Document search index</h3>
+                <h3 className="text-[13px] font-medium text-fg">Document search index</h3>
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => void loadStats()}
                         disabled={loading}
-                        className="p-1.5 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
+                        className="icon-btn"
                         title="Refresh"
                         aria-label="Refresh index statistics"
                     >
@@ -103,7 +103,7 @@ export function RagDebugPanel() {
                     </button>
                     <button
                         onClick={() => void handleClearIndex()}
-                        className="p-1.5 hover:bg-error/20 rounded transition-colors text-text-tertiary hover:text-error"
+                        className="icon-btn hover:!text-danger hover:!bg-danger/10"
                         title="Clear index"
                         aria-label="Clear index"
                     >
@@ -149,12 +149,12 @@ export function RagDebugPanel() {
                             if (e.key === "Enter") void handleSearch();
                         }}
                         placeholder="Enter a test query..."
-                        className="flex-1 min-w-0 px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-sm text-text-primary outline-none focus:border-accent-primary"
+                        className="field flex-1 min-w-0"
                     />
                     <button
                         onClick={() => void handleSearch()}
                         disabled={searching || !testQuery.trim()}
-                        className="px-3 py-2 bg-accent-primary text-on-accent rounded-lg text-sm font-medium disabled:opacity-50"
+                        className="btn btn-primary h-9"
                     >
                         {searching ? <SpinnerIcon size={14} /> : "Search"}
                     </button>

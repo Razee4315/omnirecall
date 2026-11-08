@@ -10,7 +10,7 @@ import {
   visibleThreadCount,
 } from "../../stores/appStore";
 import { BranchSelector } from "../common/BranchSelector";
-import { ChevronDownIcon, TypingIndicator } from "../icons";
+import { ArrowDownIcon, LogoMark, TypingIndicator } from "../icons";
 import { MessageBubble } from "./MessageBubble";
 
 /// Distance from the bottom (px) within which new content keeps the view
@@ -29,6 +29,7 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const messages = currentMessages.value;
@@ -40,17 +41,16 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
   const showBranches = !!session && visibleThreadCount(session) > 1;
 
   // Messages already on screen when a thread opens don't animate; only ones
-  // added afterwards do (and they keep the class, so a re-render mid-way
-  // doesn't cut the animation short).
+  // added afterwards do.
   const initialRef = useRef<{ epoch: number; ids: Set<string> }>({ epoch: -1, ids: new Set() });
   if (initialRef.current.epoch !== epoch) {
     initialRef.current = { epoch, ids: new Set(messages.map(m => m.id)) };
   }
   const seen = initialRef.current.ids;
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (smooth = false) => {
     const el = scrollerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   };
 
   // Opening a different thread always starts at the bottom.
@@ -84,17 +84,23 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
     atBottomRef.current = atBottom;
     setShowJump(!atBottom);
+    setScrolled(el.scrollTop > 4);
   };
 
   const last = messages[messages.length - 1];
   const waitingForFirstChunk = generating && last?.role === "assistant" && !last.content;
+  const streamingId = generating && last?.role === "assistant" && last.content ? last.id : null;
 
   return (
     <div className="relative flex-1 min-h-0">
+      {/* Hairline that appears once content scrolls under the header. */}
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-line transition-opacity duration-200 ${scrolled && messages.length > 0 ? "opacity-100" : "opacity-0"}`}
+      />
       <div
         ref={scrollerRef}
         onScroll={handleScroll}
-        className={`h-full overflow-y-auto ${compact ? "" : "p-4"}`}
+        className="h-full overflow-y-auto overscroll-contain"
         role="log"
         aria-live="polite"
         aria-relevant="additions text"
@@ -105,7 +111,7 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
         {messages.length === 0 ? (
           emptyState
         ) : (
-          <div className={compact ? "p-3 pb-6 space-y-3" : "max-w-3xl mx-auto pb-4 space-y-4"}>
+          <div className={compact ? "px-4 pt-3 pb-4 space-y-5" : "max-w-3xl mx-auto px-6 pt-6 pb-8 space-y-7"}>
             {showBranches && (
               <div className="flex justify-center">
                 <BranchSelector />
@@ -113,8 +119,8 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
             )}
 
             {messages.map((message, index) => {
-              // The empty assistant placeholder is represented by the typing
-              // indicator until the first chunk arrives.
+              // The empty assistant placeholder is represented by the
+              // thinking row until the first chunk arrives.
               if (message.role === "assistant" && !message.content) return null;
               return (
                 <MessageBubble
@@ -125,20 +131,17 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
                   compact={compact}
                   animate={!seen.has(message.id)}
                   highlighted={highlightedId === message.id}
+                  streaming={message.id === streamingId}
                 />
               );
             })}
 
             {waitingForFirstChunk && (
-              <div className="flex justify-start" role="status" aria-label="Waiting for the response">
-                <div
-                  className={
-                    compact
-                      ? "bg-bg-tertiary rounded-lg px-3 py-2.5"
-                      : "bg-bg-secondary border border-border rounded-xl px-4 py-3"
-                  }
-                >
-                  <TypingIndicator className="text-accent-primary" />
+              <div className="flex items-center gap-3 animate-fade-in" role="status" aria-label="Waiting for the response">
+                {!compact && <LogoMark size={24} />}
+                <div className="flex items-center gap-2 h-6 text-fg-subtle">
+                  <TypingIndicator className="text-accent" />
+                  <span className="text-xs">Thinking…</span>
                 </div>
               </div>
             )}
@@ -152,15 +155,13 @@ export function MessageList({ compact, emptyState }: MessageListProps) {
           onClick={() => {
             atBottomRef.current = true;
             setShowJump(false);
-            scrollToBottom();
+            scrollToBottom(true);
           }}
-          className={`absolute z-10 rounded-full bg-bg-secondary border border-border shadow-lg hover:bg-bg-tertiary transition-colors animate-fade-in ${
-            compact ? "bottom-2 right-3 p-1.5" : "bottom-4 right-6 p-2"
-          }`}
+          className="absolute z-10 left-1/2 -translate-x-1/2 bottom-3 inline-flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full bg-overlay border border-line shadow-pop text-2xs font-medium text-fg-muted hover:text-fg transition-colors animate-pop-in"
           aria-label="Scroll to latest message"
-          title="Scroll to latest message"
         >
-          <ChevronDownIcon size={compact ? 14 : 16} className="text-text-secondary" />
+          <ArrowDownIcon size={13} />
+          {generating ? "New response" : "Latest"}
         </button>
       )}
     </div>

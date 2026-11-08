@@ -3,6 +3,14 @@ import { Store } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import { errorMessage } from "../lib/errors";
 import { estimateTokens } from "../lib/history";
+import {
+  contextWindowFor,
+  DEFAULT_MODEL,
+  DEFAULT_MODELS,
+  DEFAULT_PROVIDER,
+  orderModels,
+  RETIRED_MODELS,
+} from "../lib/models";
 
 export { estimateTokens };
 
@@ -137,6 +145,50 @@ export const exportDialog = signal<"export" | "import" | null>(null);
 
 // Window State
 export const isMaximized = signal(false);
+
+// Dashboard sidebar layout. A per-device preference, so it lives in
+// localStorage (which can be unavailable; every access is guarded).
+export const SIDEBAR_DEFAULT_WIDTH = 272;
+export const SIDEBAR_MIN_WIDTH = 220;
+export const SIDEBAR_MAX_WIDTH = 440;
+const SIDEBAR_WIDTH_KEY = "omnirecall.sidebarWidth";
+const SIDEBAR_OPEN_KEY = "omnirecall.sidebarOpen";
+
+function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocal(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage unavailable; the preference just won't persist.
+  }
+}
+
+function initialSidebarWidth(): number {
+  const saved = Number(readLocal(SIDEBAR_WIDTH_KEY));
+  return Number.isFinite(saved) && saved > 0
+    ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, saved))
+    : SIDEBAR_DEFAULT_WIDTH;
+}
+
+export const sidebarWidth = signal(initialSidebarWidth());
+export const isSidebarOpen = signal(readLocal(SIDEBAR_OPEN_KEY) !== "false");
+
+export function setSidebarWidth(width: number) {
+  sidebarWidth.value = Math.round(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width)));
+  writeLocal(SIDEBAR_WIDTH_KEY, String(sidebarWidth.value));
+}
+
+export function setSidebarOpen(open: boolean) {
+  isSidebarOpen.value = open;
+  writeLocal(SIDEBAR_OPEN_KEY, String(open));
+}
 export const isFullscreen = signal(false);
 /// Spotlight normally hides when it loses focus; pinning keeps it open (for
 /// dragging files in, or copying from another window).
@@ -163,53 +215,21 @@ export const isOnboardingActive = signal(false);
 export const MAX_SYSTEM_PROMPT_CHARS = 8_000;
 export const systemPrompt = signal<string>("");
 
-const DEFAULT_PROVIDER = "gemini";
-const DEFAULT_MODEL = "gemini-3-flash-preview";
-
 function defaultProviders(): AIProvider[] {
+  const provider = (id: string, name: string, extra: Partial<AIProvider> = {}): AIProvider => ({
+    id,
+    name,
+    models: [...DEFAULT_MODELS[id]],
+    apiKey: "",
+    isConnected: false,
+    ...extra,
+  });
   return [
-    {
-      id: "gemini",
-      name: "Google Gemini",
-      models: [
-        "gemini-3-flash-preview",
-        "gemini-3-pro-preview",
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-2.5-flash-lite",
-      ],
-      apiKey: "",
-      isConnected: false,
-    },
-    {
-      id: "openai",
-      name: "OpenAI",
-      models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
-      apiKey: "",
-      isConnected: false,
-    },
-    {
-      id: "anthropic",
-      name: "Anthropic Claude",
-      models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
-      apiKey: "",
-      isConnected: false,
-    },
-    {
-      id: "glm",
-      name: "Z AI GLM",
-      models: ["glm-4.7", "glm-4.6", "glm-4.5", "glm-4.5-air", "glm-4.5-flash"],
-      apiKey: "",
-      isConnected: false,
-    },
-    {
-      id: "ollama",
-      name: "Ollama (Local)",
-      models: ["llama3.2", "mistral", "codellama", "gemma3:1b", "qwen3-vl:8b", "qwen3-vl:4b"],
-      apiKey: "",
-      isConnected: false,
-      baseUrl: "http://localhost:11434",
-    },
+    provider("gemini", "Google Gemini"),
+    provider("openai", "OpenAI"),
+    provider("anthropic", "Anthropic Claude"),
+    provider("glm", "Z AI GLM"),
+    provider("ollama", "Ollama (Local)", { baseUrl: "http://localhost:11434" }),
   ];
 }
 
@@ -247,7 +267,7 @@ export function isValidModelName(name: string): boolean {
 export function getProviderModels(providerId: string): string[] {
   const provider = providers.value.find(p => p.id === providerId);
   const fetched = fetchedModels.value[providerId] ?? [];
-  const base = fetched.length > 0 ? fetched : provider ? provider.models : [];
+  const base = fetched.length > 0 ? orderModels(providerId, fetched) : provider ? provider.models : [];
   const custom = customModels.value[providerId] ?? [];
   return [...new Set([...base, ...custom])];
 }
@@ -330,23 +350,10 @@ export const orderedSessions = computed(() => {
   return [...pinned, ...rest];
 });
 
-// Approximate context-window sizes (tokens) so the UI can show usage as a
-// fraction of the active model's window rather than an absolute count. Matched
-// by substring against the model id; falls back to a conservative default.
-const CONTEXT_WINDOWS: { match: string; tokens: number }[] = [
-  { match: "gemini", tokens: 1_000_000 },
-  { match: "gpt-4", tokens: 128_000 },
-  { match: "claude", tokens: 200_000 },
-  { match: "glm-4.6", tokens: 200_000 },
-  { match: "glm-4.7", tokens: 200_000 },
-  { match: "glm", tokens: 128_000 },
-];
-const DEFAULT_CONTEXT_WINDOW = 32_000;
-
+/// Approximate context window (tokens) of a model, so the UI can show usage
+/// as a fraction of the active model's window.
 export function getContextWindow(model: string): number {
-  const m = model.toLowerCase();
-  const hit = CONTEXT_WINDOWS.find(c => m.includes(c.match));
-  return hit ? hit.tokens : DEFAULT_CONTEXT_WINDOW;
+  return contextWindowFor(model);
 }
 
 /// Estimated tokens the next request will carry: the conversation, the
@@ -980,6 +987,12 @@ async function loadFromStore() {
     ) {
       activeProvider.value = savedActiveProvider;
       activeModel.value = savedActiveModel;
+      // A built-in model from an older release that the provider no longer
+      // lists would fail on the first message; move to today's default.
+      const available = getProviderModels(savedActiveProvider);
+      if (RETIRED_MODELS.has(savedActiveModel) && !available.includes(savedActiveModel) && available.length > 0) {
+        setActiveModel(savedActiveProvider, available[0]);
+      }
     }
 
     const savedTheme = await s.get<unknown>("theme");

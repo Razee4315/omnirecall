@@ -20,6 +20,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: ["Ctrl", "/"], description: "Keyboard shortcuts" },
       { keys: ["Esc"], description: "Close overlay / hide Spotlight" },
       { keys: ["F11"], description: "Fullscreen (Dashboard)" },
+      { keys: ["Ctrl", "B"], description: "Toggle sidebar (Dashboard)" },
     ],
   },
   {

@@ -1,14 +1,16 @@
 import { useEffect, useRef } from "preact/hooks";
 import { signal } from "@preact/signals";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
-import { currentQuery, isGenerating, stopGeneration } from "../../stores/appStore";
+import { currentQuery, isGenerating, isOnline, stopGeneration } from "../../stores/appStore";
 import { MAX_MESSAGE_CHARS, submitMessage } from "../../stores/chatActions";
 import { toast } from "../../stores/toastStore";
+import { pickAndAddDocuments } from "../../lib/documents";
 import { useAutoResize } from "../../hooks/useAutoResize";
-import { ClipboardIcon, SendIcon, StopIcon } from "../icons";
+import { ClipboardIcon, PaperclipIcon, SendIcon, StopIcon } from "../icons";
+import { DocsToggle } from "./DocsToggle";
 
 /// Bumped to ask the mounted composer to take focus (after "New chat",
-/// "Edit & resend", picking a quick prompt, ...).
+/// "Edit & resend", picking a suggestion, ...).
 const focusRequest = signal(0);
 
 export function requestComposerFocus() {
@@ -56,12 +58,12 @@ interface ChatComposerProps {
 /// message, and focus stays where it is — only sending waits.
 export function ChatComposer({ compact, placeholder }: ChatComposerProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { resize } = useAutoResize(compact ? 60 : 200);
+  const { resize } = useAutoResize(compact ? 132 : 240);
   const query = currentQuery.value;
   const generating = isGenerating.value;
   const canSend = query.trim().length > 0 && !generating;
 
-  // Keep the textarea height correct for typed and programmatic changes.
+  // Keep the textarea height right for typed and programmatic changes.
   useEffect(() => {
     resize(inputRef.current);
   }, [query, resize]);
@@ -92,94 +94,101 @@ export function ChatComposer({ compact, placeholder }: ChatComposerProps) {
     }
   };
 
-  const iconSize = compact ? 14 : 18;
-  const textarea = (
-    <textarea
-      ref={inputRef}
-      value={query}
-      onInput={(e) => {
-        currentQuery.value = (e.target as HTMLTextAreaElement).value;
-      }}
-      onKeyDown={handleKeyDown}
-      placeholder={placeholder}
-      className={
-        compact
-          ? "flex-1 bg-bg-tertiary rounded-lg px-3 py-2 text-text-primary placeholder:text-text-tertiary resize-none outline-none text-xs leading-relaxed min-h-[32px] max-h-[60px]"
-          : "flex-1 bg-transparent text-text-primary placeholder:text-text-tertiary resize-none outline-none text-sm leading-6 min-h-[24px] max-h-[200px] py-0"
-      }
-      rows={1}
-      maxLength={MAX_MESSAGE_CHARS}
-      aria-label="Chat message input"
-    />
-  );
-
-  const buttons = (
-    <>
-      <button
-        onClick={() => void quoteClipboard()}
-        className={`rounded-lg transition-colors flex-shrink-0 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary p-2`}
-        title="Quote clipboard text"
-        aria-label="Quote clipboard text"
-      >
-        <ClipboardIcon size={iconSize} />
-      </button>
-      {generating ? (
-        <button
-          onClick={stopGeneration}
-          className="p-2 rounded-lg bg-error text-white hover:bg-error/90 transition-colors flex-shrink-0"
-          title="Stop generating (Ctrl+.)"
-          aria-label="Stop generating"
-        >
-          <StopIcon size={iconSize} />
-        </button>
-      ) : (
-        <button
-          onClick={() => void submitMessage()}
-          disabled={!canSend}
-          className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-            canSend
-              ? "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-              : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-          }`}
-          title={canSend ? "Send (Enter)" : "Type a message to send"}
-          aria-label={canSend ? "Send message" : "Send disabled — type a message first"}
-        >
-          <SendIcon size={iconSize} />
-        </button>
-      )}
-    </>
-  );
-
-  if (compact) {
-    return (
-      <div className="p-2 border-t border-border">
-        <div className="flex items-end gap-1.5">
-          {textarea}
-          {buttons}
-        </div>
-      </div>
-    );
-  }
+  const nearLimit = query.length > MAX_MESSAGE_CHARS / 2;
 
   return (
-    <div className="border-t border-border bg-bg-secondary p-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-end gap-2 bg-bg-primary rounded-xl border border-border px-4 py-3 focus-within:border-accent-primary transition-colors">
-          {textarea}
-          {buttons}
-        </div>
-        <div className="flex items-center justify-between mt-1.5 px-1 text-[10px] text-text-tertiary">
-          <div className="flex items-center gap-3">
-            <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> send</span>
-            <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Shift</kbd>+<kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Enter</kbd> newline</span>
-            <span><kbd className="px-1 py-0.5 bg-bg-tertiary rounded">/help</kbd> commands</span>
+    <div className={compact ? "px-2.5 pb-2.5 pt-1" : "px-5 pb-4 pt-1"}>
+      <div className={compact ? "" : "max-w-3xl mx-auto"}>
+        <div
+          className="group/composer relative rounded-2xl border border-line bg-surface shadow-soft transition-[border-color,box-shadow] duration-200 focus-within:border-accent/45"
+          style={{ boxShadow: "var(--shadow-soft)" }}
+          onClick={(e) => {
+            // Clicking the padding around the textarea focuses it.
+            if (e.target === e.currentTarget) inputRef.current?.focus();
+          }}
+        >
+          <div className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-200 group-focus-within/composer:opacity-100" style={{ boxShadow: "0 0 0 3px var(--glow)" }} />
+          <textarea
+            ref={inputRef}
+            value={query}
+            onInput={(e) => {
+              currentQuery.value = (e.target as HTMLTextAreaElement).value;
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            rows={1}
+            maxLength={MAX_MESSAGE_CHARS}
+            aria-label="Message"
+            className={`relative block w-full resize-none bg-transparent outline-none text-fg placeholder:text-fg-subtle leading-relaxed ${
+              compact ? "px-3.5 pt-3 pb-1 text-[13.5px] min-h-[44px]" : "px-4 pt-3.5 pb-1.5 text-[14.5px] min-h-[52px]"
+            }`}
+          />
+
+          <div className={`relative flex items-center gap-1 ${compact ? "px-2 pb-2" : "px-2.5 pb-2.5"}`}>
+            <button
+              onClick={() => void pickAndAddDocuments()}
+              className="icon-btn"
+              title="Attach documents"
+              aria-label="Attach documents"
+            >
+              <PaperclipIcon size={16} />
+            </button>
+            <button
+              onClick={() => void quoteClipboard()}
+              className="icon-btn"
+              title="Quote clipboard (Ctrl+Shift+V)"
+              aria-label="Quote clipboard text"
+            >
+              <ClipboardIcon size={16} />
+            </button>
+            <DocsToggle compact={compact} />
+            {!isOnline.value && (
+              <span className="chip border-warning/30 bg-warning/10 text-warning" title="No internet connection — only local Ollama models will work">
+                Offline
+              </span>
+            )}
+
+            <div className="flex-1" />
+
+            {nearLimit && (
+              <span className={`text-2xs tabular-nums mr-1 ${query.length > MAX_MESSAGE_CHARS * 0.9 ? "text-warning" : "text-fg-subtle"}`}>
+                {query.length.toLocaleString()} / {MAX_MESSAGE_CHARS.toLocaleString()}
+              </span>
+            )}
+
+            {generating ? (
+              <button
+                onClick={stopGeneration}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-fg text-canvas transition-transform hover:scale-105 active:scale-95"
+                title="Stop generating (Ctrl+.)"
+                aria-label="Stop generating"
+              >
+                <StopIcon size={16} />
+              </button>
+            ) : (
+              <button
+                onClick={() => void submitMessage()}
+                disabled={!canSend}
+                className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-all duration-150 ${
+                  canSend
+                    ? "bg-accent text-accent-fg hover:brightness-110 active:scale-95 shadow-[0_2px_10px_-2px_var(--glow)]"
+                    : "bg-surface-3 text-fg-subtle"
+                }`}
+                title={canSend ? "Send (Enter)" : "Type a message to send"}
+                aria-label={canSend ? "Send message" : "Send disabled — type a message first"}
+              >
+                <SendIcon size={16} />
+              </button>
+            )}
           </div>
-          {query.length > MAX_MESSAGE_CHARS / 2 && (
-            <span className={query.length > MAX_MESSAGE_CHARS * 0.9 ? "text-warning" : ""}>
-              {query.length.toLocaleString()} / {MAX_MESSAGE_CHARS.toLocaleString()}
-            </span>
-          )}
         </div>
+
+        {!compact && (
+          <p className="mt-2 text-center text-2xs text-fg-subtle">
+            <span className="kbd">Enter</span> to send · <span className="kbd">Shift</span> <span className="kbd">Enter</span> for a new line ·{" "}
+            <span className="kbd">/</span> commands like <span className="font-mono">/system</span>
+          </p>
+        )}
       </div>
     </div>
   );

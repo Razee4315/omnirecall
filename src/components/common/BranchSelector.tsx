@@ -70,7 +70,7 @@ export function BranchSelector() {
                 aria-haspopup="menu"
                 aria-expanded={isOpen}
                 aria-label={`Branch ${active.name}, ${activeIndex + 1} of ${branches.length}. Switch branch`}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-bg-tertiary hover:bg-bg-tertiary/80 rounded-lg text-xs text-text-secondary transition-colors border border-transparent hover:border-border"
+                className="chip h-7 px-2.5 hover:border-line-strong hover:text-fg"
             >
                 <BranchIcon size={12} />
                 <span className="font-medium">{active.name}</span>
@@ -82,13 +82,13 @@ export function BranchSelector() {
                 <div
                     role="menu"
                     aria-label="Conversation branches"
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-20 min-w-[200px] bg-bg-secondary border border-border rounded-lg shadow-lg overflow-hidden animate-fade-in"
+                    className="menu absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-20 min-w-[220px]"
                 >
                     {branches.map((branch) => (
                         <div
                             key={branch.id ?? "main"}
-                            className={`group flex items-center gap-1 pr-1 text-xs transition-colors ${
-                                branch.isActive ? "bg-accent-primary/10 text-accent-primary" : "text-text-secondary hover:bg-bg-tertiary"
+                            className={`group flex items-center gap-1 pr-1 rounded-lg text-[13px] transition-colors ${
+                                branch.isActive ? "bg-accent/10 text-accent" : "text-fg-muted hover:bg-surface-2 hover:text-fg"
                             }`}
                         >
                             {editingId === branch.id && branch.id !== null ? (
@@ -114,7 +114,7 @@ export function BranchSelector() {
                                     role="menuitemradio"
                                     aria-checked={branch.isActive}
                                     onClick={() => handleSelect(branch.id)}
-                                    className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left"
+                                    className="flex-1 min-w-0 flex items-center gap-2 px-2.5 py-1.5 text-left"
                                 >
                                     <BranchIcon size={12} className="shrink-0" />
                                     <span className="truncate flex-1">{branch.name}</span>

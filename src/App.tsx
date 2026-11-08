@@ -29,6 +29,8 @@ import {
 } from "./stores/appStore";
 import { chatError } from "./stores/chatActions";
 import { addDocumentsWithFeedback } from "./lib/documents";
+import { watchWindowState } from "./lib/window";
+import { UploadIcon } from "./components/icons";
 import { Spotlight } from "./components/spotlight/Spotlight";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { CommandPalette } from "./components/common/CommandPalette";
@@ -229,8 +231,10 @@ export function App() {
     };
 
     window.addEventListener("keydown", handleKeyDown);
+    const stopWatchingWindow = watchWindowState();
     return () => {
       disposed = true;
+      stopWatchingWindow();
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("beforeunload", handleUnload);
       window.removeEventListener("pagehide", handleUnload);
@@ -247,7 +251,9 @@ export function App() {
   }, [theme.value]);
 
   return (
-    <div className={`h-full w-full ${viewMode.value === "spotlight" || theme.value === "transparent" ? "bg-transparent" : "bg-bg-primary"}`}>
+    // Transparent: Spotlight floats with its own shadow, and the Dashboard
+    // draws rounded corners when it isn't maximized.
+    <div className="h-full w-full bg-transparent">
       {viewMode.value === "spotlight" ? <Spotlight /> : <Dashboard />}
       <CommandPalette />
       <Suspense fallback={null}>
@@ -260,10 +266,19 @@ export function App() {
       <ConfirmDialog />
       <ToastContainer />
       {isDragOver.value && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-accent-primary/10 backdrop-blur-sm border-4 border-dashed border-accent-primary pointer-events-none">
-          <div className="text-center px-6 py-4 rounded-xl bg-bg-primary/90 border border-border shadow-2xl">
-            <p className="text-lg font-semibold text-text-primary">Drop files to add as documents</p>
-            <p className="text-sm text-text-secondary mt-1">PDF, text, markdown, code, and more</p>
+        <div
+          className={`fixed z-[300] flex items-center justify-center pointer-events-none animate-fade ${
+            viewMode.value === "spotlight" ? "inset-2 rounded-[18px]" : "inset-0"
+          }`}
+          style={{ background: "color-mix(in srgb, var(--bg) 82%, transparent)", backdropFilter: "blur(6px)" }}
+        >
+          <div className="absolute inset-3 rounded-2xl border-2 border-dashed border-accent/60" />
+          <div className="relative flex flex-col items-center text-center px-6 animate-pop-in">
+            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-accent/15 text-accent mb-3">
+              <UploadIcon size={24} />
+            </span>
+            <p className="text-[15px] font-semibold text-fg">Drop to attach</p>
+            <p className="text-xs text-fg-muted mt-1">PDF, text, Markdown and code files</p>
           </div>
         </div>
       )}

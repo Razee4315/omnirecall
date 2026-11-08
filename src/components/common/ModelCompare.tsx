@@ -14,6 +14,8 @@ import {
     SendIcon,
 } from "../icons";
 import { Markdown } from "./Markdown";
+import { ProviderTile } from "./ProviderTile";
+import { modelLabel } from "../../lib/models";
 
 interface ModelCompareProps {
     onClose: () => void;
@@ -187,31 +189,32 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
     const completedResponses = responses.filter(r => !r.isLoading && !r.error && r.content);
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="scrim absolute inset-0" />
             <div
                 ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Model comparison"
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-7xl h-[85vh] bg-bg-primary border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col animate-fade-in"
+                className="dialog relative w-full max-w-7xl h-[88vh] flex flex-col"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-bg-secondary">
+                <div className="flex items-center justify-between px-5 h-14 border-b border-line flex-shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-accent-primary/10 rounded-lg">
-                            <CompareIcon size={20} className="text-accent-primary" />
-                        </div>
+                        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent/12 text-accent">
+                            <CompareIcon size={16} />
+                        </span>
                         <div>
-                            <h2 className="text-base font-semibold text-text-primary">Model Comparison</h2>
-                            <p className="text-xs text-text-tertiary">Compare responses from different AI models side-by-side</p>
+                            <h2 className="text-[15px] font-semibold text-fg">Compare models</h2>
+                            <p className="text-2xs text-fg-subtle">One prompt, several models, side by side</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         {hasCompared && completedResponses.length > 0 && (
                             <button
                                 onClick={handleCopyAll}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded-lg transition-colors"
+                                className="btn btn-sm btn-ghost"
                                 title="Copy all responses as Markdown"
                             >
                                 <CopyIcon size={14} />
@@ -219,41 +222,34 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                             </button>
                         )}
                         {hasCompared && (
-                            <button
-                                onClick={handleClear}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded-lg transition-colors"
-                            >
+                            <button onClick={handleClear} className="btn btn-sm btn-ghost">
                                 Clear
                             </button>
                         )}
-                        <button
-                            onClick={onClose}
-                            className="p-1.5 hover:bg-bg-tertiary rounded-lg text-text-tertiary hover:text-text-primary transition-colors"
-                            aria-label="Close model comparison"
-                        >
-                            <CloseIcon size={18} />
+                        <button onClick={onClose} className="icon-btn" aria-label="Close model comparison">
+                            <CloseIcon size={16} />
                         </button>
                     </div>
                 </div>
 
                 {/* Model Selection + Prompt */}
-                <div className="px-5 py-4 border-b border-border bg-bg-primary">
+                <div className="px-5 py-4 border-b border-line flex-shrink-0">
                     {/* Selected Models */}
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <span className="text-xs text-text-tertiary font-medium uppercase tracking-wide">Models:</span>
+                        <span className="section-label mr-1">Models</span>
                         {selectedModels.map((model, index) => {
-                            const colors = getProviderColor(model.provider);
                             const providerName = providers.value.find(p => p.id === model.provider)?.name || model.provider;
                             return (
                                 <div
                                     key={`${model.provider}-${model.model}`}
-                                    className={`flex items-center gap-2 px-3 py-1.5 ${colors.bg} border ${colors.border} rounded-lg`}
+                                    className="flex items-center gap-2 h-8 pl-1.5 pr-1 rounded-lg border border-line bg-surface-2"
+                                    title={`${providerName} · ${model.model}`}
                                 >
-                                    <span className={`text-[10px] font-bold uppercase ${colors.text}`}>{providerName.split(" ")[0]}</span>
-                                    <span className={`text-sm ${colors.text}`}>{model.model}</span>
+                                    <ProviderTile providerId={model.provider} size={20} />
+                                    <span className="text-[13px] text-fg">{modelLabel(model.model)}</span>
                                     <button
                                         onClick={() => removeModel(index)}
-                                        className={`${colors.text} opacity-60 hover:opacity-100 transition-opacity`}
+                                        className="icon-btn icon-btn-sm"
                                         aria-label={`Remove ${model.model}`}
                                     >
                                         <CloseIcon size={12} />
@@ -265,7 +261,7 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                             <ModelSelector onSelect={addModel} excludeModels={selectedModels} />
                         )}
                         {selectedModels.length === 0 && (
-                            <span className="text-xs text-text-tertiary italic">Select at least 2 models to compare</span>
+                            <span className="text-xs text-fg-subtle">Pick at least two models to compare</span>
                         )}
                     </div>
 
@@ -278,25 +274,19 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                                 onInput={(e) => setPrompt((e.target as HTMLTextAreaElement).value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder="Enter a prompt to compare across models... (Ctrl+Enter to send)"
-                                className="w-full px-4 py-3 bg-bg-tertiary border border-border rounded-xl text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary resize-none text-sm leading-relaxed min-h-[44px] max-h-[120px]"
+                                className="field rounded-xl px-4 py-3 resize-none text-[13.5px] min-h-[48px] max-h-[120px]"
                                 rows={2}
                             />
                         </div>
                         {isComparing && (
-                            <button
-                                onClick={handleStop}
-                                className="px-4 py-3 rounded-xl text-sm font-medium bg-error text-white hover:bg-error/90 transition-colors"
-                            >
+                            <button onClick={handleStop} className="btn btn-lg btn-danger h-12">
                                 Stop
                             </button>
                         )}
                         <button
                             onClick={handleCompare}
                             disabled={!prompt.trim() || selectedModels.length < 2 || isComparing}
-                            className={`px-5 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${prompt.trim() && selectedModels.length >= 2 && !isComparing
-                                ? "bg-accent-primary text-on-accent hover:bg-accent-primary/90 shadow-lg shadow-accent-primary/20"
-                                : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                                }`}
+                            className="btn btn-lg btn-primary h-12 px-5"
                         >
                             {isComparing ? (
                                 <>
@@ -319,10 +309,10 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                         /* Empty State */
                         <div className="h-full flex items-center justify-center">
                             <div className="text-center max-w-md">
-                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-accent-primary/10 flex items-center justify-center">
-                                    <CompareIcon size={32} className="text-accent-primary" />
+                                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-accent/12 flex items-center justify-center text-accent">
+                                    <CompareIcon size={26} />
                                 </div>
-                                <h3 className="text-lg font-semibold text-text-primary mb-2">Compare AI Models</h3>
+                                <h3 className="font-display text-[30px] leading-tight text-fg mb-2">Which model answers best?</h3>
                                 <p className="text-sm text-text-secondary mb-6 leading-relaxed">
                                     Select 2-4 models, enter a prompt, and see how different models respond to the same question side-by-side.
                                 </p>
@@ -378,8 +368,8 @@ export function ModelCompare({ onClose }: ModelCompareProps) {
                                                 <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${colors.bg} ${colors.text} border ${colors.border}`}>
                                                     {providers.value.find(p => p.id === response.provider)?.name.split(" ")[0] || response.provider}
                                                 </span>
-                                                <span className="text-sm font-medium text-text-primary truncate">
-                                                    {response.model}
+                                                <span className="text-sm font-medium text-fg truncate" title={response.model}>
+                                                    {modelLabel(response.model)}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
@@ -498,7 +488,7 @@ function ModelSelector({ onSelect, excludeModels }: ModelSelectorProps) {
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-border rounded-lg text-sm text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 border border-dashed border-line-strong rounded-lg text-[13px] text-fg-muted hover:border-accent/60 hover:text-accent transition-colors"
             >
                 <PlusIcon size={14} />
                 Add Model
@@ -510,7 +500,7 @@ function ModelSelector({ onSelect, excludeModels }: ModelSelectorProps) {
                         className="fixed inset-0 z-10"
                         onClick={() => setIsOpen(false)}
                     />
-                    <div className="absolute top-full left-0 mt-1 w-72 bg-bg-primary border border-border rounded-xl shadow-2xl z-20 max-h-80 overflow-y-auto animate-fade-in">
+                    <div className="menu absolute top-full left-0 mt-1.5 w-72 z-20 max-h-80 overflow-y-auto">
                         {providers.value.map(provider => {
                             const availableModels = getProviderModels(provider.id).filter(
                                 model => !excludeModels.some(e => e.provider === provider.id && e.model === model)
@@ -518,12 +508,12 @@ function ModelSelector({ onSelect, excludeModels }: ModelSelectorProps) {
 
                             if (availableModels.length === 0) return null;
 
-                            const colors = getProviderColor(provider.id);
 
                             return (
                                 <div key={provider.id}>
-                                    <div className={`px-3 py-2 text-xs font-medium border-b border-border ${colors.bg} flex items-center justify-between`}>
-                                        <span className={colors.text}>{provider.name}</span>
+                                    <div className="flex items-center gap-2 px-2 pt-2 pb-1">
+                                        <ProviderTile providerId={provider.id} size={16} />
+                                        <span className="text-xs font-medium text-fg-muted flex-1">{provider.name}</span>
                                         {!provider.apiKey && provider.id !== "ollama" && (
                                             <span className="text-warning text-[10px]">no key</span>
                                         )}
@@ -535,9 +525,10 @@ function ModelSelector({ onSelect, excludeModels }: ModelSelectorProps) {
                                                 onSelect(provider.id, model);
                                                 setIsOpen(false);
                                             }}
-                                            className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-bg-tertiary transition-colors"
+                                            className="menu-item pl-8"
+                                            title={model}
                                         >
-                                            {model}
+                                            {modelLabel(model)}
                                         </button>
                                     ))}
                                 </div>

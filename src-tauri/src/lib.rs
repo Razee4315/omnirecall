@@ -16,7 +16,7 @@ use tauri::{
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::config::{get_config_path, AppConfig};
+use crate::config::{get_config_path, load_config, update_config, DashboardBounds, WindowSize};
 
 const MAIN_WINDOW: &str = "main";
 const TRAY_ID: &str = "main";
@@ -79,7 +79,7 @@ fn place_near_cursor(
 fn position_window_at_cursor(window: &tauri::WebviewWindow) {
     let Ok(cursor) = window.cursor_position() else { return };
     let cursor = (cursor.x as i32, cursor.y as i32);
-    let size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(420, 500));
+    let size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(440, 560));
     let size = (size.width as i32, size.height as i32);
 
     // Use the monitor the cursor is on, which is not necessarily the one the
@@ -109,6 +109,116 @@ fn position_window_at_cursor(window: &tauri::WebviewWindow) {
     let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
 }
 
+// Window geometry, in logical pixels. Spotlight is a compact floating panel
+// the user can still stretch; the Dashboard is a normal app window.
+const SPOTLIGHT_DEFAULT: (f64, f64) = (440.0, 560.0);
+const SPOTLIGHT_MIN: (f64, f64) = (360.0, 240.0);
+const SPOTLIGHT_MAX: (f64, f64) = (980.0, 1200.0);
+const DASHBOARD_DEFAULT: (f64, f64) = (1140.0, 760.0);
+const DASHBOARD_MIN: (f64, f64) = (720.0, 480.0);
+
+fn logical_inner_size(window: &tauri::WebviewWindow) -> Option<(f64, f64)> {
+    let scale = window.scale_factor().ok()?;
+    let size = window.inner_size().ok()?;
+    Some(((size.width as f64 / scale).round(), (size.height as f64 / scale).round()))
+}
+
+fn clamp_size(size: (f64, f64), min: (f64, f64), max: (f64, f64)) -> (f64, f64) {
+    (size.0.clamp(min.0, max.0), size.1.clamp(min.1, max.1))
+}
+
+/// The size (logical pixels) of the monitor the window is on.
+fn monitor_logical_size(window: &tauri::WebviewWindow) -> Option<(f64, f64)> {
+    let monitor = window.current_monitor().ok().flatten()?;
+    let scale = monitor.scale_factor();
+    let size = monitor.size();
+    Some((size.width as f64 / scale, size.height as f64 / scale))
+}
+
+/// Whether a window placed at this physical position would have its title
+/// bar on a connected monitor.
+fn position_is_visible(window: &tauri::WebviewWindow, x: i32, y: i32) -> bool {
+    let probe = (x + 120, y + 16);
+    window.available_monitors().unwrap_or_default().iter().any(|monitor| {
+        let pos = monitor.position();
+        let size = monitor.size();
+        probe.0 >= pos.x
+            && probe.0 < pos.x + size.width as i32
+            && probe.1 >= pos.y
+            && probe.1 < pos.y + size.height as i32
+    })
+}
+
+/// Save the current window geometry for the mode it is in, so the next time
+/// that mode opens it comes back the way the user left it.
+fn remember_window_geometry(window: &tauri::WebviewWindow) {
+    let config = load_config();
+    if IS_DASHBOARD_MODE.load(Ordering::SeqCst) {
+        let maximized = window.is_maximized().unwrap_or(false);
+        let fullscreen = window.is_fullscreen().unwrap_or(false);
+        let bounds = if maximized || fullscreen {
+            // Keep the restored geometry; only remember that it was maximized.
+            config.dashboard_bounds.map(|b| DashboardBounds { maximized, ..b })
+        } else {
+            match (window.outer_position().ok(), logical_inner_size(window)) {
+                (Some(pos), Some((width, height))) => Some(DashboardBounds {
+                    x: pos.x,
+                    y: pos.y,
+                    width,
+                    height,
+                    maximized: false,
+                }),
+                _ => config.dashboard_bounds,
+            }
+        };
+        if bounds != config.dashboard_bounds {
+            let _ = update_config(|c| c.dashboard_bounds = bounds);
+        }
+    } else if let Some((width, height)) = logical_inner_size(window) {
+        let size = Some(WindowSize { width, height });
+        if size != config.spotlight_size {
+            let _ = update_config(|c| c.spotlight_size = size);
+        }
+    }
+}
+
+fn apply_spotlight_geometry(window: &tauri::WebviewWindow) {
+    let saved = load_config().spotlight_size.map(|s| (s.width, s.height));
+    let (width, height) = clamp_size(saved.unwrap_or(SPOTLIGHT_DEFAULT), SPOTLIGHT_MIN, SPOTLIGHT_MAX);
+    let _ = window.set_max_size(Some(tauri::LogicalSize::new(SPOTLIGHT_MAX.0, SPOTLIGHT_MAX.1)));
+    let _ = window.set_min_size(Some(tauri::LogicalSize::new(SPOTLIGHT_MIN.0, SPOTLIGHT_MIN.1)));
+    let _ = window.set_size(tauri::LogicalSize::new(width, height));
+}
+
+fn apply_dashboard_geometry(window: &tauri::WebviewWindow) {
+    let bounds = load_config().dashboard_bounds;
+    let wanted = bounds.map(|b| (b.width, b.height)).unwrap_or(DASHBOARD_DEFAULT);
+    // Never open larger than the screen it lands on.
+    let screen = monitor_logical_size(window).unwrap_or((f64::MAX, f64::MAX));
+    let max = ((screen.0 * 0.94).max(DASHBOARD_MIN.0), (screen.1 * 0.9).max(DASHBOARD_MIN.1));
+    let (width, height) = clamp_size(wanted, DASHBOARD_MIN, max);
+
+    let _ = window.set_max_size(None::<tauri::LogicalSize<u32>>);
+    let _ = window.set_min_size(Some(tauri::LogicalSize::new(DASHBOARD_MIN.0, DASHBOARD_MIN.1)));
+    let _ = window.set_size(tauri::LogicalSize::new(width, height));
+    match bounds {
+        Some(b) if position_is_visible(window, b.x, b.y) => {
+            let _ = window.set_position(tauri::PhysicalPosition::new(b.x, b.y));
+        }
+        _ => {
+            let _ = window.center();
+        }
+    }
+    if bounds.is_some_and(|b| b.maximized) {
+        let _ = window.maximize();
+    }
+}
+
+fn hide(window: &tauri::WebviewWindow) {
+    remember_window_geometry(window);
+    let _ = window.hide();
+}
+
 fn show_window(window: &tauri::WebviewWindow) {
     // The Dashboard is a regular window; only Spotlight follows the cursor.
     if !IS_DASHBOARD_MODE.load(Ordering::SeqCst) {
@@ -120,7 +230,7 @@ fn show_window(window: &tauri::WebviewWindow) {
 
 fn toggle_window(window: &tauri::WebviewWindow) {
     if window.is_visible().unwrap_or(false) {
-        let _ = window.hide();
+        hide(window);
     } else {
         show_window(window);
     }
@@ -136,23 +246,13 @@ fn default_hotkey() -> &'static str {
 
 /// Load the hotkey from config, with OS-specific defaults
 fn load_hotkey_from_config() -> String {
-    fs::read_to_string(get_config_path())
-        .ok()
-        .and_then(|content| serde_json::from_str::<AppConfig>(&content).ok())
-        .map(|config| config.hotkey)
+    Some(load_config().hotkey)
         .filter(|hotkey| !hotkey.trim().is_empty())
         .unwrap_or_else(|| default_hotkey().to_string())
 }
 
 fn save_hotkey_to_config(hotkey: &str) -> Result<(), String> {
-    let config_path = get_config_path();
-    if let Some(parent) = config_path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    let config = AppConfig { hotkey: hotkey.to_string() };
-    let content = serde_json::to_string_pretty(&config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    fs::write(&config_path, content).map_err(|e| format!("Failed to save config: {}", e))
+    update_config(|config| config.hotkey = hotkey.to_string())
 }
 
 /// Register `hotkey` with the OS as the window toggle.
@@ -279,7 +379,12 @@ pub fn run() {
                 .menu(&menu)
                 .tooltip("OmniRecall")
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                            remember_window_geometry(&window);
+                        }
+                        app.exit(0)
+                    }
                     "show" => {
                         if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                             toggle_window(&window);
@@ -311,6 +416,7 @@ pub fn run() {
             // A login launch (autostart) stays in the tray; a manual launch
             // opens at the cursor.
             let start_hidden = std::env::args().any(|arg| arg == HIDDEN_ARG);
+            apply_spotlight_geometry(&window);
             if !start_hidden {
                 position_window_at_cursor(&window);
                 let _ = window.show();
@@ -323,7 +429,7 @@ pub fn run() {
                     let keep_open = IS_DASHBOARD_MODE.load(Ordering::SeqCst)
                         || BLUR_HIDE_SUSPENDED.load(Ordering::SeqCst);
                     if !keep_open {
-                        let _ = window_for_events.hide();
+                        hide(&window_for_events);
                     }
                 }
             });
@@ -364,29 +470,28 @@ pub fn run() {
 
 #[tauri::command]
 async fn hide_window(window: tauri::WebviewWindow) {
-    let _ = window.hide();
+    hide(&window);
 }
 
 #[tauri::command]
 async fn toggle_dashboard(window: tauri::WebviewWindow, is_dashboard: bool) {
-    // Update the mode flag
+    if IS_DASHBOARD_MODE.load(Ordering::SeqCst) == is_dashboard {
+        return;
+    }
+    // Save the geometry of the mode being left, then switch.
+    remember_window_geometry(&window);
     IS_DASHBOARD_MODE.store(is_dashboard, Ordering::SeqCst);
 
     if is_dashboard {
-        let _ = window.set_max_size(None::<tauri::LogicalSize<u32>>);
-        let _ = window.set_size(tauri::LogicalSize::new(1000, 700));
-        let _ = window.set_min_size(Some(tauri::LogicalSize::new(800, 600)));
-        let _ = window.center();
         let _ = window.set_always_on_top(false);
         let _ = window.set_skip_taskbar(false);
+        apply_dashboard_geometry(&window);
     } else {
         // A maximized or fullscreen window ignores set_size, which would
         // leave the compact Spotlight layout stretched across the screen.
         let _ = window.set_fullscreen(false);
         let _ = window.unmaximize();
-        let _ = window.set_min_size(Some(tauri::LogicalSize::new(380, 200)));
-        let _ = window.set_size(tauri::LogicalSize::new(420, 500));
-        let _ = window.set_max_size(Some(tauri::LogicalSize::new(500, 700)));
+        apply_spotlight_geometry(&window);
         position_window_at_cursor(&window);
         let _ = window.set_always_on_top(true);
         let _ = window.set_skip_taskbar(true);

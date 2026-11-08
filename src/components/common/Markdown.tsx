@@ -43,7 +43,7 @@ function renderInline(tokens: Token[] | undefined): ComponentChild[] {
         return <del key={key}>{renderInline(token.tokens)}</del>;
       case "codespan":
         return (
-          <code key={key} className="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-primary font-mono text-[0.9em]">
+          <code key={key} className="px-[0.35em] py-[0.1em] rounded-[5px] bg-surface-2 border border-line font-mono text-[0.86em] text-fg">
             {unescapeHtml(token.text)}
           </code>
         );
@@ -55,7 +55,7 @@ function renderInline(tokens: Token[] | undefined): ComponentChild[] {
         // (javascript:, file:, custom schemes) is shown as plain text.
         if (!SAFE_LINK.test(link.href)) return <span key={key}>{renderInline(link.tokens)}</span>;
         return (
-          <a key={key} href={link.href} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
+          <a key={key} href={link.href} target="_blank" rel="noopener noreferrer">
             {renderInline(link.tokens)}
           </a>
         );
@@ -65,7 +65,7 @@ function renderInline(tokens: Token[] | undefined): ComponentChild[] {
         const label = image.text || "image";
         if (!SAFE_LINK.test(image.href)) return <span key={key}>[{label}]</span>;
         return (
-          <a key={key} href={image.href} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">
+          <a key={key} href={image.href} target="_blank" rel="noopener noreferrer">
             [{label}]
           </a>
         );
@@ -84,12 +84,12 @@ function renderInline(tokens: Token[] | undefined): ComponentChild[] {
 }
 
 const HEADING_CLASS: Record<number, string> = {
-  1: "text-xl font-bold mt-3 mb-2",
-  2: "text-lg font-semibold mt-3 mb-1",
-  3: "text-base font-semibold mt-3 mb-1",
-  4: "font-semibold mt-2 mb-1",
-  5: "font-semibold mt-2 mb-1",
-  6: "font-medium text-text-secondary mt-2 mb-1",
+  1: "text-[1.45em] font-semibold mt-6 mb-2",
+  2: "text-[1.22em] font-semibold mt-5 mb-2",
+  3: "text-[1.08em] font-semibold mt-4 mb-1.5",
+  4: "font-semibold mt-3 mb-1",
+  5: "font-semibold mt-3 mb-1",
+  6: "font-medium text-fg-muted mt-3 mb-1",
 };
 
 function renderList(list: Tokens.List, key: number): ComponentChild {
@@ -102,11 +102,11 @@ function renderList(list: Tokens.List, key: number): ComponentChild {
     </li>
   ));
   return list.ordered ? (
-    <ol key={key} start={typeof list.start === "number" ? list.start : undefined} className="list-decimal pl-5 my-2 space-y-1">
+    <ol key={key} start={typeof list.start === "number" ? list.start : undefined} className="list-decimal pl-6 my-2.5 space-y-1">
       {items}
     </ol>
   ) : (
-    <ul key={key} className="list-disc pl-5 my-2 space-y-1">{items}</ul>
+    <ul key={key} className="list-disc pl-6 my-2.5 space-y-1">{items}</ul>
   );
 }
 
@@ -116,12 +116,12 @@ function renderTable(table: Tokens.Table, key: number): ComponentChild {
     return value ? { textAlign: value } : undefined;
   };
   return (
-    <div key={key} className="my-2 overflow-x-auto rounded-lg border border-border">
-      <table className="w-full border-collapse text-left">
-        <thead className="bg-bg-tertiary">
+    <div key={key} className="my-3 overflow-x-auto rounded-xl border border-line">
+      <table className="w-full border-collapse text-left text-[0.93em]">
+        <thead className="bg-surface-2">
           <tr>
             {table.header.map((cell, index) => (
-              <th key={index} scope="col" style={align(index)} className="px-3 py-1.5 font-semibold border-b border-border">
+              <th key={index} scope="col" style={align(index)} className="px-3 py-2 font-semibold text-fg border-b border-line">
                 {renderInline(cell.tokens)}
               </th>
             ))}
@@ -129,9 +129,9 @@ function renderTable(table: Tokens.Table, key: number): ComponentChild {
         </thead>
         <tbody>
           {table.rows.map((row, rowIndex) => (
-            <tr key={rowIndex} className="border-b border-border last:border-b-0">
+            <tr key={rowIndex} className="border-b border-line last:border-b-0 even:bg-surface/50">
               {row.map((cell, index) => (
-                <td key={index} style={align(index)} className="px-3 py-1.5 align-top">
+                <td key={index} style={align(index)} className="px-3 py-2 align-top">
                   {renderInline(cell.tokens)}
                 </td>
               ))}
@@ -167,7 +167,7 @@ function renderBlocks(tokens: Token[], tight = false): ComponentChild[] {
       }
       case "blockquote":
         return (
-          <blockquote key={key} className="border-l-[3px] border-accent-primary pl-3 my-2 text-text-secondary italic">
+          <blockquote key={key} className="border-l-2 border-accent/60 pl-4 my-3 text-fg-muted">
             {renderBlocks((token as Tokens.Blockquote).tokens)}
           </blockquote>
         );
@@ -176,7 +176,7 @@ function renderBlocks(tokens: Token[], tight = false): ComponentChild[] {
       case "table":
         return renderTable(token as Tokens.Table, key);
       case "hr":
-        return <hr key={key} className="my-3 border-border" />;
+        return <hr key={key} className="my-5 border-line" />;
       default:
         return <p key={key} className="my-1 whitespace-pre-wrap">{token.raw}</p>;
     }
@@ -223,18 +223,18 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
   const gutter = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
 
   return (
-    <div className="my-2 rounded-lg overflow-hidden border border-border bg-code-block not-italic">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border">
-        <span className="text-xs text-text-tertiary font-mono">{language || "code"}</span>
+    <div className="group/code my-3 rounded-xl overflow-hidden border border-line bg-code-block not-italic" style={{ boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset" }}>
+      <div className="flex items-center justify-between h-9 pl-3.5 pr-1.5 border-b border-white/[0.06]">
+        <span className="text-[11px] font-mono text-white/45 lowercase">{language || "code"}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
+          className="inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11px] text-white/55 hover:text-white hover:bg-white/[0.08] transition-colors"
           aria-label="Copy code"
         >
           {copied ? (
             <>
               <CheckIcon size={12} className="text-success" />
-              <span className="text-success">Copied!</span>
+              <span>Copied</span>
             </>
           ) : (
             <>
@@ -245,11 +245,11 @@ function CodeBlock({ code, language }: { code: string; language: string }) {
         </button>
       </div>
 
-      <div className="flex overflow-auto max-h-[400px] text-xs font-mono leading-relaxed">
-        <pre aria-hidden="true" className="select-none text-right text-text-tertiary/60 px-3 py-2 border-r border-border/30 sticky left-0 bg-code-block">
+      <div className="flex overflow-auto max-h-[440px] text-[12.5px] font-mono leading-[1.65]">
+        <pre aria-hidden="true" className="select-none text-right text-white/25 pl-3.5 pr-3 py-3 sticky left-0 bg-code-block">
           {gutter}
         </pre>
-        <pre className="px-3 py-2 text-code-text flex-1">
+        <pre className="pr-4 py-3 text-code-text flex-1">
           {html !== null ? <code className="hljs" dangerouslySetInnerHTML={{ __html: html }} /> : <code>{code}</code>}
         </pre>
       </div>

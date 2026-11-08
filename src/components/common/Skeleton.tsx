@@ -3,11 +3,11 @@
 function DocumentSkeleton() {
     return (
         <div className="relative overflow-hidden flex items-center gap-2 px-2 py-1.5 rounded">
-            <div className="w-4 h-4 bg-bg-tertiary rounded" />
+            <div className="w-8 h-8 bg-surface-2 rounded-lg" />
             <div className="flex-1">
-                <div className="h-3 bg-bg-tertiary rounded w-3/4" />
+                <div className="h-2.5 bg-surface-2 rounded-full w-3/4" />
             </div>
-            <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/5 to-transparent" />
         </div>
     );
 }

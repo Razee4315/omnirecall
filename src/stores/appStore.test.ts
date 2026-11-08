@@ -41,7 +41,7 @@ describe("adoptProviderIfActiveUnusable", () => {
     store.updateProviderApiKey("openai", "sk-test");
     store.adoptProviderIfActiveUnusable("openai");
     expect(store.activeProvider.value).toBe("openai");
-    expect(store.activeModel.value).toBe("gpt-4o");
+    expect(store.activeModel.value).toBe("gpt-6.1-sol");
   });
 
   it("keeps the active provider when it already has a key", async () => {

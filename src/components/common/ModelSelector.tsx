@@ -1,78 +1,98 @@
-import { useState, useRef, useEffect } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   activeModel,
   activeProvider,
-  providers,
-  customModels,
-  setActiveModel,
   addCustomModel,
-  removeCustomModel,
+  AIProvider,
+  customModels,
+  fetchedModels,
   getProviderModels,
   isCustomModel,
+  isSettingsOpen,
   isValidModelName,
-  AIProvider,
+  providers,
+  removeCustomModel,
+  setActiveModel,
+  settingsTab,
 } from "../../stores/appStore";
+import { modelLabel, modelNote, providerMeta } from "../../lib/models";
 import { useClickOutside } from "../../hooks/useClickOutside";
-import { ChevronDownIcon, CloseIcon, PlusIcon, CheckIcon } from "../icons";
 import { focusOnMount } from "../../lib/dom";
+import { CheckIcon, ChevronDownIcon, CloseIcon, PlusIcon, SearchIcon, SlidersIcon } from "../icons";
+import { ProviderTile } from "./ProviderTile";
 
 interface ModelSelectorProps {
-  /** Compact variant for Spotlight (smaller text + tighter padding). */
+  /** Spotlight variant: narrower trigger and popover. */
   compact?: boolean;
 }
 
+function providerReady(provider: AIProvider): boolean {
+  return provider.apiKey !== "" || provider.id === "ollama";
+}
+
 /**
- * Unified model picker. Built-in models per provider plus user-added
- * custom models, with an inline "Add custom model" affordance for every
- * provider — important because cloud providers retire model names
- * without notice and we don't want to ship a release every time.
+ * The model picker. Every provider's models (the live list once a key is
+ * verified, else the built-in list) plus user-added ones, with search and an
+ * "Add custom model" field per provider, so a model the list doesn't know is
+ * never out of reach.
  */
 export function ModelSelector({ compact = false }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false), open);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const currentProvider = providers.value.find(p => p.id === activeProvider.value);
-  const currentProviderLabel = currentProvider?.name.replace(" (Local)", "") ?? activeProvider.value;
+  const meta = providerMeta(activeProvider.value);
+  const label = modelLabel(activeModel.value);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    // Focus the search box, but scroll the active model into view.
+    requestAnimationFrame(() => {
+      searchRef.current?.focus();
+      listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    });
+  }, [open]);
 
   const select = (providerId: string, model: string) => {
     setActiveModel(providerId, model);
     setOpen(false);
   };
 
-  // Move focus to the active model when the dropdown opens, so the arrow
-  // keys work straight away.
-  useEffect(() => {
-    if (open) {
-      const el = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
-      el?.scrollIntoView({ block: "nearest" });
-      el?.focus();
-    }
-  }, [open]);
+  // Ready providers first, so the models you can use are on top.
+  const ordered = useMemo(
+    () => [...providers.value].sort((a, b) => Number(providerReady(b)) - Number(providerReady(a))),
+    [providers.value],
+  );
 
-  // Arrow keys / Home / End move between models.
-  const handleListKeyDown = (e: KeyboardEvent) => {
+  const moveFocus = (e: KeyboardEvent) => {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
-    if ((e.target as HTMLElement).tagName === "INPUT") return;
     const options = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
     if (options.length === 0) return;
+    const inField = (e.target as HTMLElement).tagName === "INPUT";
+    if (inField && e.target !== searchRef.current) return;
     e.preventDefault();
     const current = options.indexOf(document.activeElement as HTMLElement);
     const next =
       e.key === "Home" ? 0
       : e.key === "End" ? options.length - 1
-      : e.key === "ArrowDown" ? Math.min(current + 1, options.length - 1)
-      : Math.max(current - 1, 0);
-    options[next].focus();
+      : e.key === "ArrowDown" ? (current === -1 ? 0 : Math.min(current + 1, options.length - 1))
+      : current <= 0 ? -1 : current - 1;
+    if (next === -1) searchRef.current?.focus();
+    else options[next].focus();
   };
 
   return (
     <div
-      className="relative"
+      className="relative min-w-0"
       ref={ref}
+      data-no-drag
       onKeyDown={(e) => {
-        // Close only the dropdown; the global Escape handler would otherwise
-        // also hide the window.
+        // Close only the popover; the app-level Escape would otherwise also
+        // hide the window.
         if (e.key === "Escape" && open) {
           e.stopPropagation();
           setOpen(false);
@@ -83,54 +103,56 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`Active model: ${currentProviderLabel} ${activeModel.value}. Click to change.`}
-        title={`${currentProviderLabel} · ${activeModel.value}`}
-        className={`flex items-center gap-1.5 min-w-0 rounded-lg bg-bg-tertiary hover:bg-border transition-colors text-text-secondary ${
-          compact ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
+        aria-label={`Model: ${meta.short} ${label}. Change model`}
+        title={`${currentProvider?.name ?? meta.short} · ${activeModel.value}`}
+        className={`group flex items-center gap-2 min-w-0 h-8 rounded-lg pl-1.5 pr-2 transition-colors ${
+          open ? "bg-surface-3" : "hover:bg-surface-2"
         }`}
       >
-        <span
-          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-            currentProvider?.isConnected
-              ? "bg-success"
-              : currentProvider?.id === "ollama"
-              ? "bg-warning"
-              : "bg-text-tertiary"
-          }`}
-          aria-hidden="true"
-        />
-        {/* Spotlight has room for the model name only; the provider is in
-            the tooltip and the dropdown. */}
-        {!compact && (
-          <>
-            <span className="text-text-tertiary truncate">{currentProviderLabel}</span>
-            <span className="text-text-tertiary">·</span>
-          </>
-        )}
-        <span className={compact ? "max-w-[120px] truncate" : "truncate"}>{activeModel.value}</span>
-        <ChevronDownIcon size={compact ? 10 : 14} className="flex-shrink-0" />
+        <ProviderTile providerId={activeProvider.value} size={20} />
+        <span className={`truncate text-[13px] font-medium text-fg ${compact ? "max-w-[150px]" : "max-w-[240px]"}`}>{label}</span>
+        <ChevronDownIcon size={13} className={`flex-shrink-0 text-fg-subtle transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
         <div
-          ref={listRef}
-          role="listbox"
-          aria-label="Available AI models"
-          onKeyDown={handleListKeyDown}
-          className={`absolute top-full left-0 mt-1 bg-bg-primary border border-border rounded-lg shadow-xl z-50 py-1 overflow-y-auto ${
-            compact ? "w-64 max-h-72" : "w-72 max-h-96"
-          }`}
+          className={`menu absolute top-full left-0 mt-1.5 z-50 flex flex-col p-0 ${compact ? "w-[300px] max-h-[min(420px,calc(100vh-80px))]" : "w-[340px] max-h-[min(520px,calc(100vh-90px))]"}`}
+          onKeyDown={moveFocus}
         >
-          {providers.value.map(provider => (
-            <ProviderModelGroup
-              key={provider.id}
-              provider={provider}
-              activeProviderId={activeProvider.value}
-              activeModelName={activeModel.value}
-              onSelect={select}
-              compact={compact}
+          <div className="flex items-center gap-2 px-3 h-10 border-b border-line flex-shrink-0">
+            <SearchIcon size={14} className="text-fg-subtle" />
+            <input
+              ref={searchRef}
+              value={query}
+              onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+              placeholder="Search models…"
+              aria-label="Search models"
+              className="flex-1 min-w-0 bg-transparent text-[13px] outline-none placeholder:text-fg-subtle"
             />
-          ))}
+          </div>
+
+          <div ref={listRef} role="listbox" aria-label="Available models" className="overflow-y-auto p-1 flex-1">
+            {ordered.map(provider => (
+              <ProviderModelGroup
+                key={provider.id}
+                provider={provider}
+                query={query.trim().toLowerCase()}
+                onSelect={select}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setOpen(false);
+              settingsTab.value = "providers";
+              isSettingsOpen.value = true;
+            }}
+            className="flex items-center gap-2 px-3 h-9 border-t border-line text-xs text-fg-muted hover:text-fg hover:bg-surface-2 transition-colors flex-shrink-0"
+          >
+            <SlidersIcon size={13} />
+            Manage providers and API keys
+          </button>
         </div>
       )}
     </div>
@@ -139,22 +161,26 @@ export function ModelSelector({ compact = false }: ModelSelectorProps) {
 
 interface GroupProps {
   provider: AIProvider;
-  activeProviderId: string;
-  activeModelName: string;
+  query: string;
   onSelect: (providerId: string, model: string) => void;
-  compact: boolean;
 }
 
-function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSelect, compact }: GroupProps) {
+function ProviderModelGroup({ provider, query, onSelect }: GroupProps) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribes this group to custom-model changes; the list itself comes
-  // from the store (live provider list when known, plus custom models).
+  // Subscribe to list changes; the list itself comes from the store.
   void customModels.value;
-  const models = getProviderModels(provider.id);
-  const showWarn = !provider.apiKey && provider.id !== "ollama";
+  void fetchedModels.value;
+  const all = getProviderModels(provider.id);
+  const meta = providerMeta(provider.id);
+  const models = query
+    ? all.filter(m => `${provider.name} ${m} ${modelLabel(m)}`.toLowerCase().includes(query))
+    : all;
+  const ready = providerReady(provider);
+
+  if (query && models.length === 0) return null;
 
   const submitDraft = () => {
     const trimmed = draft.trim();
@@ -163,7 +189,7 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
       return;
     }
     if (!isValidModelName(trimmed)) {
-      setError("Letters, numbers, dots, dashes, slashes, colons only.");
+      setError("Letters, numbers, dots, dashes, slashes and colons only.");
       return;
     }
     const result = addCustomModel(provider.id, trimmed);
@@ -178,118 +204,107 @@ function ProviderModelGroup({ provider, activeProviderId, activeModelName, onSel
   };
 
   return (
-    <div>
-      <div className="px-3 py-1.5 text-xs text-text-tertiary font-medium border-b border-border flex items-center justify-between">
-        <span>{provider.name}</span>
-        {showWarn && <span className="text-warning text-[10px]">(no key)</span>}
-        {provider.isConnected && (
-          <span className="text-success text-[10px] flex items-center gap-0.5">
-            <CheckIcon size={10} /> connected
-          </span>
-        )}
+    <div className="mb-1 last:mb-0" role="group" aria-label={provider.name}>
+      <div className="flex items-center gap-2 px-2 pt-2 pb-1">
+        <ProviderTile providerId={provider.id} size={16} />
+        <span className="text-xs font-medium text-fg-muted">{provider.name.replace(" (Local)", "")}</span>
+        <span className="ml-auto">
+          {provider.isConnected ? (
+            <span className="inline-flex items-center gap-1 text-2xs text-success">
+              <span className="w-1.5 h-1.5 rounded-full bg-success" /> Connected
+            </span>
+          ) : !ready ? (
+            <span className="text-2xs text-fg-subtle">No API key</span>
+          ) : null}
+        </span>
       </div>
 
       {models.map(model => {
-        const isActive = activeProviderId === provider.id && activeModelName === model;
+        const isActive = activeProvider.value === provider.id && activeModel.value === model;
         const userAdded = isCustomModel(provider.id, model);
+        const label = modelLabel(model);
+        const note = modelNote(model);
         return (
-          <div
-            key={model}
-            className={`group flex items-center justify-between hover:bg-bg-tertiary transition-colors ${
-              isActive ? "bg-accent-primary/10" : ""
-            }`}
-          >
+          <div key={model} className="group relative flex items-center">
             <button
               role="option"
               aria-selected={isActive}
               onClick={() => onSelect(provider.id, model)}
-              className={`flex-1 text-left px-3 py-2 truncate ${
-                compact ? "text-xs" : "text-sm"
-              } ${isActive ? "text-accent-primary" : "text-text-primary"}`}
+              className={`flex-1 min-w-0 flex items-center gap-2.5 pl-8 pr-8 py-1.5 rounded-lg text-left transition-colors outline-none focus-visible:bg-surface-2 hover:bg-surface-2 ${
+                isActive ? "bg-accent/10" : ""
+              } ${ready ? "" : "opacity-60"}`}
             >
-              {model}
-              {userAdded && (
-                <span className="ml-2 text-[10px] text-text-tertiary uppercase tracking-wide">custom</span>
-              )}
+              <span className="min-w-0 flex-1">
+                <span className={`flex items-center gap-1.5 text-[13px] ${isActive ? "text-accent font-medium" : "text-fg"}`}>
+                  <span className="truncate">{label}</span>
+                  {userAdded && <span className="chip h-4 px-1.5 text-[9px] uppercase tracking-wide">custom</span>}
+                </span>
+                <span className="block truncate text-2xs text-fg-subtle font-mono">
+                  {note ? <span className="font-sans">{note}</span> : model}
+                </span>
+              </span>
             </button>
-            {userAdded && (
+            {isActive && <CheckIcon size={14} className="absolute right-2.5 text-accent pointer-events-none" />}
+            {userAdded && !isActive && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   removeCustomModel(provider.id, model);
                 }}
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1 mr-1.5 rounded text-text-tertiary hover:text-error hover:bg-error/10 transition-opacity"
+                className="icon-btn icon-btn-sm absolute right-1.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:!text-danger"
                 aria-label={`Remove custom model ${model}`}
                 title="Remove custom model"
               >
-                <CloseIcon size={10} />
+                <CloseIcon size={12} />
               </button>
             )}
           </div>
         );
       })}
 
-      {/* Add custom model affordance — available for every provider, not just Ollama. */}
-      <div className="px-3 py-2 border-t border-border bg-bg-secondary/30">
-        {adding ? (
-          <div className="space-y-1">
-            <input
-              type="text"
-              ref={focusOnMount}
-              value={draft}
-              onInput={(e) => {
-                setDraft((e.target as HTMLInputElement).value);
-                setError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submitDraft();
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setAdding(false);
-                  setDraft("");
+      {!query && (
+        <div className="pl-8 pr-2 py-1">
+          {adding ? (
+            <div className="space-y-1">
+              <input
+                type="text"
+                ref={focusOnMount}
+                value={draft}
+                onInput={(e) => {
+                  setDraft((e.target as HTMLInputElement).value);
                   setError(null);
-                }
-              }}
-              placeholder={
-                provider.id === "ollama"
-                  ? "e.g. llama3.2:1b"
-                  : provider.id === "gemini"
-                  ? "e.g. gemini-2.5-pro"
-                  : provider.id === "openai"
-                  ? "e.g. gpt-4o-mini"
-                  : provider.id === "anthropic"
-                  ? "e.g. claude-3-5-sonnet-20241022"
-                  : "exact model id"
-              }
-              maxLength={80}
-              aria-label={`Custom ${provider.name} model name`}
-              className={`w-full px-2 py-1 bg-bg-tertiary border border-border rounded text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary ${
-                compact ? "text-xs" : "text-sm"
-              }`}
-            />
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] text-text-tertiary">
-                Enter to save · Esc to cancel
-              </p>
-              {error && <p className="text-[10px] text-error">{error}</p>}
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitDraft();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setAdding(false);
+                    setDraft("");
+                    setError(null);
+                  }
+                }}
+                placeholder={`e.g. ${meta.example}`}
+                maxLength={80}
+                aria-label={`Custom ${provider.name} model id`}
+                className="field h-8 text-xs font-mono"
+              />
+              <p className={`text-2xs ${error ? "text-danger" : "text-fg-subtle"}`}>{error ?? "Exact model id · Enter to add · Esc to cancel"}</p>
             </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className={`w-full flex items-center gap-1.5 text-left text-text-tertiary hover:text-accent-primary transition-colors ${
-              compact ? "text-xs" : "text-sm"
-            }`}
-          >
-            <PlusIcon size={12} />
-            <span>Add custom model</span>
-          </button>
-        )}
-      </div>
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-1.5 h-6 text-2xs text-fg-subtle hover:text-accent transition-colors"
+            >
+              <PlusIcon size={11} />
+              Add a model id
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

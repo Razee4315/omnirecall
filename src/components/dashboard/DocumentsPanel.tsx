@@ -11,32 +11,48 @@ import {
 } from "../../stores/appStore";
 import { pickAndAddDocuments } from "../../lib/documents";
 import { toast } from "../../stores/toastStore";
-import { AlertIcon, CheckIcon, CloseIcon, DocumentIcon, FolderIcon, PlusIcon, SpinnerIcon } from "../icons";
+import { AlertIcon, CheckIcon, CloseIcon, PlusIcon, RefreshIcon, SpinnerIcon, UploadIcon } from "../icons";
 import { DocumentListSkeleton } from "../common/Skeleton";
 
 const MODE_SUMMARY: Record<string, string> = {
-  full: "Documents are small enough to be sent in full with each message.",
-  semantic: "Only the excerpts most relevant to each question are sent.",
-  truncated: "These documents are too large to send whole, so only the beginning of each is sent.",
+  full: "Small enough to send in full with each message.",
+  semantic: "Only the passages most relevant to each question are sent.",
+  truncated: "Too large to send whole, so only the beginning of each is sent.",
 };
+
+/// Badge colors per file family, so a list of files scans at a glance.
+function typeBadge(type: string): { label: string; color: string } {
+  const t = type.toLowerCase();
+  if (t === "pdf") return { label: "PDF", color: "#e5484d" };
+  if (["md", "markdown", "mdx"].includes(t)) return { label: "MD", color: "#3e9bff" };
+  if (["txt", "text", "log", "rtf"].includes(t)) return { label: "TXT", color: "#8b8d98" };
+  if (["csv", "tsv", "json", "yaml", "yml", "toml", "xml"].includes(t)) return { label: t.toUpperCase().slice(0, 4), color: "#30a46c" };
+  if (["doc", "docx"].includes(t)) return { label: "DOC", color: "#3e63dd" };
+  return { label: (t || "FILE").toUpperCase().slice(0, 4), color: "#a46eff" };
+}
 
 function DocumentRow({ doc, index }: { doc: Document; index: number }) {
   const state = documentStatus.value.byId[doc.id];
   const indexState = indexStates.value[doc.id];
   const pending = !state && documentStatus.value.loading;
+  const badge = typeBadge(doc.type);
 
-  let detail: string | null = null;
-  let detailClass = "text-text-tertiary";
-  if (state?.error) {
+  let detail = "Ready";
+  let detailClass = "text-fg-subtle";
+  if (pending) {
+    detail = "Reading…";
+  } else if (state?.error) {
     detail = state.error.replace(/^File error: /, "");
-    detailClass = "text-error";
+    detailClass = "text-danger";
   } else if (indexState?.state === "indexing") {
     detail = "Indexing for search…";
   } else if (indexState?.state === "failed") {
     detail = `Not indexed: ${indexState.error}`;
     detailClass = "text-warning";
   } else if (state && state.indexedChunks > 0) {
-    detail = "Indexed for search";
+    detail = `Indexed · ${state.indexedChunks} passages`;
+  } else if (state && state.chars > 0) {
+    detail = `${Math.max(1, Math.round(state.chars / 1000)).toLocaleString()}K characters`;
   }
 
   const handleRemove = () => {
@@ -45,28 +61,34 @@ function DocumentRow({ doc, index }: { doc: Document; index: number }) {
   };
 
   return (
-    <li className="group flex items-start gap-2 px-2 py-1.5 rounded hover:bg-bg-tertiary">
-      <DocumentIcon size={14} className="text-text-tertiary flex-shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <div className="text-xs text-text-primary truncate" title={doc.path}>{doc.name}</div>
-        {detail && <div className={`text-[10px] leading-snug ${detailClass}`}>{detail}</div>}
-      </div>
-      <span className="flex-shrink-0 mt-0.5" aria-hidden="true">
-        {pending || indexState?.state === "indexing" ? (
-          <SpinnerIcon size={12} className="text-text-tertiary" />
-        ) : state?.error ? (
-          <AlertIcon size={12} className="text-error" />
-        ) : state && state.chars > 0 ? (
-          <CheckIcon size={12} className="text-success" />
-        ) : null}
+    <li className="group flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface-2 transition-colors">
+      <span
+        className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 text-[9px] font-bold tracking-wide"
+        style={{ background: `color-mix(in srgb, ${badge.color} 14%, transparent)`, color: badge.color }}
+        aria-hidden="true"
+      >
+        {badge.label}
       </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] text-fg truncate" title={doc.path}>{doc.name}</div>
+        <div className={`flex items-center gap-1 text-2xs leading-snug truncate ${detailClass}`}>
+          {pending || indexState?.state === "indexing" ? (
+            <SpinnerIcon size={10} className="flex-shrink-0" />
+          ) : state?.error ? (
+            <AlertIcon size={10} className="flex-shrink-0" />
+          ) : state && state.chars > 0 ? (
+            <CheckIcon size={10} className="flex-shrink-0 text-success" />
+          ) : null}
+          <span className="truncate" title={detail}>{detail}</span>
+        </div>
+      </div>
       <button
         onClick={handleRemove}
-        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-1 min-w-[24px] min-h-[24px] flex items-center justify-center rounded text-text-tertiary hover:text-error hover:bg-error/10 transition-opacity flex-shrink-0"
+        className="icon-btn icon-btn-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:!text-danger hover:!bg-danger/10"
         aria-label={`Remove ${doc.name}`}
         title="Remove document"
       >
-        <CloseIcon size={10} />
+        <CloseIcon size={13} />
       </button>
     </li>
   );
@@ -91,15 +113,10 @@ export function DocumentsPanel() {
   };
 
   return (
-    <div className="p-2">
-      <div className="flex items-center justify-between px-2 py-1 mb-1">
-        <span className="text-xs text-text-tertiary">Documents {docs.length > 0 && `(${docs.length})`}</span>
-        <button
-          onClick={() => void pickAndAddDocuments()}
-          className="p-1 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
-          title="Add documents"
-          aria-label="Add documents"
-        >
+    <div className="px-1.5 pb-3">
+      <div className="flex items-center justify-between pl-2.5 pr-1 pt-1 pb-1">
+        <span className="section-label">Attached {docs.length > 0 && `· ${docs.length}`}</span>
+        <button onClick={() => void pickAndAddDocuments()} className="icon-btn icon-btn-sm" title="Add documents" aria-label="Add documents">
           <PlusIcon size={14} />
         </button>
       </div>
@@ -107,16 +124,22 @@ export function DocumentsPanel() {
       {docs.length === 0 ? (
         <button
           onClick={() => void pickAndAddDocuments()}
-          className="w-full flex flex-col items-center gap-2 px-3 py-5 rounded-lg border border-dashed border-border hover:border-accent-primary hover:bg-accent-primary/5 transition-colors"
+          className="mx-1 mt-1 w-[calc(100%-0.5rem)] flex flex-col items-center gap-2 px-4 py-7 rounded-xl border border-dashed border-line-strong hover:border-accent/60 hover:bg-accent/5 transition-colors"
         >
-          <FolderIcon size={20} className="text-text-tertiary" />
-          <span className="text-xs text-text-secondary">Add documents</span>
-          <span className="text-[10px] text-text-tertiary">or drop files anywhere on the window</span>
+          <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-surface-2 text-fg-subtle">
+            <UploadIcon size={18} />
+          </span>
+          <span className="text-[13px] font-medium text-fg-muted">Add documents</span>
+          <span className="text-2xs text-fg-subtle leading-relaxed text-center">
+            PDF, text, Markdown or code.
+            <br />
+            Or drop files anywhere on the window.
+          </span>
         </button>
       ) : status.loading && Object.keys(status.byId).length === 0 ? (
         <DocumentListSkeleton count={Math.min(docs.length, 4)} />
       ) : (
-        <ul className="space-y-0.5">
+        <ul className="space-y-px">
           {docs.map((doc, index) => (
             <DocumentRow key={doc.id} doc={doc} index={index} />
           ))}
@@ -124,22 +147,18 @@ export function DocumentsPanel() {
       )}
 
       {docs.length > 0 && (
-        <div className="mt-3 px-2 space-y-2">
+        <div className="mt-3 mx-1 p-3 rounded-xl bg-canvas/60 border border-line space-y-2.5">
           {MODE_SUMMARY[status.contextMode] && (
-            <p className="text-[10px] leading-relaxed text-text-tertiary">{MODE_SUMMARY[status.contextMode]}</p>
+            <p className="text-2xs leading-relaxed text-fg-subtle">{MODE_SUMMARY[status.contextMode]}</p>
           )}
           {canIndex ? (
-            <button
-              onClick={() => void handleReindex()}
-              disabled={reindexing}
-              className="w-full px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded-lg border border-border transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {reindexing && <SpinnerIcon size={12} />}
+            <button onClick={() => void handleReindex()} disabled={reindexing} className="btn btn-sm btn-secondary w-full">
+              {reindexing ? <SpinnerIcon size={12} /> : <RefreshIcon size={12} />}
               {reindexing ? "Re-indexing…" : "Re-index documents"}
             </button>
           ) : (
             status.contextMode === "truncated" && (
-              <p className="text-[10px] leading-relaxed text-warning">
+              <p className="text-2xs leading-relaxed text-warning">
                 Add a Gemini API key in Settings to index large documents, so the relevant parts are found instead.
               </p>
             )
