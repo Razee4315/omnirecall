@@ -103,3 +103,6 @@ secrets/
 *.p12
 api_keys.json
 credentials.json
+
+# README art: raw generator output (web-ready copies live in docs/assets/readme)
+tools/readme-art/raw/

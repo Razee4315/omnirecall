@@ -1,157 +1,160 @@
-<div align="center">
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/hero-dark.webp">
+    <img src="docs/assets/readme/hero-light.webp" width="100%" alt="">
+  </picture>
+</p>
 
-<img src="src-tauri/icons/icon.png" alt="OmniRecall Logo" width="120" />
+<h1 align="center">
+  <img src="src-tauri/icons/icon.png" width="56" height="56" alt=""><br>
+  OmniRecall
+</h1>
 
-# OmniRecall
+<p align="center">
+  <b>An AI assistant that appears at your cursor, answers from your own files, and gets out of the way.</b>
+</p>
 
-**AI-powered desktop knowledge assistant**
+<p align="center">
+  <a href="https://github.com/Razee4315/omnirecall/releases/latest"><b>Download</b></a>
+  &nbsp;·&nbsp;
+  <a href="#features">Features</a>
+  &nbsp;·&nbsp;
+  <a href="#shortcuts">Shortcuts</a>
+  &nbsp;·&nbsp;
+  <a href="#build-from-source">Build from source</a>
+</p>
 
-Instant, context-aware AI right at your cursor.
+<p align="center">
+  <a href="https://github.com/Razee4315/omnirecall/releases"><img src="https://img.shields.io/github/v/release/Razee4315/omnirecall?style=flat-square&color=9391ff&labelColor=17171a&label=release" alt="Latest release"></a>
+  <a href="https://github.com/Razee4315/omnirecall/actions"><img src="https://img.shields.io/github/actions/workflow/status/Razee4315/omnirecall/ci.yml?style=flat-square&labelColor=17171a&label=build" alt="Build status"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20·%20Linux-17171a?style=flat-square&labelColor=17171a" alt="Windows and Linux">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-source%20available-17171a?style=flat-square&labelColor=17171a" alt="Source-available license"></a>
+</p>
 
-[![Release](https://img.shields.io/github/v/release/Razee4315/omnirecall)](https://github.com/Razee4315/omnirecall/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/Razee4315/omnirecall/ci.yml)](https://github.com/Razee4315/omnirecall/actions)
-[![License](https://img.shields.io/badge/license-Source%20Available-blue)](LICENSE)
+<br>
 
-**Windows** · **Linux**
+Small questions break focus. To ask something simple you open a browser, find the tab, type, and wait, and by then you've left your work.
 
-</div>
+**OmniRecall closes that gap.** Press <kbd>Alt</kbd> + <kbd>Space</kbd> and a quiet window opens right where your cursor is. Ask, read, press <kbd>Esc</kbd>, and you're back where you were.
 
----
-
-## Why OmniRecall
-
-Small questions break focus.
-
-To ask something simple, you usually open a browser, switch tabs, load a website, type a prompt, and wait. That friction adds up and pulls you out of your work.
-
-OmniRecall removes that gap.
-
-Press a shortcut and an AI assistant appears exactly where your cursor is. No browser. No context switching. You stay in flow and get answers instantly, using your own documents when needed.
-
----
-
-## Overview
-
-OmniRecall is a lightweight, local-first desktop app that provides fast AI chat with document-aware context. It runs quietly in the background and appears only when you need it.
-
-<img src="demo/dashboard.png" alt="OmniRecall Dashboard" width="800" />
-
----
+<br>
 
 ## Features
 
-- Instant, cursor-based access (Spotlight-style), resizable and movable, remembering its size
-- A full Dashboard with a resizable sidebar, folders, search and branches
-- Multiple AI providers: Gemini, OpenAI, Claude, GLM, Ollama
-- Document-based Q&A (PDF, TXT, Markdown, code)
-- Persistent local document storage
-- Six themes: Graphite, Porcelain, Glass, Paper, Dusk and Tide
-- Privacy-focused, local-first design
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/readme/feature-cursor.webp" width="72" height="72" alt=""><br>
+      <b>Summoned at your cursor</b><br>
+      One shortcut, from any app. A compact window you can move, resize and pin, which remembers how you left it. Expand it to a full Dashboard when you need room.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/readme/feature-docs.webp" width="72" height="72" alt=""><br>
+      <b>Answers from your files</b><br>
+      Drop in PDFs, notes, Markdown or code. Large documents are indexed so the relevant passages are found, and each answer lists the files it used.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/assets/readme/feature-models.webp" width="72" height="72" alt=""><br>
+      <b>Any model, side by side</b><br>
+      Gemini, OpenAI, Claude, GLM, or fully local models through Ollama. Switch per message, or compare up to four models on one prompt.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/assets/readme/feature-private.webp" width="72" height="72" alt=""><br>
+      <b>Private by design</b><br>
+      Chats, documents and settings stay on your machine. API keys live in your operating system's credential manager. Nothing goes anywhere except the provider you choose.
+    </td>
+  </tr>
+</table>
 
-<img src="demo/spotlight.png" alt="Spotlight Mode" width="400" />
+Plus branching conversations, folders, full-text search across every chat, a command palette, six themes, and export and backup.
 
----
+<br>
 
-## Installation
+## How it works
 
-Download the latest release:
+| | | |
+| :-- | :-- | :-- |
+| **1 · Summon** | **2 · Ask** | **3 · Return** |
+| Press <kbd>Alt</kbd> + <kbd>Space</kbd> anywhere. The window opens at your cursor. | Type, or quote the clipboard with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>. Attach files for grounded answers. | Press <kbd>Esc</kbd>. Your chat is saved for next time. |
 
-- **Windows**: `.exe`, `.msi`
-- **Linux**: `.deb`, `.AppImage`
+<br>
+
+## Providers
+
+| Provider | Models out of the box | Key |
+| :-- | :-- | :-- |
+| **Google Gemini** | Gemini 3.8 Flash · Gemini 4 Argon | [Free tier](https://aistudio.google.com/apikey), also powers document search |
+| **OpenAI** | GPT-6.1 Sol · GPT-6 Astra · GPT-6.1 Terra | [API key](https://platform.openai.com/api-keys) |
+| **Anthropic** | Claude Sonnet 5.5 · Opus 5.5 · Haiku 5.5 | [API key](https://console.anthropic.com/settings/keys) |
+| **Z.ai** | GLM-5.3 · GLM-5.2 | [API key](https://z.ai/manage-apikey/apikey-list) |
+| **Ollama** | gpt-oss · Qwen 3.6 · Gemma 4 | None, runs locally |
+
+Verifying a key loads the models your account actually offers, and any model id can be added by hand.
+
+<br>
+
+## Shortcuts
+
+| | |
+| :-- | :-- |
+| <kbd>Alt</kbd> + <kbd>Space</kbd> | Show or hide, from any app (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Space</kbd> on Linux; configurable) |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Command palette: commands, models, chats, messages |
+| <kbd>Ctrl</kbd> + <kbd>N</kbd> | New chat |
+| <kbd>Ctrl</kbd> + <kbd>B</kbd> | Toggle the sidebar |
+| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
+| <kbd>Ctrl</kbd> + <kbd>/</kbd> | Every shortcut and slash command |
+| <kbd>Esc</kbd> | Close an overlay, or hide the window |
+
+Drag the title bar to move the window and any edge to resize it. Double-click the title bar to expand to the Dashboard, or to maximize it.
+
+<br>
+
+## Install
+
+Download the latest build from **[Releases](https://github.com/Razee4315/omnirecall/releases/latest)**.
+
+| Windows | Linux |
+| :-- | :-- |
+| `.exe` installer or `.msi` | `.deb` or `.AppImage` |
 
 macOS support is planned.
 
----
+<br>
 
-## Usage
+## Build from source
 
-### Keyboard Shortcuts
+<details>
+<summary>Requirements, running and testing</summary>
 
-- `Alt + Space` (Windows) / `Ctrl + Alt + Space` (Linux): Show or hide at cursor (configurable in Settings)
-- `Ctrl + K`: Command palette (commands, models, chats, message search)
-- `Ctrl + ,`: Open settings
-- `Ctrl + /`: List every shortcut and slash command
-- `Ctrl + B`: Toggle the Dashboard sidebar
-- `Esc`: Close the open overlay, or hide the Spotlight window
+<br>
 
-### Window
-
-- Drag the title bar to move the window; drag any edge to resize it
-- Double-click the title bar: expands Spotlight to the Dashboard, or maximizes the Dashboard
-- Drag the sidebar's edge to resize it
-
-### Documents
-
-- Add PDF, text, markdown, or code files (file picker or drag and drop)
-- Ask questions using document context; answers list the documents they drew on
-- Switch documents on or off per chat
-- Large documents are indexed for search when a Gemini API key is set
-- Files persist across sessions
-
----
-
-## Supported AI Providers
-
-- Google Gemini (recommended, free tier available): Gemini 3.8 Flash, Gemini 4 Argon, …
-- OpenAI: GPT-6.1 Sol, GPT-6 Astra, GPT-6.1 Terra, GPT-6 Luna
-- Anthropic Claude: Claude Sonnet 5.5, Opus 5.5, Haiku 5.5, Fable 5.1
-- Z AI: GLM-5.3, GLM-5.2, GLM-5.3 Flash
-- Ollama (fully local models): gpt-oss, Qwen 3.6, Gemma 4, Llama, DeepSeek R1
-
-Verifying a key replaces the built-in list with the models your account can use, and any model id can be added by hand from the model picker.
-
----
-
-## Development
-
-### Requirements
-
-- Node.js 18+
-- Rust 1.70+
-- Tauri system dependencies
-
-### Run Locally
+You'll need Node.js 18+, Rust 1.70+, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
 
 ```bash
 git clone https://github.com/Razee4315/omnirecall.git
 cd omnirecall
 npm install
-npm run tauri dev
-```
-
-### Test
-
-```bash
-npm test
+npm run tauri dev      # run the app
 ```
 
 ```bash
-cd src-tauri && cargo test
+npm test                         # frontend tests
+cd src-tauri && cargo test       # backend tests
+npm run tauri build              # installers
 ```
 
-### Build
+</details>
 
-```bash
-npm run tauri build
-```
-
----
+<br>
 
 ## License
 
-This project uses a **Source Available** license. See [LICENSE](LICENSE) for details.
+OmniRecall is **source available**. It's free for personal and educational use and free to modify for yourself. Commercial use or paid redistribution needs permission. See [LICENSE](LICENSE).
 
-- Free for personal and educational use
-- Free to modify for personal use
-- Commercial use requires permission
-- Redistribution for profit requires a license
+<br>
 
----
-
-## Author
-
-**Saqlain Razee**
-
-- GitHub: https://github.com/Razee4315
-- LinkedIn: https://linkedin.com/in/saqlainrazee
-
+<p align="center">
+  <sub>Made by <a href="https://github.com/Razee4315">Saqlain Razee</a> · <a href="https://linkedin.com/in/saqlainrazee">LinkedIn</a></sub>
+</p>
