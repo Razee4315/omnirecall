@@ -2,142 +2,204 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Themes
+   Every theme defines the same tokens. :root is Porcelain (light); the other
+   themes are classes on <html>, set by applyThemeClasses(). Dark-family themes
+   also carry .dark so dark-only tweaks apply to all of them.
+   ========================================================================== */
+
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --bg-tertiary: #e9ecef;
-  --text-primary: #212529;
-  --text-secondary: #495057;
-  /* WCAG AA: #6b7280 ≈ 4.6:1 on white (was #868e96 ≈ 3.3:1) */
-  --text-tertiary: #6b7280;
-  --accent-primary: #2563eb;
-  --accent-secondary: #7c3aed;
-  --border-color: #dee2e6;
-  /* Foreground for text/icons placed on an accent fill. White passes on this
-     dark-blue accent; light themes with bright accents use dark on-accent. */
+  color-scheme: light;
+
+  --bg: #f8f8f7;
+  --surface: #ffffff;
+  --surface-2: #f1f1ef;
+  --surface-3: #e7e7e4;
+  --overlay: #ffffff;
+
+  --fg: #18181b;
+  --fg-muted: #52525b;
+  /* WCAG AA: ≈5.0:1 on --bg */
+  --fg-subtle: #6b6b74;
+
+  --line: rgba(24, 24, 27, 0.09);
+  --line-strong: rgba(24, 24, 27, 0.17);
+
+  --accent: #4f46e5;
+  --accent-2: #7c3aed;
+  /* Text and icons placed on an accent fill; chosen per theme for AA. */
   --on-accent: #ffffff;
-  /* AA-legible semantic colors for use as foreground text on a light bg. */
+
   --success: #15803d;
   --warning: #b45309;
-  --error: #b91c1c;
-  --glass-bg: rgba(255, 255, 255, 0.92);
-  --code-block-bg: #1e293b;
-  --code-text: #e2e8f0;
+  --danger: #b91c1c;
+
+  --code-bg: #18181b;
+  --code-fg: #e4e4e7;
+
+  --scrim: rgba(24, 24, 27, 0.28);
+  --shadow-soft: 0 1px 2px rgba(24, 24, 27, 0.06);
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 40px -12px rgba(24, 24, 27, 0.25), 0 2px 6px rgba(24, 24, 27, 0.06);
+  --shadow-pop: 0 18px 50px -12px rgba(24, 24, 27, 0.3), 0 4px 12px rgba(24, 24, 27, 0.08);
+  --glow: rgba(79, 70, 229, 0.16);
 }
 
+/* Graphite — the default */
 .dark {
-  --bg-primary: #0d0d0f;
-  --bg-secondary: #1a1a1f;
-  --bg-tertiary: #252529;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a8;
-  /* WCAG AA: #8a8a93 ≈ 5.1:1 on #0d0d0f (was #6b6b73 ≈ 3.7:1) */
-  --text-tertiary: #8a8a93;
-  --accent-primary: #4a9eff;
-  --accent-secondary: #7c3aed;
-  --border-color: #2e2e35;
-  /* Bright accent → dark on-accent text for legible chat bubbles / buttons. */
-  --on-accent: #07203a;
-  /* Bright semantic colors are legible on the dark bg; defined here (not just
-     in :root) so the dark-family themes don't inherit the light theme's dark
-     semantic colors. .transparent inherits these. */
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --glass-bg: rgba(13, 13, 15, 0.92);
-  --code-block-bg: #1a1a2e;
-  --code-text: #d4d4d8;
+  color-scheme: dark;
+
+  --bg: #0c0c0e;
+  --surface: #131316;
+  --surface-2: #1b1b1f;
+  --surface-3: #25252a;
+  --overlay: #18181c;
+
+  --fg: #ededef;
+  --fg-muted: #a6a6b0;
+  /* WCAG AA: ≈5.6:1 on --bg */
+  --fg-subtle: #8b8b95;
+
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --accent: #9391ff;
+  --accent-2: #c4a1ff;
+  --on-accent: #100d33;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+
+  --code-bg: #0e0e11;
+  --code-fg: #e4e4e7;
+
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 16px 48px -12px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px -12px rgba(0, 0, 0, 0.75), 0 4px 14px rgba(0, 0, 0, 0.45);
+  --glow: rgba(147, 145, 255, 0.14);
 }
 
-/* Transparent Glass Theme */
+/* Glass — translucent over the desktop */
 .transparent {
-  --bg-primary: rgba(10, 10, 12, 0.65);
-  --bg-secondary: rgba(26, 26, 31, 0.55);
-  --bg-tertiary: rgba(37, 37, 41, 0.5);
-  --text-primary: #ffffff;
-  --text-secondary: #b0b0b8;
-  --text-tertiary: #8e8e96;
-  --accent-primary: #5aafff;
-  --accent-secondary: #9c5aff;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --on-accent: #06203a;
-  --glass-bg: rgba(10, 10, 12, 0.7);
-  --code-block-bg: rgba(15, 15, 25, 0.8);
-  --code-text: #d4d4d8;
+  --bg: rgba(14, 14, 18, 0.74);
+  --surface: rgba(26, 26, 32, 0.6);
+  --surface-2: rgba(255, 255, 255, 0.065);
+  --surface-3: rgba(255, 255, 255, 0.11);
+  --overlay: rgba(22, 22, 28, 0.94);
+
+  --fg: #f4f4f5;
+  --fg-muted: #b8b8c0;
+  --fg-subtle: #9a9aa3;
+
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.18);
+
+  --accent: #a9b6ff;
+  --accent-2: #d3b8ff;
+  --on-accent: #11143a;
+
+  --code-bg: rgba(8, 8, 12, 0.78);
+  --glow: rgba(169, 182, 255, 0.16);
 }
 
-/* Paper/Cream Theme - T3 Chat Inspired */
+/* Paper — warm, editorial */
 .paper {
-  --bg-primary: #faf8f5;
-  --bg-secondary: #f5f2ed;
-  --bg-tertiary: #ece8e1;
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a4a4a;
-  /* WCAG AA: #6b6b6b ≈ 4.7:1 on the cream bg (was #7a7a7a ≈ 4.0:1) */
-  --text-tertiary: #6b6b6b;
-  --accent-primary: #e85a6b;
-  --accent-secondary: #d14d5c;
-  --border-color: #e0dbd4;
-  /* Coral accent fails white; use dark on-accent text. */
-  --on-accent: #2e0a0f;
-  /* AA-legible semantic colors on the cream background. */
-  --success: #15803d;
-  --warning: #b45309;
-  --error: #b91c1c;
-  --glass-bg: rgba(250, 248, 245, 0.95);
-  --code-block-bg: #2d2a2e;
-  --code-text: #e3e1e8;
+  color-scheme: light;
+
+  --bg: #f6f2eb;
+  --surface: #fbf8f3;
+  --surface-2: #eee8de;
+  --surface-3: #e4dccf;
+  --overlay: #fffdf9;
+
+  --fg: #211c16;
+  --fg-muted: #51483d;
+  /* WCAG AA: ≈5.1:1 on --bg */
+  --fg-subtle: #6c6256;
+
+  --line: rgba(64, 42, 18, 0.12);
+  --line-strong: rgba(64, 42, 18, 0.2);
+
+  --accent: #b14f27;
+  --accent-2: #8f3d1d;
+  --on-accent: #fffaf4;
+
+  --success: #3b7a35;
+  --warning: #9a5b06;
+  --danger: #b42318;
+
+  --code-bg: #26201a;
+  --code-fg: #eee6da;
+
+  --scrim: rgba(40, 28, 14, 0.25);
+  --shadow-soft: 0 1px 2px rgba(64, 42, 18, 0.08);
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 14px 40px -14px rgba(64, 42, 18, 0.3), 0 2px 6px rgba(64, 42, 18, 0.08);
+  --shadow-pop: 0 18px 50px -14px rgba(64, 42, 18, 0.35), 0 4px 12px rgba(64, 42, 18, 0.1);
+  --glow: rgba(177, 79, 39, 0.14);
 }
 
-/* Rose/Pink Theme */
+/* Dusk — plum night, rose accent */
 .rose {
-  --bg-primary: #1a1520;
-  --bg-secondary: #241e2a;
-  --bg-tertiary: #2e2835;
-  --text-primary: #f8f0f5;
-  --text-secondary: #c8b8c8;
-  --text-tertiary: #9888a0;
-  --accent-primary: #f472b6;
-  --accent-secondary: #ec4899;
-  --border-color: #3d3548;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --glass-bg: rgba(26, 21, 32, 0.92);
-  --code-block-bg: #1e1525;
-  --code-text: #e8d0e0;
+  --bg: #130f16;
+  --surface: #1a151e;
+  --surface-2: #231d28;
+  --surface-3: #2d2533;
+  --overlay: #1f1924;
+
+  --fg: #f6eff7;
+  --fg-muted: #c5b7c8;
+  --fg-subtle: #a092a6;
+
+  --line: rgba(255, 225, 255, 0.075);
+  --line-strong: rgba(255, 225, 255, 0.15);
+
+  --accent: #f5a8c8;
+  --accent-2: #e879b9;
+  --on-accent: #2c0e1d;
+
+  --success: #6ee7b7;
+  --warning: #fcd34d;
+  --danger: #ff7a7a;
+
+  --code-bg: #0f0b12;
+  --code-fg: #ecdcea;
+  --glow: rgba(245, 168, 200, 0.14);
 }
 
-/* Ocean Theme */
+/* Tide — deep sea, aqua accent */
 .ocean {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  /* WCAG AA: #8091a7 is about 5.6:1 on #0f172a (was #64748b, about 3.7:1) */
-  --text-tertiary: #8091a7;
-  --accent-primary: #38bdf8;
-  --accent-secondary: #0ea5e9;
-  --border-color: #334155;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --glass-bg: rgba(15, 23, 42, 0.92);
-  --code-block-bg: #0c1629;
-  --code-text: #c8d6e5;
+  --bg: #091018;
+  --surface: #0e1720;
+  --surface-2: #14202b;
+  --surface-3: #1b2a37;
+  --overlay: #112029;
+
+  --fg: #e7f0f5;
+  --fg-muted: #a0b4c2;
+  /* WCAG AA: ≈5.7:1 on --bg */
+  --fg-subtle: #8197a7;
+
+  --line: rgba(165, 220, 255, 0.08);
+  --line-strong: rgba(165, 220, 255, 0.15);
+
+  --accent: #5eead4;
+  --accent-2: #38bdf8;
+  --on-accent: #032823;
+
+  --success: #86efac;
+  --warning: #fcd34d;
+  --danger: #fb7185;
+
+  --code-bg: #060d14;
+  --code-fg: #cfe0ea;
+  --glow: rgba(94, 234, 212, 0.12);
 }
 
-.transparent body {
-  background: transparent !important;
-}
-
-.transparent .glass {
-  background: rgba(10, 10, 12, 0.6) !important;
-  backdrop-filter: blur(30px) saturate(150%);
-  -webkit-backdrop-filter: blur(30px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* ==========================================================================
+   Base
+   ========================================================================== */
 
 * {
   margin: 0;
@@ -153,22 +215,24 @@ body,
   overflow: hidden;
 }
 
-html {
+html,
+body {
   background: transparent;
 }
 
 body {
-  font-family: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
-  background: transparent;
-  color: var(--text-primary);
+  font-family: "Geist Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--fg);
+  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Disable text selection on UI elements */
+  text-rendering: optimizeLegibility;
+  /* App chrome is not selectable; content opts back in below. */
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Allow selection in inputs, textareas, and content areas */
 input,
 textarea,
 [contenteditable="true"],
@@ -180,69 +244,303 @@ code {
   -webkit-user-select: text;
 }
 
+input,
+textarea,
+button,
+select {
+  font: inherit;
+  color: var(--fg);
+}
+
+button {
+  cursor: default;
+}
+
+select option {
+  background: var(--overlay);
+  color: var(--fg);
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--fg);
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
+/* A thin thumb floating inside a transparent border, so it reads as a
+   hairline but stays easy to grab. */
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
+  background-color: var(--line-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background-color: var(--fg-subtle);
 }
 
-::selection {
-  background-color: var(--accent-primary);
-  color: white;
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
-input,
-textarea,
-button,
-select {
-  font-family: inherit;
-  color: var(--text-primary);
-}
-
-select option {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-/* Focus-visible styles for keyboard accessibility (WCAG 2.1 Level A) */
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--accent-primary);
+/* Keyboard focus (WCAG 2.4.7). Mouse clicks don't show a ring. */
+:focus-visible {
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
-/* Foreground for content sitting on an accent-colored fill (chat bubbles,
-   primary buttons). Chosen per-theme so it always meets WCAG AA contrast,
-   without recoloring the accent itself. */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
 .text-on-accent {
   color: var(--on-accent);
 }
 
-/* Active press feedback */
-button:active {
-  transform: scale(0.98);
+/* ==========================================================================
+   Components
+   Shared building blocks, so every surface uses the same sizes and states.
+   ========================================================================== */
+
+@layer components {
+  /* Square icon button used in toolbars and headers. */
+  .icon-btn {
+    @apply inline-flex items-center justify-center flex-shrink-0 rounded-lg text-fg-subtle transition-colors duration-150;
+    width: 28px;
+    height: 28px;
+  }
+  .icon-btn:hover {
+    @apply bg-surface-2 text-fg;
+  }
+  .icon-btn:active {
+    @apply bg-surface-3;
+  }
+  .icon-btn[aria-pressed="true"] {
+    @apply bg-accent/15 text-accent;
+  }
+  .icon-btn:disabled {
+    @apply opacity-40 pointer-events-none;
+  }
+  .icon-btn-sm {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 h-8 text-[13px] font-medium transition-colors duration-150;
+  }
+  .btn:disabled {
+    @apply opacity-50 pointer-events-none;
+  }
+  .btn-sm {
+    @apply h-7 px-2.5 text-xs rounded-md;
+  }
+  .btn-lg {
+    @apply h-10 px-4 text-sm rounded-xl;
+  }
+  .btn-primary {
+    @apply bg-accent text-accent-fg;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.07);
+  }
+  .btn-secondary {
+    @apply bg-surface-2 text-fg border border-line;
+  }
+  .btn-secondary:hover {
+    @apply bg-surface-3;
+  }
+  .btn-ghost {
+    @apply text-fg-muted;
+  }
+  .btn-ghost:hover {
+    @apply bg-surface-2 text-fg;
+  }
+  .btn-danger {
+    @apply bg-danger/10 text-danger border border-danger/25;
+  }
+  .btn-danger:hover {
+    @apply bg-danger/20;
+  }
+  .btn-danger-solid {
+    @apply bg-danger text-white;
+  }
+  .btn-danger-solid:hover {
+    filter: brightness(1.08);
+  }
+
+  .field {
+    @apply w-full rounded-lg bg-surface-2 border border-line px-3 h-9 text-[13px] text-fg placeholder:text-fg-subtle outline-none transition-[border-color,box-shadow] duration-150;
+  }
+  .field:hover {
+    @apply border-line-strong;
+  }
+  .field:focus,
+  .field:focus-within {
+    @apply border-accent/60;
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+  textarea.field {
+    @apply h-auto py-2 leading-relaxed;
+  }
+
+  .kbd {
+    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] border border-line bg-surface-2 font-mono text-[10px] leading-none text-fg-muted;
+    box-shadow: 0 1px 0 var(--line);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 h-6 px-2 rounded-full text-2xs font-medium border border-line bg-surface-2 text-fg-muted whitespace-nowrap transition-colors duration-150;
+  }
+
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+
+  /* Popover menus and dropdowns. */
+  .menu {
+    @apply bg-overlay border border-line rounded-xl p-1 shadow-pop;
+    animation: popIn 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .menu-label {
+    @apply px-2.5 pt-2 pb-1 text-2xs font-medium uppercase tracking-[0.06em] text-fg-subtle;
+  }
+  .menu-item {
+    @apply w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[13px] text-left text-fg transition-colors duration-100;
+  }
+  .menu-item:hover,
+  .menu-item[data-active="true"] {
+    @apply bg-surface-2;
+  }
+
+  /* Modal backdrop and panel. */
+  .scrim {
+    background: var(--scrim);
+    @apply backdrop-blur-[3px];
+    animation: fade 0.16s ease-out;
+  }
+  .dialog {
+    @apply bg-overlay border border-line rounded-2xl shadow-pop overflow-hidden;
+    animation: popIn 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .section-label {
+    @apply text-2xs font-medium uppercase tracking-[0.07em] text-fg-subtle;
+  }
+
+  /* Hairline-thin toggle switch. */
+  .switch {
+    @apply relative inline-flex flex-shrink-0 items-center w-9 h-5 rounded-full bg-surface-3 border border-line transition-colors duration-200;
+  }
+  .switch[aria-checked="true"] {
+    @apply bg-accent border-transparent;
+  }
+  .switch::after {
+    content: "";
+    @apply absolute left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ease-out;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  .switch[aria-checked="true"]::after {
+    transform: translateX(16px);
+  }
+  .switch:disabled {
+    @apply opacity-50;
+  }
 }
 
-/* Honor the OS "reduce motion" preference: neutralize entrance animations,
-   infinite loops (typing dots, shimmer, spinners), and the press scale. */
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes windowIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes pulseDot {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-fade { animation: fade 0.16s ease-out; }
+.animate-fade-in { animation: fade 0.16s ease-out; }
+.animate-pop-in { animation: popIn 0.16s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-scale-in { animation: popIn 0.18s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-rise { animation: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-message-reveal { animation: rise 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-window-in { animation: windowIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-toast-in { animation: toastIn 0.24s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-shimmer { animation: shimmer 1.5s infinite; }
+
+.typing-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulseDot 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Blinking caret at the end of a streaming answer, placed inline after the
+   last paragraph or list item. */
+.stream-caret > :is(p, h1, h2, h3, h4, h5, h6, span):last-child::after,
+.stream-caret > :is(ul, ol):last-child > li:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: caret 1s steps(1) infinite;
+}
+
+/* Honor the OS "reduce motion" preference. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -252,201 +550,96 @@ button:active {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
-  button:active {
-    transform: none;
-  }
 }
 
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+/* ==========================================================================
+   Window chrome
+   ========================================================================== */
+
+/* Ambient accent light at the top of empty states. */
+.ambient {
+  background:
+    radial-gradient(60% 50% at 50% 0%, var(--glow), transparent 70%);
 }
 
-@layer utilities {
-  .drag-region {
-    -webkit-app-region: drag;
-  }
-
-  .no-drag {
-    -webkit-app-region: no-drag;
-  }
+/* Fine grain so large flat surfaces don't band. */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.glass-panel {
+  background: var(--bg);
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+.transparent .glass-panel {
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
 }
 
-/* Typing indicator animation */
-@keyframes bounce {
+/* ==========================================================================
+   Markdown
+   ========================================================================== */
 
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-  }
-
-  30% {
-    transform: translateY(-4px);
-  }
+.markdown-content {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
 }
 
-.typing-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
-  animation: bounce 1.4s ease-in-out infinite;
-}
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
 
-.typing-dot:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* Markdown content styles */
-.markdown-content p {
-  margin: 0.25rem 0;
-}
-
-.markdown-content p:first-child {
-  margin-top: 0;
-}
-
-.markdown-content p:last-child {
-  margin-bottom: 0;
-}
-
-.markdown-content li {
-  margin: 0.125rem 0;
-}
-
-.markdown-content pre {
-  margin: 0;
-}
-
-.markdown-content code {
-  font-family: "JetBrains Mono", "Fira Code", monospace;
-}
-
-.markdown-content a {
-  text-decoration: none;
-}
-
-.markdown-content a:hover {
-  text-decoration: underline;
-}
+.markdown-content p { margin: 0.5em 0; }
 
 .markdown-content :is(h1, h2, h3, h4, h5, h6) {
   line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--fg);
 }
 
-.markdown-content > :first-child {
-  margin-top: 0;
+.markdown-content li { margin: 0.2em 0; }
+.markdown-content li::marker { color: var(--fg-subtle); }
+.markdown-content li > p { margin: 0; }
+
+.markdown-content strong { color: var(--fg); }
+
+.markdown-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  text-underline-offset: 3px;
+}
+.markdown-content a:hover { text-decoration-color: var(--accent); }
+
+.markdown-content code { font-family: "Geist Mono Variable", "JetBrains Mono", Consolas, monospace; }
+.markdown-content pre { margin: 0; }
+
+/* Search-hit highlight */
+mark {
+  background-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
 }
 
-.markdown-content > :last-child {
-  margin-bottom: 0;
-}
+/* Syntax highlighting — code blocks are dark in every theme. */
+.hljs-keyword, .hljs-selector-tag, .hljs-literal { color: #c4a7f5; }
+.hljs-string, .hljs-regexp, .hljs-addition { color: #a3d9a5; }
+.hljs-number, .hljs-symbol, .hljs-bullet { color: #f0b77a; }
+.hljs-comment, .hljs-quote, .hljs-meta { color: #8c93a6; font-style: italic; }
+.hljs-title, .hljs-section { color: #82b7ff; }
+.hljs-built_in, .hljs-type { color: #7fd4d4; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable { color: #e8c07d; }
+.hljs-deletion { color: #f28b82; }
 
-/* Paragraphs inside list items sit tight against the marker. */
-.markdown-content li > p {
-  margin: 0;
-}
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
 
-/* Scale-in animation for modals and command palette */
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.15s ease-out;
-}
-
-/* Toast slide-in animation */
-@keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-toast-in {
-  animation: toastIn 0.3s ease-out;
-}
-
-/* Theme transitions - applied only to root container, not every element */
-:root,
-.dark,
-.transparent,
-.paper,
-.rose,
-.ocean {
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease,
-    border-color 0.3s ease;
-}
-
-/* Interactive element transitions - scoped to direct interactions only */
-.glass {
-  transition:
-    background-color 0.3s ease,
-    border-color 0.3s ease;
-}
-
-/* Message reveal animation for streaming */
-@keyframes messageReveal {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-message-reveal {
-  animation: messageReveal 0.2s ease-out;
-}
-
-/* Line clamp utilities */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -454,15 +647,7 @@ button:active {
   overflow: hidden;
 }
 
-/* Highlight for search matches */
-mark {
-  background-color: rgba(74, 158, 255, 0.3);
-  color: inherit;
-  padding: 0 2px;
-  border-radius: 2px;
-}
-
-/* Provider brand colors for model compare - consistent across themes */
+/* Provider brand tints (model compare, provider tiles). */
 .text-blue-400 { color: #60a5fa; }
 .text-emerald-400 { color: #34d399; }
 .text-orange-400 { color: #fb923c; }
@@ -479,42 +664,12 @@ mark {
 .border-purple-500\/30 { border-color: rgba(168, 85, 247, 0.3); }
 .border-rose-500\/30 { border-color: rgba(244, 63, 94, 0.3); }
 
-/* The 400 shades fail contrast on light backgrounds; light themes (those
-   without the .dark class) use the 700 shades instead. */
+/* The 400 shades fail contrast on light themes; use the 700 shades there. */
 :root:not(.dark) .text-blue-400 { color: #1d4ed8; }
 :root:not(.dark) .text-emerald-400 { color: #047857; }
 :root:not(.dark) .text-orange-400 { color: #c2410c; }
 :root:not(.dark) .text-purple-400 { color: #7e22ce; }
 :root:not(.dark) .text-rose-400 { color: #be123c; }
 
-/* Syntax highlighting. Code blocks have a dark background in every theme,
-   so one light-on-dark palette serves them all. */
-.hljs-keyword, .hljs-selector-tag, .hljs-literal { color: #c4a7f5; }
-.hljs-string, .hljs-regexp, .hljs-addition { color: #a3d9a5; }
-.hljs-number, .hljs-symbol, .hljs-bullet { color: #f0b77a; }
-.hljs-comment, .hljs-quote, .hljs-meta { color: #9aa2b5; font-style: italic; }
-.hljs-title, .hljs-section { color: #82b7ff; }
-.hljs-built_in, .hljs-type { color: #7fd4d4; }
-.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable { color: #e8c07d; }
-.hljs-deletion { color: #f28b82; }
-
-/* Dragging styles */
-[draggable="true"] {
-  cursor: grab;
-}
-
-[draggable="true"]:active {
-  cursor: grabbing;
-  opacity: 0.7;
-}
-
-/* Shimmer animation for skeleton loaders */
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.animate-shimmer {
-  animation: shimmer 1.5s infinite;
-}
+[draggable="true"] { cursor: grab; }
+[draggable="true"]:active { cursor: grabbing; opacity: 0.7; }

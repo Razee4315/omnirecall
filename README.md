@@ -40,11 +40,12 @@ OmniRecall is a lightweight, local-first desktop app that provides fast AI chat 
 
 ## Features
 
-- Instant, cursor-based access (Spotlight-style)
+- Instant, cursor-based access (Spotlight-style), resizable and movable, remembering its size
+- A full Dashboard with a resizable sidebar, folders, search and branches
 - Multiple AI providers: Gemini, OpenAI, Claude, GLM, Ollama
 - Document-based Q&A (PDF, TXT, Markdown, code)
 - Persistent local document storage
-- Clean dark and light themes
+- Six themes: Graphite, Porcelain, Glass, Paper, Dusk and Tide
 - Privacy-focused, local-first design
 
 <img src="demo/spotlight.png" alt="Spotlight Mode" width="400" />
@@ -70,7 +71,14 @@ macOS support is planned.
 - `Ctrl + K`: Command palette (commands, models, chats, message search)
 - `Ctrl + ,`: Open settings
 - `Ctrl + /`: List every shortcut and slash command
+- `Ctrl + B`: Toggle the Dashboard sidebar
 - `Esc`: Close the open overlay, or hide the Spotlight window
+
+### Window
+
+- Drag the title bar to move the window; drag any edge to resize it
+- Double-click the title bar: expands Spotlight to the Dashboard, or maximizes the Dashboard
+- Drag the sidebar's edge to resize it
 
 ### Documents
 
@@ -84,11 +92,13 @@ macOS support is planned.
 
 ## Supported AI Providers
 
-- Google Gemini (recommended, free tier available)
-- OpenAI
-- Anthropic Claude
-- Z AI (GLM models)
-- Ollama (fully local models)
+- Google Gemini (recommended, free tier available): Gemini 3.8 Flash, Gemini 4 Argon, …
+- OpenAI: GPT-6.1 Sol, GPT-6 Astra, GPT-6.1 Terra, GPT-6 Luna
+- Anthropic Claude: Claude Sonnet 5.5, Opus 5.5, Haiku 5.5, Fable 5.1
+- Z AI: GLM-5.3, GLM-5.2, GLM-5.3 Flash
+- Ollama (fully local models): gpt-oss, Qwen 3.6, Gemma 4, Llama, DeepSeek R1
+
+Verifying a key replaces the built-in list with the models your account can use, and any model id can be added by hand from the model picker.
 
 ---
 

@@ -14,7 +14,7 @@ import {
 } from "../../stores/appStore";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { pickAndAddDocuments } from "../../lib/documents";
-import { CheckIcon, ChevronRightIcon, CommandIcon, DocumentIcon, KeyIcon, LogoIcon } from "../icons";
+import { CheckIcon, ChevronRightIcon, CommandIcon, DocumentIcon, KeyIcon, LogoMark } from "../icons";
 
 interface OnboardingStep {
     id: string;
@@ -27,8 +27,12 @@ interface OnboardingStep {
     doneLabel?: string;
 }
 
-function StepIcon({ children, tone }: { children: ComponentChild; tone: string }) {
-    return <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${tone}`}>{children}</div>;
+function StepIcon({ children }: { children: ComponentChild }) {
+    return (
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-surface-2 border border-line text-accent shadow-soft">
+            {children}
+        </div>
+    );
 }
 
 // Kept outside the component so the tour resumes where it was after stepping
@@ -64,13 +68,13 @@ export function Onboarding() {
             id: "welcome",
             title: "Welcome to OmniRecall",
             description: "An AI assistant that appears at your cursor, answers, and gets out of the way. Setup takes about a minute.",
-            icon: <LogoIcon size={48} className="text-accent-primary" />,
+            icon: <LogoMark size={56} />,
         },
         {
             id: "api-key",
             title: "Connect an AI provider",
             description: "Add an API key for Gemini, OpenAI, Claude or GLM — or connect to Ollama to run models locally with no key.",
-            icon: <StepIcon tone="bg-accent-primary/20"><KeyIcon size={24} className="text-accent-primary" /></StepIcon>,
+            icon: <StepIcon><KeyIcon size={24} /></StepIcon>,
             action: () => {
                 settingsTab.value = "providers";
                 isSettingsOpen.value = true;
@@ -82,7 +86,7 @@ export function Onboarding() {
             id: "documents",
             title: "Ask about your own files",
             description: "Attach PDFs, notes or code and OmniRecall answers from them. You can also drop files onto the window. This is optional.",
-            icon: <StepIcon tone="bg-success/20"><DocumentIcon size={24} className="text-success" /></StepIcon>,
+            icon: <StepIcon><DocumentIcon size={24} /></StepIcon>,
             action: () => void pickAndAddDocuments(),
             actionLabel: "Add documents",
             doneLabel: docCount > 0 ? `${docCount} document${docCount === 1 ? "" : "s"} added` : undefined,
@@ -93,7 +97,7 @@ export function Onboarding() {
             description: hotkeyError.value
                 ? `${hotkeyError.value} Until then, open OmniRecall from its tray icon.`
                 : `Press ${hotkey} from any app to show or hide OmniRecall. Ctrl+K opens the command palette, and Ctrl+/ lists every shortcut.`,
-            icon: <StepIcon tone="bg-accent-secondary/20"><CommandIcon size={24} className="text-accent-secondary" /></StepIcon>,
+            icon: <StepIcon><CommandIcon size={24} /></StepIcon>,
             action: hotkeyError.value
                 ? () => {
                     settingsTab.value = "shortcuts";
@@ -108,74 +112,67 @@ export function Onboarding() {
     const isLastStep = currentStep === steps.length - 1;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-3 animate-fade-in">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3">
+            <div className="scrim absolute inset-0" />
             <div
                 ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Getting started"
-                className="w-full max-w-md max-h-full overflow-y-auto bg-bg-primary border border-border rounded-2xl shadow-2xl animate-scale-in"
+                className="dialog relative w-full max-w-[420px] max-h-full overflow-y-auto"
             >
-                <div className="flex items-center justify-center gap-2 pt-5" aria-hidden="true">
-                    {steps.map((s, idx) => (
-                        <div
-                            key={s.id}
-                            className={`h-2 rounded-full transition-all duration-300 ${
-                                idx === currentStep ? "bg-accent-primary w-6" : idx < currentStep ? "bg-accent-primary/50 w-2" : "bg-bg-tertiary w-2"
-                            }`}
-                        />
-                    ))}
+                <div className="ambient px-7 pt-8 pb-2 text-center" aria-live="polite" key={step.id}>
+                    <div className="flex justify-center mb-5 animate-pop-in">{step.icon}</div>
+                    <p className="section-label mb-2">Step {currentStep + 1} of {steps.length}</p>
+                    <h2 className="font-display text-[30px] leading-tight text-fg animate-rise">{step.title}</h2>
+                    <p className="text-[13.5px] text-fg-muted leading-relaxed mt-2 animate-rise" style={{ animationDelay: "40ms" }}>{step.description}</p>
                 </div>
 
-                <div className="px-6 pt-6 pb-5 text-center" aria-live="polite">
-                    <div className="flex justify-center mb-4">{step.icon}</div>
-                    <p className="text-[11px] text-text-tertiary mb-1">Step {currentStep + 1} of {steps.length}</p>
-                    <h2 className="text-lg font-bold text-text-primary mb-2">{step.title}</h2>
-                    <p className="text-sm text-text-secondary leading-relaxed">{step.description}</p>
-                </div>
-
-                <div className="px-6 pb-6 space-y-2.5">
+                <div className="px-7 pt-5 pb-6 space-y-2.5">
                     {step.doneLabel ? (
-                        <div className="w-full py-2.5 px-4 rounded-xl bg-success/10 border border-success/30 text-success text-sm font-medium flex items-center justify-center gap-2">
+                        <div className="w-full h-10 px-4 rounded-xl bg-success/10 border border-success/30 text-success text-[13px] font-medium flex items-center justify-center gap-2">
                             <CheckIcon size={14} />
                             {step.doneLabel}
                         </div>
                     ) : (
                         step.action && (
-                            <button
-                                onClick={step.action}
-                                className="w-full py-2.5 px-4 rounded-xl border border-border text-text-primary text-sm font-medium hover:bg-bg-tertiary transition-colors"
-                            >
+                            <button onClick={step.action} className="btn btn-lg btn-secondary w-full">
                                 {step.actionLabel}
                             </button>
                         )
                     )}
                     <button
                         onClick={() => (isLastStep ? finish() : setCurrentStep(currentStep + 1))}
-                        className="w-full py-2.5 px-4 rounded-xl bg-accent-primary text-on-accent text-sm font-medium hover:bg-accent-primary/90 transition-colors flex items-center justify-center gap-2"
+                        className="btn btn-lg btn-primary w-full"
                     >
                         {isLastStep ? "Start chatting" : "Continue"}
-                        {!isLastStep && <ChevronRightIcon size={16} />}
+                        {!isLastStep && <ChevronRightIcon size={15} />}
                     </button>
 
-                    <div className="flex items-center justify-between pt-1 min-h-[20px]">
+                    <div className="flex items-center justify-between pt-2 min-h-[24px]">
                         {currentStep > 0 ? (
-                            <button
-                                onClick={() => setCurrentStep(currentStep - 1)}
-                                className="text-sm text-text-tertiary hover:text-text-primary transition-colors"
-                            >
+                            <button onClick={() => setCurrentStep(currentStep - 1)} className="btn btn-sm btn-ghost -ml-2.5">
                                 Back
                             </button>
                         ) : (
                             <span />
                         )}
-                        {!isLastStep && (
-                            <button
-                                onClick={finish}
-                                className="text-sm text-text-tertiary hover:text-text-primary transition-colors"
-                            >
-                                Skip intro
+                        <div className="flex items-center gap-1.5" aria-hidden="true">
+                            {steps.map((s, idx) => (
+                                <span
+                                    key={s.id}
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                                        idx === currentStep ? "w-5 bg-accent" : idx < currentStep ? "w-1.5 bg-accent/50" : "w-1.5 bg-surface-3"
+                                    }`}
+                                />
+                            ))}
+                        </div>
+                        {!isLastStep ? (
+                            <button onClick={finish} className="btn btn-sm btn-ghost -mr-2.5">
+                                Skip
                             </button>
+                        ) : (
+                            <span className="w-10" />
                         )}
                     </div>
                 </div>

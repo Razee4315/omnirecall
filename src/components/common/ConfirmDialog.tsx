@@ -1,6 +1,7 @@
 import { useRef } from "preact/hooks";
 import { confirmRequest, settleConfirm } from "../../stores/confirmStore";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { AlertIcon } from "../icons";
 
 /// Renders the pending `confirmAction()` request, if any.
 export function ConfirmDialog() {
@@ -11,10 +12,8 @@ export function ConfirmDialog() {
   if (!request) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={() => settleConfirm(false)}
-    >
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4" onClick={() => settleConfirm(false)}>
+      <div className="scrim absolute inset-0" />
       <div
         ref={panelRef}
         role="alertdialog"
@@ -22,26 +21,21 @@ export function ConfirmDialog() {
         aria-labelledby="confirm-title"
         aria-describedby="confirm-message"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-bg-primary border border-border rounded-xl shadow-2xl p-4 animate-scale-in"
+        className="dialog relative w-full max-w-[380px] p-5"
       >
-        <h2 id="confirm-title" className="text-sm font-semibold text-text-primary">{request.title}</h2>
-        <p id="confirm-message" className="text-xs text-text-secondary mt-1.5 leading-relaxed">{request.message}</p>
-        <div className="flex justify-end gap-2 mt-4">
+        {request.danger && (
+          <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-danger/12 text-danger mb-3">
+            <AlertIcon size={18} />
+          </span>
+        )}
+        <h2 id="confirm-title" className="text-[15px] font-semibold text-fg">{request.title}</h2>
+        <p id="confirm-message" className="text-[13px] text-fg-muted mt-1.5 leading-relaxed">{request.message}</p>
+        <div className="flex justify-end gap-2 mt-5">
           {/* Cancel comes first so it receives initial focus. */}
-          <button
-            onClick={() => settleConfirm(false)}
-            className="px-3 py-1.5 rounded-lg text-xs text-text-secondary border border-border hover:bg-bg-tertiary transition-colors"
-          >
+          <button onClick={() => settleConfirm(false)} className="btn btn-secondary">
             Cancel
           </button>
-          <button
-            onClick={() => settleConfirm(true)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              request.danger
-                ? "bg-error text-white hover:bg-error/90"
-                : "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-            }`}
-          >
+          <button onClick={() => settleConfirm(true)} className={`btn ${request.danger ? "btn-danger-solid" : "btn-primary"}`}>
             {request.confirmLabel ?? "Confirm"}
           </button>
         </div>

@@ -3,13 +3,14 @@ import {
   activeSessionId,
   chatHistory,
   ChatSession,
-  currentMessages,
-  currentQuery,
+  documents,
   exportDialog,
   isCommandPaletteOpen,
+  isFullscreen,
   isMaximized,
-  isOnline,
   isSettingsOpen,
+  isShortcutsHelpOpen,
+  isSidebarOpen,
   openSearchResult,
   orderedSessions,
   readableDocumentCount,
@@ -17,68 +18,63 @@ import {
   SearchResult,
   sessionActivity,
   setDashboardMode,
+  setSidebarOpen,
+  sidebarWidth,
   startNewChat,
+  chatFolders,
+  currentMessages,
 } from "../../stores/appStore";
 import { chatError } from "../../stores/chatActions";
-import { pickAndAddDocuments } from "../../lib/documents";
+import { handleTitleBarMouseDown, toggleMaximize } from "../../lib/window";
 import {
+  BookIcon,
   CloseIcon,
   CollapseIcon,
   CommandIcon,
   DownloadIcon,
   FolderIcon,
-  LogoIcon,
+  KeyboardIcon,
+  LogoMark,
   MenuIcon,
+  MessageIcon,
+  NewChatIcon,
   PinIcon,
-  PlusIcon,
   SearchIcon,
   SettingsIcon,
 } from "../icons";
 import { FolderManager } from "../common/FolderManager";
 import { ModelSelector } from "../common/ModelSelector";
 import { TokenCounter } from "../common/TokenCounter";
-import { WindowControls, DragRegion } from "../common/WindowControls";
+import { WindowControls } from "../common/WindowControls";
 import { ChatComposer, requestComposerFocus } from "../chat/ChatComposer";
 import { ChatErrorBanner } from "../chat/ChatErrorBanner";
-import { DocsToggle } from "../chat/DocsToggle";
+import { EmptyState } from "../chat/EmptyState";
 import { MessageList } from "../chat/MessageList";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { SessionRow } from "./SessionRow";
+import { SidebarResizer } from "./SidebarResizer";
 
 type SidebarTab = "chats" | "folders" | "docs";
 
-const SIDEBAR_TABS: { id: SidebarTab; label: string }[] = [
-  { id: "chats", label: "Chats" },
-  { id: "folders", label: "Folders" },
-  { id: "docs", label: "Docs" },
-];
+const SEARCH_DEBOUNCE_MS = 180;
+const TITLE_BAR = "h-11";
 
-const QUICK_PROMPTS = [
-  "Summarize the key points",
-  "Explain this in simple terms",
-  "Compare and contrast",
-  "Write a brief analysis",
-];
-
-const SEARCH_DEBOUNCE_MS = 200;
-const headerButton =
-  "p-2 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary";
-
-/// Group sessions for the sidebar: pinned first, then by the day of their
-/// last activity, newest first.
+/// Group sessions for the sidebar: pinned first, then by recency.
 function groupSessions(sessions: ChatSession[]) {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = 86_400_000;
 
   const labelFor = (iso: string) => {
+    const t = new Date(iso).getTime();
+    if (t >= startOfToday) return "Today";
+    if (t >= startOfToday - day) return "Yesterday";
+    if (t >= startOfToday - 7 * day) return "Previous 7 days";
+    if (t >= startOfToday - 30 * day) return "Previous 30 days";
     const date = new Date(iso);
-    if (date.toDateString() === today.toDateString()) return "Today";
-    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
     return date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+      month: "long",
+      year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
     });
   };
 
@@ -111,6 +107,10 @@ function snippet(result: SearchResult, query: string) {
   );
 }
 
+function GroupLabel({ children }: { children: preact.ComponentChildren }) {
+  return <div className="section-label flex items-center gap-1.5 px-2.5 pt-3 pb-1">{children}</div>;
+}
+
 function ChatsPanel() {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -126,9 +126,9 @@ function ChatsPanel() {
 
   return (
     <>
-      <div className="p-2">
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-bg-tertiary rounded-lg border border-border focus-within:border-accent-primary">
-          <SearchIcon size={14} className="text-text-tertiary flex-shrink-0" />
+      <div className="px-2.5 pb-1 pt-0.5 sticky top-0 z-10 bg-surface">
+        <label className="field flex items-center gap-2 h-8 px-2.5 cursor-text">
+          <SearchIcon size={14} className="text-fg-subtle flex-shrink-0" />
           <input
             type="search"
             value={query}
@@ -139,35 +139,31 @@ function ChatsPanel() {
                 setQuery("");
               }
             }}
-            placeholder="Search chats..."
+            placeholder="Search chats"
             aria-label="Search chats"
-            className="flex-1 min-w-0 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary outline-none"
+            className="flex-1 min-w-0 bg-transparent text-[13px] outline-none placeholder:text-fg-subtle [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="text-text-tertiary hover:text-text-primary"
-              aria-label="Clear search"
-            >
+            <button onClick={() => setQuery("")} className="icon-btn icon-btn-sm -mr-1" aria-label="Clear search">
               <CloseIcon size={12} />
             </button>
           )}
-        </div>
+        </label>
       </div>
 
       {debounced ? (
-        <div className="px-2 pb-2" aria-live="polite">
+        <div className="px-1.5 pb-2" aria-live="polite">
           {results.length === 0 ? (
-            <div className="px-3 py-6 text-center">
-              <div className="text-xs text-text-secondary">No chats match “{debounced}”</div>
-              <div className="text-[10px] text-text-tertiary mt-1">Titles and messages in every branch are searched.</div>
+            <div className="px-3 py-8 text-center">
+              <div className="text-[13px] text-fg-muted">No chats match “{debounced}”</div>
+              <div className="text-2xs text-fg-subtle mt-1">Titles and messages in every branch are searched.</div>
             </div>
           ) : (
             <>
-              <div className="text-xs text-text-tertiary px-2 py-1">
+              <GroupLabel>
                 {results.length} result{results.length !== 1 ? "s" : ""}
-              </div>
-              <ul className="space-y-0.5">
+              </GroupLabel>
+              <ul className="space-y-px">
                 {results.map((result) => (
                   <li key={`${result.sessionId}-${result.branchId}-${result.messageId}`}>
                     <button
@@ -175,12 +171,12 @@ function ChatsPanel() {
                         openSearchResult(result);
                         chatError.value = null;
                       }}
-                      className="w-full text-left px-2 py-2 rounded-lg hover:bg-bg-tertiary"
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-surface-2 transition-colors"
                     >
-                      <div className="text-xs text-text-tertiary truncate">
+                      <div className="text-2xs text-fg-subtle truncate">
                         {result.kind === "title" ? "Chat title" : result.sessionTitle}
                       </div>
-                      <div className="text-sm text-text-primary line-clamp-2 mt-0.5">{snippet(result, debounced)}</div>
+                      <div className="text-[13px] text-fg line-clamp-2 mt-0.5">{snippet(result, debounced)}</div>
                     </button>
                   </li>
                 ))}
@@ -189,32 +185,32 @@ function ChatsPanel() {
           )}
         </div>
       ) : history.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
-          <div className="w-10 h-10 rounded-xl bg-bg-tertiary flex items-center justify-center">
-            <LogoIcon size={20} className="text-text-tertiary" />
+        <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+          <div className="w-10 h-10 rounded-xl bg-surface-2 border border-line flex items-center justify-center text-fg-subtle">
+            <MessageIcon size={18} />
           </div>
-          <div className="text-xs text-text-tertiary">No conversations yet</div>
-          <div className="text-[10px] text-text-tertiary">Start chatting to see your history here</div>
+          <div className="text-[13px] text-fg-muted font-medium">No conversations yet</div>
+          <div className="text-2xs text-fg-subtle leading-relaxed">Your chats will appear here, grouped by day.</div>
         </div>
       ) : (
-        <div className="space-y-2 px-2 pb-2">
+        <div className="px-1.5 pb-3">
           {pinned.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1 text-xs text-text-tertiary px-2 py-1 uppercase tracking-wide">
+            <section>
+              <GroupLabel>
                 <PinIcon size={10} /> Pinned
-              </div>
-              <div className="space-y-0.5">
+              </GroupLabel>
+              <div className="space-y-px">
                 {pinned.map(session => <SessionRow key={session.id} session={session} />)}
               </div>
-            </div>
+            </section>
           )}
           {groups.map(group => (
-            <div key={group.label}>
-              <div className="text-xs text-text-tertiary px-2 py-1 uppercase tracking-wide">{group.label}</div>
-              <div className="space-y-0.5">
+            <section key={group.label}>
+              <GroupLabel>{group.label}</GroupLabel>
+              <div className="space-y-px">
                 {group.sessions.map(session => <SessionRow key={session.id} session={session} />)}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}
@@ -223,10 +219,18 @@ function ChatsPanel() {
 }
 
 export function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chats");
+  const [resizing, setResizing] = useState(false);
+  const sidebarOpen = isSidebarOpen.value;
   const docCount = readableDocumentCount.value;
-  const hasSession = chatHistory.value.some(s => s.id === activeSessionId.value);
+  const session = chatHistory.value.find(s => s.id === activeSessionId.value);
+  const framed = !isMaximized.value && !isFullscreen.value;
+
+  const tabs: { id: SidebarTab; label: string; icon: preact.ComponentChild; count: number }[] = [
+    { id: "chats", label: "Chats", icon: <MessageIcon size={14} />, count: chatHistory.value.length },
+    { id: "folders", label: "Folders", icon: <FolderIcon size={14} />, count: chatFolders.value.length },
+    { id: "docs", label: "Docs", icon: <BookIcon size={14} />, count: documents.value.length },
+  ];
 
   const handleNewChat = () => {
     startNewChat();
@@ -234,197 +238,166 @@ export function Dashboard() {
     requestComposerFocus();
   };
 
-  const emptyState = (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center max-w-lg">
-        <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-accent-primary/10 flex items-center justify-center">
-          <LogoIcon size={36} className="text-accent-primary" />
-        </div>
-        <h2 className="text-2xl font-bold text-text-primary mb-2">Welcome to OmniRecall</h2>
-        <p className="text-text-secondary text-sm mb-6 leading-relaxed">
-          {docCount > 0
-            ? `${docCount} document${docCount > 1 ? "s" : ""} loaded and ready. Ask questions about your documents or start a general conversation.`
-            : "Ask anything, or add documents to get answers grounded in your own files."}
-        </p>
+  // Ctrl+B toggles the sidebar, as in most editors.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+        e.preventDefault();
+        setSidebarOpen(!isSidebarOpen.value);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-        <div className="grid grid-cols-2 gap-2 mb-6 text-left">
-          {QUICK_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => {
-                currentQuery.value = `${prompt}: `;
-                requestComposerFocus();
-              }}
-              className="px-3 py-2.5 rounded-lg border border-border bg-bg-secondary hover:bg-bg-tertiary hover:border-accent-primary/30 transition-colors text-left text-sm text-text-secondary hover:text-text-primary"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-center gap-3">
-          {docCount === 0 && (
-            <button
-              onClick={() => void pickAndAddDocuments()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-accent-primary text-on-accent hover:bg-accent-primary/90 transition-colors text-sm font-medium"
-            >
-              <FolderIcon size={16} />
-              Add Documents
-            </button>
-          )}
-          <button
-            onClick={() => (isCommandPaletteOpen.value = true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border hover:bg-bg-tertiary transition-colors text-sm text-text-secondary"
-          >
-            <CommandIcon size={16} />
-            Commands
-            <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs ml-1">Ctrl+K</kbd>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const titleBarDrag = (e: MouseEvent) => handleTitleBarMouseDown(e, () => void toggleMaximize());
 
   return (
-    <div className="h-full w-full flex bg-bg-primary">
+    <div
+      className={`relative h-full w-full flex overflow-hidden bg-canvas text-fg ${
+        framed ? "rounded-[10px] border border-line-strong" : ""
+      }`}
+    >
       {/* Sidebar. `inert` keeps the collapsed sidebar out of the tab order. */}
       <aside
         aria-label="Chats, folders and documents"
         aria-hidden={!sidebarOpen}
         inert={!sidebarOpen}
-        className={`${sidebarOpen ? "w-72" : "w-0 border-r-0"} flex-shrink-0 transition-[width] duration-200 ease-out overflow-hidden border-r border-border bg-bg-secondary flex flex-col`}
+        style={{ width: sidebarOpen ? sidebarWidth.value : 0 }}
+        className={`relative flex-shrink-0 bg-surface border-r border-line ${sidebarOpen ? "" : "border-r-0"} ${
+          resizing ? "" : "transition-[width] duration-200 ease-out"
+        }`}
       >
-        <div className="w-72 flex flex-col h-full">
-          <div className="p-3 border-b border-border space-y-2">
-            <button
-              onClick={handleNewChat}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-accent-primary text-on-accent text-sm hover:bg-accent-primary/90 transition-colors"
-              title="New Chat (Ctrl+N)"
-            >
-              <PlusIcon size={16} />
-              <span>New Chat</span>
-              <kbd className="ml-auto px-1.5 py-0.5 bg-black/15 rounded text-[10px] font-mono">Ctrl+N</kbd>
-            </button>
-
-            <div className="flex rounded-lg overflow-hidden border border-border" role="tablist" aria-label="Sidebar">
-              {SIDEBAR_TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  id={`sidebar-tab-${tab.id}`}
-                  aria-selected={sidebarTab === tab.id}
-                  aria-controls="sidebar-panel"
-                  onClick={() => setSidebarTab(tab.id)}
-                  className={`flex-1 px-2 py-1.5 text-xs transition-colors ${
-                    sidebarTab === tab.id
-                      ? "bg-accent-primary/10 text-accent-primary"
-                      : "text-text-secondary hover:bg-bg-tertiary"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="h-full flex flex-col" style={{ width: sidebarWidth.value }}>
+            <div className={`${TITLE_BAR} flex items-center gap-2 pl-3 pr-1.5 flex-shrink-0 select-none`} onMouseDown={titleBarDrag}>
+              <LogoMark size={22} />
+              <span className="text-[13px] font-semibold tracking-[-0.01em]">OmniRecall</span>
+              <div className="flex-1 self-stretch" />
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="icon-btn"
+                aria-label="Close sidebar"
+                title="Close sidebar (Ctrl+B)"
+              >
+                <MenuIcon size={15} />
+              </button>
             </div>
-          </div>
 
-          <div
-            id="sidebar-panel"
-            role="tabpanel"
-            aria-labelledby={`sidebar-tab-${sidebarTab}`}
-            className="flex-1 overflow-y-auto"
-          >
-            {sidebarTab === "chats" && <ChatsPanel />}
-            {sidebarTab === "folders" && <FolderManager />}
-            {sidebarTab === "docs" && <DocumentsPanel />}
-          </div>
+            <div className="px-2.5 pb-2 flex-shrink-0">
+              <button
+                onClick={handleNewChat}
+                className="group w-full flex items-center gap-2 h-9 px-2.5 rounded-xl border border-line bg-canvas/60 hover:bg-surface-2 hover:border-line-strong text-[13px] font-medium text-fg transition-colors"
+                title="New chat (Ctrl+N)"
+              >
+                <NewChatIcon size={15} className="text-accent" />
+                New chat
+                <span className="ml-auto flex gap-0.5 opacity-70 group-hover:opacity-100">
+                  <span className="kbd">Ctrl</span>
+                  <span className="kbd">N</span>
+                </span>
+              </button>
+            </div>
 
-          <div className="p-2 border-t border-border">
-            <button
-              onClick={() => (isCommandPaletteOpen.value = true)}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-bg-tertiary text-text-tertiary text-xs"
-            >
-              <div className="flex items-center gap-2">
-                <CommandIcon size={12} />
-                <span>Command Palette</span>
+            <div className="px-2.5 pb-2 flex-shrink-0">
+              <div className="grid grid-cols-3 p-0.5 rounded-lg bg-canvas/70 border border-line" role="tablist" aria-label="Sidebar">
+                {tabs.map(tab => {
+                  const selected = sidebarTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      role="tab"
+                      id={`sidebar-tab-${tab.id}`}
+                      aria-selected={selected}
+                      aria-controls="sidebar-panel"
+                      onClick={() => setSidebarTab(tab.id)}
+                      className={`flex items-center justify-center gap-1.5 h-7 rounded-md text-xs font-medium transition-all ${
+                        selected ? "bg-surface-3 text-fg shadow-soft" : "text-fg-subtle hover:text-fg-muted"
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-xs">Ctrl+K</kbd>
-            </button>
+            </div>
+
+            <div id="sidebar-panel" role="tabpanel" aria-labelledby={`sidebar-tab-${sidebarTab}`} className="flex-1 min-h-0 overflow-y-auto">
+              {sidebarTab === "chats" && <ChatsPanel />}
+              {sidebarTab === "folders" && <FolderManager />}
+              {sidebarTab === "docs" && <DocumentsPanel />}
+            </div>
+
+            <div className="flex items-center gap-1 p-2 border-t border-line flex-shrink-0">
+              <button onClick={() => (isSettingsOpen.value = true)} className="btn btn-ghost flex-1 justify-start px-2" title="Settings (Ctrl+,)">
+                <SettingsIcon size={15} />
+                Settings
+              </button>
+              <button onClick={() => (isCommandPaletteOpen.value = true)} className="icon-btn" title="Command palette (Ctrl+K)" aria-label="Command palette">
+                <CommandIcon size={15} />
+              </button>
+              <button onClick={() => (isShortcutsHelpOpen.value = true)} className="icon-btn" title="Keyboard shortcuts (Ctrl+/)" aria-label="Keyboard shortcuts">
+                <KeyboardIcon size={15} />
+              </button>
+            </div>
           </div>
         </div>
+        {sidebarOpen && <SidebarResizer onDragging={setResizing} />}
       </aside>
 
-      {/* Main Content */}
+      {/* Conversation */}
       <main className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-secondary drag-region">
-          <div className="flex items-center gap-2 no-drag min-w-0">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={headerButton}
-              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-              aria-expanded={sidebarOpen}
-              title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-              <MenuIcon size={18} />
-            </button>
-            <LogoIcon size={22} className="text-accent-primary flex-shrink-0" />
-            <span className="hidden lg:inline font-semibold text-text-primary">OmniRecall</span>
-            <div className="lg:ml-2">
-              <ModelSelector />
-            </div>
-            {currentMessages.value.length > 0 && <TokenCounter />}
-            <DocsToggle compact={false} />
-            {!isOnline.value && (
-              <span
-                className="px-2 py-1 rounded-lg bg-warning/15 text-warning text-xs font-medium"
-                title="No internet connection — only local Ollama models will work"
-              >
-                Offline
+        <header
+          className={`${TITLE_BAR} flex items-center gap-1 pl-2 flex-shrink-0 select-none`}
+          onMouseDown={titleBarDrag}
+        >
+          {!sidebarOpen && (
+            <>
+              <button onClick={() => setSidebarOpen(true)} className="icon-btn" aria-label="Open sidebar" title="Open sidebar (Ctrl+B)">
+                <MenuIcon size={15} />
+              </button>
+              <button onClick={handleNewChat} className="icon-btn" aria-label="New chat" title="New chat (Ctrl+N)">
+                <NewChatIcon size={15} />
+              </button>
+              <div className="w-px h-4 bg-line mx-1" />
+            </>
+          )}
+          <ModelSelector />
+
+          {/* Title: also part of the drag area. */}
+          <div className="flex-1 min-w-0 self-stretch flex items-center justify-center px-3">
+            {session && currentMessages.value.length > 0 && (
+              <span className="truncate text-xs text-fg-subtle max-w-[420px]" title={session.title}>
+                {session.title}
               </span>
             )}
           </div>
 
-          <DragRegion className="h-full" />
-
-          <div className="flex items-center gap-0.5 no-drag flex-shrink-0">
-            {hasSession && (
-              <button
-                onClick={() => (exportDialog.value = "export")}
-                className={headerButton}
-                title="Export chat"
-                aria-label="Export chat"
-              >
-                <DownloadIcon size={18} />
+          <div className="flex items-center gap-0.5 pr-1">
+            {currentMessages.value.length > 0 && <TokenCounter showLabel />}
+            {session && (
+              <button onClick={() => (exportDialog.value = "export")} className="icon-btn" title="Export chat" aria-label="Export chat">
+                <DownloadIcon size={15} />
               </button>
             )}
             <button
-              onClick={() => (isSettingsOpen.value = true)}
-              className={headerButton}
-              title="Settings (Ctrl+,)"
-              aria-label="Settings"
-            >
-              <SettingsIcon size={18} />
-            </button>
-            <button
               onClick={() => void setDashboardMode(false)}
-              className={headerButton}
-              title="Back to compact Spotlight view"
-              aria-label="Back to compact Spotlight view"
+              className="icon-btn"
+              title="Compact view (Spotlight)"
+              aria-label="Switch to compact Spotlight view"
             >
-              <CollapseIcon size={16} />
+              <CollapseIcon size={15} />
             </button>
-
-            <div className="ml-1 border-l border-border pl-1">
-              <WindowControls isMaximized={isMaximized.value} />
-            </div>
           </div>
-        </div>
+          <div className="w-px h-4 bg-line" />
+          <WindowControls isMaximized={isMaximized.value} />
+        </header>
 
-        <MessageList compact={false} emptyState={emptyState} />
+        <MessageList compact={false} emptyState={<EmptyState compact={false} />} />
         <ChatErrorBanner compact={false} />
-        <ChatComposer
-          compact={false}
-          placeholder={docCount > 0 ? "Ask about your documents..." : "Type your message..."}
-        />
+        <ChatComposer compact={false} placeholder={docCount > 0 ? "Ask about your documents…" : "Message OmniRecall…"} />
       </main>
     </div>
   );

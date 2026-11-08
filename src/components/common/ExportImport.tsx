@@ -126,28 +126,27 @@ export function ExportImport() {
     };
 
     const tabClass = (active: boolean) =>
-        `px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${
-            active ? "bg-accent-primary text-on-accent" : "bg-bg-secondary text-text-secondary hover:bg-bg-tertiary"
+        `h-7 px-3 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all ${
+            active ? "bg-surface-3 text-fg shadow-soft" : "text-fg-subtle hover:text-fg-muted"
         }`;
     const choiceClass = (active: boolean) =>
-        `px-3 py-1.5 rounded-lg border text-xs transition-colors ${
-            active
-                ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                : "border-border text-text-secondary hover:bg-bg-tertiary"
+        `h-8 px-3 rounded-lg border text-xs font-medium transition-colors ${
+            active ? "border-accent/50 bg-accent/10 text-accent" : "border-line text-fg-muted hover:bg-surface-2 hover:text-fg"
         }`;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" onClick={close}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3" onClick={close}>
+            <div className="scrim absolute inset-0" />
             <div
                 ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Export or import chats"
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-lg max-h-[90vh] flex flex-col bg-bg-primary border border-border rounded-xl shadow-2xl overflow-hidden animate-scale-in"
+                className="dialog relative w-full max-w-lg max-h-[90vh] flex flex-col"
             >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                    <div className="flex rounded-lg overflow-hidden border border-border" role="tablist" aria-label="Export or import">
+                <div className="flex items-center justify-between px-4 h-14 border-b border-line">
+                    <div className="flex p-0.5 rounded-lg bg-canvas/70 border border-line" role="tablist" aria-label="Export or import">
                         <button role="tab" aria-selected={mode === "export"} onClick={() => (exportDialog.value = "export")} className={tabClass(mode === "export")}>
                             <DownloadIcon size={14} />
                             Export
@@ -157,21 +156,17 @@ export function ExportImport() {
                             Import
                         </button>
                     </div>
-                    <button
-                        onClick={close}
-                        className="p-1.5 hover:bg-bg-tertiary rounded text-text-tertiary hover:text-text-primary"
-                        aria-label="Close"
-                    >
+                    <button onClick={close} className="icon-btn" aria-label="Close">
                         <CloseIcon size={16} />
                     </button>
                 </div>
 
-                <div className="p-4 overflow-y-auto">
+                <div className="p-5 overflow-y-auto">
                     {mode === "export" ? (
                         session ? (
                             <div className="space-y-4">
                                 <div>
-                                    <div className="text-sm text-text-secondary mb-2">Format</div>
+                                    <div className="section-label mb-2">Format</div>
                                     <div className="flex gap-2" role="radiogroup" aria-label="Export format">
                                         <button role="radio" aria-checked={format === "md"} onClick={() => setFormat("md")} className={choiceClass(format === "md")}>
                                             Markdown (readable)
@@ -184,7 +179,7 @@ export function ExportImport() {
 
                                 {branches.length > 1 && (
                                     <div>
-                                        <div className="text-sm text-text-secondary mb-2 flex items-center gap-1.5">
+                                        <div className="section-label mb-2 flex items-center gap-1.5">
                                             <BranchIcon size={12} />
                                             Branch
                                         </div>
@@ -208,8 +203,8 @@ export function ExportImport() {
                                 )}
 
                                 <div>
-                                    <div className="text-sm text-text-secondary mb-2">Preview</div>
-                                    <pre className="p-3 bg-bg-secondary rounded-lg border border-border text-xs text-text-secondary max-h-48 overflow-auto font-mono whitespace-pre-wrap break-words">
+                                    <div className="section-label mb-2">Preview</div>
+                                    <pre className="p-3 bg-canvas rounded-xl border border-line text-xs text-fg-muted max-h-48 overflow-auto font-mono whitespace-pre-wrap break-words">
                                         {content.slice(0, PREVIEW_CHARS)}
                                         {content.length > PREVIEW_CHARS && "\n…"}
                                     </pre>
@@ -218,13 +213,13 @@ export function ExportImport() {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => void handleCopy()}
-                                        className="flex-1 px-4 py-2 rounded-lg text-sm border border-border text-text-secondary hover:bg-bg-tertiary transition-colors"
+                                        className="btn btn-secondary flex-1 h-9"
                                     >
                                         {copied ? "Copied!" : "Copy"}
                                     </button>
                                     <button
                                         onClick={() => void handleSave()}
-                                        className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-accent-primary text-on-accent hover:bg-accent-primary/90 transition-colors"
+                                        className="btn btn-primary flex-1 h-9"
                                     >
                                         Save as…
                                     </button>
@@ -236,7 +231,7 @@ export function ExportImport() {
                                 {chatHistory.value.length > 0 && (
                                     <button
                                         onClick={() => void exportAllChats()}
-                                        className="mt-4 px-4 py-2 rounded-lg text-sm font-medium bg-accent-primary text-on-accent hover:bg-accent-primary/90 transition-colors"
+                                        className="btn btn-primary mt-4"
                                     >
                                         Export all {chatHistory.value.length} chats
                                     </button>
@@ -251,7 +246,7 @@ export function ExportImport() {
                                 </label>
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-xs bg-bg-secondary border border-border rounded hover:bg-bg-tertiary text-text-secondary"
+                                    className="btn btn-sm btn-secondary flex-shrink-0"
                                 >
                                     <UploadIcon size={12} />
                                     Choose file…
@@ -274,7 +269,7 @@ export function ExportImport() {
                                     setImportError(null);
                                 }}
                                 placeholder='{"title": "...", "messages": [...]}'
-                                className="w-full h-40 px-3 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary text-xs font-mono resize-none outline-none focus:border-accent-primary"
+                                className="field h-40 font-mono text-xs resize-none"
                             />
 
                             {importError && (
@@ -289,11 +284,7 @@ export function ExportImport() {
                             <button
                                 onClick={handleImport}
                                 disabled={!importText.trim()}
-                                className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    importText.trim()
-                                        ? "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-                                        : "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                                }`}
+                                className="btn btn-primary w-full h-9"
                             >
                                 Import
                             </button>

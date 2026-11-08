@@ -4,7 +4,7 @@ import {
   readableDocumentCount,
   setDocsEnabled,
 } from "../../stores/appStore";
-import { DocumentIcon } from "../icons";
+import { BookIcon } from "../icons";
 
 const MODE_HINT: Record<string, string> = {
   full: "sent in full",
@@ -12,8 +12,8 @@ const MODE_HINT: Record<string, string> = {
   truncated: "too large to send whole and not indexed, so only the beginning of each is sent",
 };
 
-/// Header chip showing how many documents are attached, and the switch for
-/// whether this chat uses them.
+/// Chip showing how many documents are attached, and the switch for whether
+/// this chat uses them. Hidden when there are no readable documents.
 export function DocsToggle({ compact }: { compact: boolean }) {
   const count = readableDocumentCount.value;
   if (count === 0) return null;
@@ -31,16 +31,14 @@ export function DocsToggle({ compact }: { compact: boolean }) {
       aria-pressed={enabled}
       aria-label={title}
       title={title}
-      className={`flex items-center gap-1 flex-shrink-0 whitespace-nowrap rounded transition-colors ${
-        compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-xs rounded-lg"
-      } ${
+      className={`inline-flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap rounded-full h-7 px-2.5 text-xs font-medium border transition-colors ${
         enabled
-          ? "bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20"
-          : "bg-bg-tertiary text-text-tertiary line-through hover:text-text-secondary"
+          ? "bg-accent/12 border-accent/25 text-accent hover:bg-accent/20"
+          : "bg-transparent border-line text-fg-subtle hover:text-fg-muted hover:border-line-strong"
       }`}
     >
-      <DocumentIcon size={compact ? 12 : 14} />
-      <span>{compact ? count : label}</span>
+      <BookIcon size={13} />
+      <span className={enabled ? "" : "line-through decoration-1"}>{compact ? count : label}</span>
     </button>
   );
 }

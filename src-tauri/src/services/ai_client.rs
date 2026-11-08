@@ -310,9 +310,11 @@ fn gemini_body(request: &ChatRequest<'_>) -> Value {
     }
     contents.push(json!({ "role": "user", "parts": [{ "text": request.message }] }));
 
+    // Sampling is left at the provider default: Google recommends the default
+    // temperature for Gemini 3 and later, where lower values can cause looping.
     let mut body = json!({
         "contents": contents,
-        "generationConfig": { "temperature": 0.7, "maxOutputTokens": 8192 },
+        "generationConfig": { "maxOutputTokens": gemini_max_output_tokens(request.model) },
     });
     if let Some(system) = request.system {
         body["systemInstruction"] = json!({ "parts": [{ "text": system }] });
@@ -320,20 +322,42 @@ fn gemini_body(request: &ChatRequest<'_>) -> Value {
     body
 }
 
+/// OpenAI-compatible body (OpenAI and Z.ai GLM). No `temperature`: reasoning
+/// models (GPT-5 and later, o-series, GLM-5) reject anything but the default.
 fn openai_body(request: &ChatRequest<'_>) -> Value {
     let system = request.system.unwrap_or(DEFAULT_SYSTEM_PROMPT);
     json!({
         "model": request.model,
         "messages": role_messages(request, Some(system)),
-        "temperature": 0.7,
         "stream": true,
     })
+}
+
+/// Output budget for a Gemini model. Gemini 1.x and 2.0 cap output at 8K
+/// and reject larger values; later models allow 64K.
+fn gemini_max_output_tokens(model: &str) -> u32 {
+    if model.starts_with("gemini-1") || model.starts_with("gemini-2.0") {
+        8_192
+    } else {
+        32_768
+    }
+}
+
+/// Output budget for a Claude model. Current models allow up to 128K (the
+/// request streams, so a large budget can't time out); Claude 3.x models
+/// other than 3.7 reject anything above 4K.
+fn anthropic_max_tokens(model: &str) -> u32 {
+    if model.starts_with("claude-3-") && !model.starts_with("claude-3-7") {
+        4_096
+    } else {
+        32_000
+    }
 }
 
 fn anthropic_body(request: &ChatRequest<'_>) -> Value {
     let mut body = json!({
         "model": request.model,
-        "max_tokens": 4096,
+        "max_tokens": anthropic_max_tokens(request.model),
         "messages": role_messages(request, None),
         "stream": true,
     });
@@ -455,6 +479,21 @@ mod tests {
         assert_eq!(body["system"], "be brief");
         assert_eq!(body["messages"][0]["role"], "user");
         assert!(anthropic_body(&request(&[], None)).get("system").is_none());
+    }
+
+    #[test]
+    fn no_custom_sampling_parameters() {
+        assert!(openai_body(&request(&[], None)).get("temperature").is_none());
+        assert!(gemini_body(&request(&[], None))["generationConfig"].get("temperature").is_none());
+    }
+
+    #[test]
+    fn output_budgets_fit_the_model() {
+        assert_eq!(anthropic_max_tokens("claude-opus-5-5"), 32_000);
+        assert_eq!(anthropic_max_tokens("claude-3-7-sonnet-latest"), 32_000);
+        assert_eq!(anthropic_max_tokens("claude-3-5-haiku-20241022"), 4_096);
+        assert_eq!(gemini_max_output_tokens("gemini-4-argon"), 32_768);
+        assert_eq!(gemini_max_output_tokens("gemini-2.0-flash"), 8_192);
     }
 
     #[test]

@@ -1,3 +1,4 @@
+import { ComponentChild } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { invoke } from "@tauri-apps/api/core";
 import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from "@tauri-apps/plugin-autostart";
@@ -6,6 +7,7 @@ import {
   chatHistory,
   exportDialog,
   formatHotkey,
+  getProviderModels,
   globalHotkey,
   holdWindowOpen,
   hotkeyError,
@@ -31,35 +33,55 @@ import { confirmAction } from "../../stores/confirmStore";
 import { toast } from "../../stores/toastStore";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { errorMessage } from "../../lib/errors";
-import { AlertIcon, CheckIcon, CloseIcon, EyeIcon, EyeOffIcon, KeyIcon, SpinnerIcon } from "../icons";
+import { providerMeta } from "../../lib/models";
+import {
+  AlertIcon,
+  CheckIcon,
+  CloseIcon,
+  CodeIcon,
+  DownloadIcon,
+  EyeIcon,
+  EyeOffIcon,
+  KeyboardIcon,
+  KeyIcon,
+  PaletteIcon,
+  ShieldIcon,
+  SlidersIcon,
+  SpinnerIcon,
+  TrashIcon,
+  UploadIcon,
+} from "../icons";
 import { exportAllChats } from "../common/ExportImport";
+import { ProviderTile } from "../common/ProviderTile";
 import { RagDebugPanel } from "../common/RagDebugPanel";
 import { focusOnMount } from "../../lib/dom";
 
-const TABS: { id: SettingsTab; label: string; shortLabel: string; dashboardOnly?: boolean }[] = [
-  { id: "providers", label: "AI Providers", shortLabel: "AI" },
-  { id: "appearance", label: "Appearance", shortLabel: "Theme" },
-  { id: "behavior", label: "Behavior", shortLabel: "Behavior" },
-  { id: "shortcuts", label: "Shortcuts", shortLabel: "Keys" },
-  { id: "privacy", label: "Privacy & Data", shortLabel: "Data" },
-  { id: "developer", label: "Developer", shortLabel: "Dev", dashboardOnly: true },
+const TABS: { id: SettingsTab; label: string; description: string; icon: ComponentChild; dashboardOnly?: boolean }[] = [
+  { id: "providers", label: "AI providers", description: "Keys stay on this device, in your operating system's credential manager.", icon: <KeyIcon size={15} /> },
+  { id: "appearance", label: "Appearance", description: "Pick the look that suits your desk.", icon: <PaletteIcon size={15} /> },
+  { id: "behavior", label: "Behavior", description: "How OmniRecall starts and how it talks to you.", icon: <SlidersIcon size={15} /> },
+  { id: "shortcuts", label: "Shortcuts", description: "The global shortcut that shows and hides OmniRecall.", icon: <KeyboardIcon size={15} /> },
+  { id: "privacy", label: "Privacy & data", description: "Everything is stored locally. Messages go only to the provider you choose.", icon: <ShieldIcon size={15} /> },
+  { id: "developer", label: "Developer", description: "Inspect the document search index.", icon: <CodeIcon size={15} />, dashboardOnly: true },
 ];
 
-const THEMES: { id: Theme; label: string; desc: string; color: string }[] = [
-  { id: "dark", label: "Dark", desc: "Easy on the eyes", color: "#0d0d0f" },
-  { id: "light", label: "Light", desc: "Bright and clean", color: "#ffffff" },
-  { id: "transparent", label: "Glass", desc: "Transparent blur", color: "#1a1a1f" },
-  { id: "paper", label: "Paper", desc: "Warm cream tones", color: "#faf8f5" },
-  { id: "rose", label: "Rose", desc: "Soft pink accent", color: "#f472b6" },
-  { id: "ocean", label: "Ocean", desc: "Deep blue vibes", color: "#38bdf8" },
-];
+interface ThemePreview {
+  bg: string;
+  surface: string;
+  bubble: string;
+  accent: string;
+  line: string;
+  fg: string;
+}
 
-const PROVIDER_KEY_URLS: Record<string, string> = {
-  gemini: "https://aistudio.google.com/apikey",
-  openai: "https://platform.openai.com/api-keys",
-  anthropic: "https://console.anthropic.com/",
-  glm: "https://api.z.ai/",
-};
+const THEMES: { id: Theme; label: string; desc: string; preview: ThemePreview }[] = [
+  { id: "dark", label: "Graphite", desc: "Quiet near-black", preview: { bg: "#0c0c0e", surface: "#131316", bubble: "#1b1b1f", accent: "#9391ff", line: "#ffffff14", fg: "#ededef" } },
+  { id: "light", label: "Porcelain", desc: "Crisp and bright", preview: { bg: "#f8f8f7", surface: "#ffffff", bubble: "#f1f1ef", accent: "#4f46e5", line: "#18181b17", fg: "#18181b" } },
+  { id: "transparent", label: "Glass", desc: "See-through panels", preview: { bg: "linear-gradient(135deg,#3b2f6b,#123d4a)", surface: "#1a1a20aa", bubble: "#ffffff18", accent: "#a9b6ff", line: "#ffffff22", fg: "#f4f4f5" } },
+  { id: "paper", label: "Paper", desc: "Warm and editorial", preview: { bg: "#f6f2eb", surface: "#fbf8f3", bubble: "#eee8de", accent: "#b14f27", line: "#402a121f", fg: "#211c16" } },
+  { id: "rose", label: "Dusk", desc: "Plum night, rose light", preview: { bg: "#130f16", surface: "#1a151e", bubble: "#231d28", accent: "#f5a8c8", line: "#ffe1ff14", fg: "#f6eff7" } },
+  { id: "ocean", label: "Tide", desc: "Deep sea, aqua glow", preview: { bg: "#091018", surface: "#0e1720", bubble: "#14202b", accent: "#5eead4", line: "#a5dcff14", fg: "#e7f0f5" } },
+];
 
 const DEFAULT_OLLAMA_URL = "http://localhost:11434";
 /// Typing pauses this long before the key is written to the credential store.
@@ -80,117 +102,129 @@ export function Settings() {
 
   const tabs = TABS.filter(tab => !(compact && tab.dashboardOnly));
   const activeTab = tabs.some(tab => tab.id === settingsTab.value) ? settingsTab.value : "providers";
+  const active = tabs.find(tab => tab.id === activeTab)!;
   const close = () => {
     isSettingsOpen.value = false;
   };
 
-  const tabButtons = tabs.map((tab) => (
-    <button
-      key={tab.id}
-      role="tab"
-      id={`settings-tab-${tab.id}`}
-      aria-selected={activeTab === tab.id}
-      aria-controls="settings-panel"
-      onClick={() => (settingsTab.value = tab.id)}
-      className={
-        compact
-          ? `flex-1 min-w-[56px] px-2 py-2 text-xs font-medium transition-colors border-b-2 ${
-              activeTab === tab.id
-                ? "text-accent-primary border-accent-primary"
-                : "text-text-secondary border-transparent hover:text-text-primary"
-            }`
-          : `w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-              activeTab === tab.id
-                ? "bg-accent-primary/10 text-accent-primary"
-                : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-            }`
-      }
-    >
-      {compact ? tab.shortLabel : tab.label}
-    </button>
-  ));
-
   const panel = (
-    <div id="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${activeTab}`} className={compact ? "p-3" : "flex-1 overflow-y-auto p-4"}>
-      {activeTab === "providers" && <ProvidersTab compact={compact} />}
+    <div id="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${activeTab}`} className="animate-fade" key={activeTab}>
+      {activeTab === "providers" && <ProvidersTab />}
       {activeTab === "appearance" && <AppearanceTab compact={compact} />}
-      {activeTab === "behavior" && <BehaviorTab compact={compact} />}
-      {activeTab === "shortcuts" && <ShortcutsTab compact={compact} />}
-      {activeTab === "privacy" && <PrivacyTab compact={compact} />}
-      {activeTab === "developer" && <DeveloperTab />}
+      {activeTab === "behavior" && <BehaviorTab />}
+      {activeTab === "shortcuts" && <ShortcutsTab />}
+      {activeTab === "privacy" && <PrivacyTab />}
+      {activeTab === "developer" && <RagDebugPanel />}
     </div>
   );
 
-  return (
-    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center p-2" role="dialog" aria-modal="true" aria-label="Settings">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={close} />
-      <div
-        className={`relative w-full bg-bg-primary rounded-xl border border-border shadow-2xl overflow-hidden animate-fade-in ${
-          compact ? "max-w-sm max-h-[90vh]" : "max-w-2xl max-h-[85vh]"
-        }`}
-      >
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-bg-secondary">
-          <h2 className={`font-semibold text-text-primary ${compact ? "text-sm" : "text-base"}`}>Settings</h2>
-          <button
-            onClick={close}
-            className="p-1 rounded-lg hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-text-primary"
-            aria-label="Close settings"
-          >
-            <CloseIcon size={16} />
-          </button>
+  if (compact) {
+    return (
+      <div ref={dialogRef} className="fixed inset-0 z-50 p-2" role="dialog" aria-modal="true" aria-label="Settings">
+        <div className="scrim absolute inset-2 rounded-[18px]" onClick={close} />
+        <div className="relative h-full flex flex-col bg-overlay rounded-[18px] border border-line-strong shadow-pop overflow-hidden animate-pop-in">
+          <div className="flex items-center justify-between h-12 pl-4 pr-2 flex-shrink-0">
+            <h2 className="text-[15px] font-semibold">Settings</h2>
+            <button onClick={close} className="icon-btn" aria-label="Close settings">
+              <CloseIcon size={16} />
+            </button>
+          </div>
+          <div className="flex gap-1 px-3 pb-2 overflow-x-auto flex-shrink-0 [scrollbar-width:none]" role="tablist" aria-label="Settings sections">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                role="tab"
+                id={`settings-tab-${tab.id}`}
+                aria-selected={activeTab === tab.id}
+                aria-controls="settings-panel"
+                onClick={() => (settingsTab.value = tab.id)}
+                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  activeTab === tab.id ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg-muted hover:text-fg"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 pb-4 border-t border-line pt-3">{panel}</div>
         </div>
+      </div>
+    );
+  }
 
-        {compact ? (
-          <div className="overflow-y-auto max-h-[calc(90vh-50px)]">
-            <div className="flex border-b border-border overflow-x-auto" role="tablist" aria-label="Settings sections">
-              {tabButtons}
-            </div>
-            {panel}
+  return (
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label="Settings">
+      <div className="scrim absolute inset-0" onClick={close} />
+      <div className="dialog relative w-full max-w-[860px] h-[min(660px,calc(100vh-48px))] flex">
+        <nav className="w-56 flex-shrink-0 bg-surface border-r border-line p-3 flex flex-col" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
+          <h2 className="px-2 pt-1 pb-4 text-[15px] font-semibold">Settings</h2>
+          <div className="space-y-0.5">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                role="tab"
+                id={`settings-tab-${tab.id}`}
+                aria-selected={activeTab === tab.id}
+                aria-controls="settings-panel"
+                onClick={() => (settingsTab.value = tab.id)}
+                className={`w-full flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13px] text-left transition-colors ${
+                  activeTab === tab.id ? "bg-surface-3 text-fg font-medium" : "text-fg-muted hover:bg-surface-2 hover:text-fg"
+                }`}
+              >
+                <span className={activeTab === tab.id ? "text-accent" : "text-fg-subtle"}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
           </div>
-        ) : (
-          <div className="flex h-[calc(85vh-50px)]">
-            <div className="w-40 bg-bg-secondary border-r border-border p-2 space-y-1" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
-              {tabButtons}
+          <div className="mt-auto px-2 text-2xs text-fg-subtle">OmniRecall · local-first</div>
+        </nav>
+
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex items-start justify-between gap-4 px-7 pt-6 pb-4 flex-shrink-0">
+            <div>
+              <h3 className="text-lg font-semibold tracking-[-0.01em]">{active.label}</h3>
+              <p className="text-[13px] text-fg-muted mt-0.5">{active.description}</p>
             </div>
-            {panel}
+            <button onClick={close} className="icon-btn -mr-2 -mt-1" aria-label="Close settings">
+              <CloseIcon size={16} />
+            </button>
           </div>
-        )}
+          <div className="flex-1 overflow-y-auto px-7 pb-7">{panel}</div>
+        </div>
       </div>
     </div>
   );
 }
 
-function TabHeading({ title, description }: { title: string; description: string }) {
+/// A settings row: label and description on the left, control on the right.
+function Row({ title, description, children, id }: { title: string; description?: string; children: ComponentChild; id?: string }) {
   return (
-    <div>
-      <h3 className="text-base font-medium text-text-primary mb-1">{title}</h3>
-      <p className="text-xs text-text-secondary">{description}</p>
+    <div className="flex items-center justify-between gap-4 p-3.5 card">
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium text-fg" id={id}>{title}</div>
+        {description && <p className="text-xs text-fg-subtle mt-0.5 leading-relaxed">{description}</p>}
+      </div>
+      <div className="flex-shrink-0">{children}</div>
     </div>
   );
 }
 
-function ProvidersTab({ compact }: { compact: boolean }) {
+function ProvidersTab() {
   return (
-    <div className={compact ? "space-y-3" : "space-y-4"}>
-      {!compact && (
-        <TabHeading
-          title="AI Providers"
-          description="Add a key for any provider you use. Keys stay on this device, in your operating system's credential manager."
-        />
-      )}
-      <div className="space-y-3">
-        {providers.value.map((provider) => (
-          <ProviderCard key={provider.id} provider={provider} compact={compact} />
-        ))}
-      </div>
+    <div className="space-y-2.5">
+      {providers.value.map((provider) => (
+        <ProviderCard key={provider.id} provider={provider} />
+      ))}
     </div>
   );
 }
 
 type TestState = { status: "idle" } | { status: "testing" } | { status: "ok" } | { status: "error"; message: string };
 
-function ProviderCard({ provider, compact }: { provider: AIProvider; compact: boolean }) {
+function ProviderCard({ provider }: { provider: AIProvider }) {
   const isOllama = provider.id === "ollama";
+  const meta = providerMeta(provider.id);
   const [showKey, setShowKey] = useState(false);
   const [apiKey, setApiKey] = useState(provider.apiKey);
   const [baseUrl, setBaseUrl] = useState(provider.baseUrl ?? "");
@@ -245,108 +279,119 @@ function ProviderCard({ provider, compact }: { provider: AIProvider; compact: bo
   };
 
   const connected = provider.isConnected && test.status !== "error" && test.status !== "testing";
-  const inputClass = `w-full bg-bg-tertiary border border-border text-text-primary outline-none focus:border-accent-primary transition-colors ${
-    compact ? "px-2 py-1.5 rounded text-xs" : "px-3 py-2 rounded-lg text-sm"
-  }`;
-  const testClass = `rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5 flex-shrink-0 ${
-    compact ? "px-2.5 py-1.5 text-xs min-w-[56px]" : "px-4 py-2 text-sm min-w-[88px]"
-  } ${
-    test.status === "testing"
-      ? "bg-bg-tertiary text-text-tertiary"
-      : test.status === "error"
-      ? "bg-error/20 text-error border border-error/30"
-      : connected
-      ? "bg-success/20 text-success border border-success/30"
-      : !apiKey.trim() && !isOllama
-      ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-      : "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-  }`;
-  const testLabel =
-    test.status === "testing" ? "Testing" : test.status === "error" ? "Retry" : connected ? "Verified" : isOllama ? "Test connection" : "Test";
+  const canTest = test.status !== "testing" && (isOllama || apiKey.trim() !== "");
+  const status = test.status === "error"
+    ? { label: "Error", className: "bg-danger/12 text-danger" }
+    : connected
+    ? { label: "Connected", className: "bg-success/12 text-success" }
+    : provider.apiKey
+    ? { label: "Not verified", className: "bg-warning/12 text-warning" }
+    : { label: isOllama ? "Local" : "Not set up", className: "bg-surface-3 text-fg-subtle" };
 
   return (
-    <div
-      className={`bg-bg-secondary rounded-lg border transition-colors ${compact ? "p-2" : "p-3"} ${
-        test.status === "error" ? "border-error/30" : connected ? "border-success/30" : "border-border"
-      }`}
-    >
-      <div className={`flex items-center gap-2 ${compact ? "mb-2" : "mb-3"}`}>
-        {!compact && <KeyIcon size={16} className="text-text-secondary" />}
-        <span className={`font-medium text-text-primary ${compact ? "text-xs" : "text-sm"}`}>{provider.name}</span>
-        {connected && (
-          <span className="flex items-center gap-1 text-[10px] text-success">
-            <CheckIcon size={12} /> Connected
-          </span>
+    <div className={`card p-4 transition-colors ${test.status === "error" ? "border-danger/35" : connected ? "border-success/25" : ""}`}>
+      <div className="flex items-start gap-3">
+        <ProviderTile providerId={provider.id} size={32} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-medium">{provider.name}</span>
+            <span className={`inline-flex items-center gap-1 h-5 px-1.5 rounded-full text-[10px] font-medium ${status.className}`}>
+              {connected && <CheckIcon size={10} />}
+              {status.label}
+            </span>
+          </div>
+          <p className="text-xs text-fg-subtle mt-0.5 leading-relaxed">{meta.blurb}</p>
+        </div>
+        {meta.keyUrl && (
+          <a href={meta.keyUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline whitespace-nowrap mt-0.5">
+            Get a key ↗
+          </a>
         )}
       </div>
 
-      <div className={compact ? "space-y-1.5" : "space-y-2"}>
-        <div className="flex gap-2">
-          {isOllama ? (
-            <input
-              type="url"
-              value={baseUrl}
-              onInput={(e) => {
-                setBaseUrl((e.target as HTMLInputElement).value);
-                setTest({ status: "idle" });
-              }}
-              onBlur={saveBaseUrl}
-              placeholder={DEFAULT_OLLAMA_URL}
-              aria-label="Ollama server URL"
-              className={inputClass}
-            />
-          ) : (
-            <div className="relative flex-1 min-w-0">
-              <input
-                type={showKey ? "text" : "password"}
-                value={apiKey}
-                onInput={(e) => handleKeyInput((e.target as HTMLInputElement).value)}
-                onBlur={flushKey}
-                placeholder="Enter API key..."
-                aria-label={`${provider.name} API key`}
-                autocomplete="off"
-                spellcheck={false}
-                className={`${inputClass} pr-9`}
-              />
-              <button
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-text-tertiary hover:text-text-primary transition-colors"
-                aria-label={showKey ? "Hide API key" : "Show API key"}
-                aria-pressed={showKey}
-              >
-                {showKey ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => void handleTest()}
-            disabled={test.status === "testing" || (!apiKey.trim() && !isOllama)}
-            className={testClass}
-          >
-            {test.status === "testing" && <SpinnerIcon size={12} />}
-            {test.status === "error" && <AlertIcon size={12} />}
-            {connected && <CheckIcon size={12} />}
-            <span>{testLabel}</span>
-          </button>
-        </div>
-
-        <div aria-live="polite">
-          {test.status === "error" && <p className="selectable text-xs text-error">{test.message}</p>}
-          {test.status === "ok" && <p className="text-xs text-success">Connected. The model list was updated from your account.</p>}
-        </div>
-
+      <div className="flex gap-2 mt-3">
         {isOllama ? (
-          <p className="text-xs text-text-tertiary">Runs models on your own machine; no key needed. Chats use this address too.</p>
+          <input
+            type="url"
+            value={baseUrl}
+            onInput={(e) => {
+              setBaseUrl((e.target as HTMLInputElement).value);
+              setTest({ status: "idle" });
+            }}
+            onBlur={saveBaseUrl}
+            placeholder={DEFAULT_OLLAMA_URL}
+            aria-label="Ollama server URL"
+            className="field font-mono text-xs"
+          />
         ) : (
-          <a
-            href={PROVIDER_KEY_URLS[provider.id]}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-accent-primary hover:underline inline-block"
-          >
-            Get your API key →
-          </a>
+          <div className="relative flex-1 min-w-0">
+            <input
+              type={showKey ? "text" : "password"}
+              value={apiKey}
+              onInput={(e) => handleKeyInput((e.target as HTMLInputElement).value)}
+              onBlur={flushKey}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canTest) void handleTest();
+              }}
+              placeholder="Paste your API key"
+              aria-label={`${provider.name} API key`}
+              autocomplete="off"
+              spellcheck={false}
+              className="field pr-10 font-mono text-xs"
+            />
+            <button
+              onClick={() => setShowKey(!showKey)}
+              className="icon-btn icon-btn-sm absolute right-1.5 top-1/2 -translate-y-1/2"
+              aria-label={showKey ? "Hide API key" : "Show API key"}
+              aria-pressed={showKey}
+            >
+              {showKey ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
+            </button>
+          </div>
         )}
+        <button onClick={() => void handleTest()} disabled={!canTest} className={`btn h-9 min-w-[96px] ${connected ? "btn-secondary" : "btn-primary"}`}>
+          {test.status === "testing" ? <SpinnerIcon size={13} /> : connected ? <CheckIcon size={13} /> : null}
+          {test.status === "testing" ? "Testing" : test.status === "error" ? "Retry" : connected ? "Re-test" : isOllama ? "Connect" : "Verify"}
+        </button>
+      </div>
+
+      <div aria-live="polite">
+        {test.status === "error" && (
+          <p className="selectable flex items-start gap-1.5 text-xs text-danger mt-2">
+            <AlertIcon size={12} className="flex-shrink-0 mt-px" />
+            {test.message}
+          </p>
+        )}
+        {test.status === "ok" && (
+          <p className="text-xs text-success mt-2">
+            Connected — {getProviderModels(provider.id).length} models available from your account.
+          </p>
+        )}
+        {isOllama && test.status === "idle" && (
+          <p className="text-xs text-fg-subtle mt-2">Start Ollama, then Connect to load the models you've pulled.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThemeSwatch({ preview, label }: { preview: ThemePreview; label: string }) {
+  return (
+    <div className="relative h-[84px] w-full rounded-lg overflow-hidden border border-line" style={{ background: preview.bg }} aria-hidden="true" title={label}>
+      <div className="absolute left-0 top-0 bottom-0 w-[30%]" style={{ background: preview.surface, borderRight: `1px solid ${preview.line}` }}>
+        <div className="m-2 h-1.5 w-[60%] rounded-full" style={{ background: preview.accent }} />
+        {[70, 55, 62].map((w, i) => (
+          <div key={i} className="mx-2 mt-1.5 h-1 rounded-full opacity-40" style={{ width: `${w}%`, background: preview.fg }} />
+        ))}
+      </div>
+      <div className="absolute right-2.5 top-3 h-3 w-[38%] rounded-md" style={{ background: preview.bubble, border: `1px solid ${preview.line}` }} />
+      <div className="absolute left-[36%] top-8 h-1 w-[46%] rounded-full opacity-50" style={{ background: preview.fg }} />
+      <div className="absolute left-[36%] top-10 h-1 w-[34%] rounded-full opacity-30" style={{ background: preview.fg }} />
+      <div
+        className="absolute left-[36%] right-2.5 bottom-2 h-4 rounded-md flex items-center justify-end pr-0.5"
+        style={{ background: preview.surface, border: `1px solid ${preview.line}` }}
+      >
+        <div className="w-3 h-3 rounded-full" style={{ background: preview.accent }} />
       </div>
     </div>
   );
@@ -354,31 +399,36 @@ function ProviderCard({ provider, compact }: { provider: AIProvider; compact: bo
 
 function AppearanceTab({ compact }: { compact: boolean }) {
   return (
-    <div className="space-y-4">
-      {!compact && <TabHeading title="Appearance" description="Customize how OmniRecall looks." />}
-      <div>
-        <div className={`font-medium text-text-primary mb-2 ${compact ? "text-xs" : "text-sm"}`} id="theme-label">Theme</div>
-        <div className={`grid grid-cols-3 ${compact ? "gap-2" : "gap-3"}`} role="radiogroup" aria-labelledby="theme-label">
-          {THEMES.map((t) => (
+    <div className="space-y-3">
+      <div className="section-label" id="theme-label">Theme</div>
+      <div className={`grid ${compact ? "grid-cols-2" : "grid-cols-3"} gap-2.5`} role="radiogroup" aria-labelledby="theme-label">
+        {THEMES.map((t) => {
+          const selected = theme.value === t.id;
+          return (
             <button
               key={t.id}
               role="radio"
-              aria-checked={theme.value === t.id}
+              aria-checked={selected}
               onClick={() => setTheme(t.id)}
-              className={`rounded-lg border font-medium flex flex-col items-center transition-colors ${
-                compact ? "px-2 py-2 text-xs gap-1" : "px-4 py-3 text-sm gap-2"
-              } ${
-                theme.value === t.id
-                  ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
-                  : "border-border bg-bg-secondary text-text-secondary hover:border-text-tertiary"
+              className={`group text-left rounded-xl p-1.5 border transition-all ${
+                selected ? "border-accent ring-2 ring-accent/30" : "border-line hover:border-line-strong"
               }`}
             >
-              <span className={`rounded-full border border-border ${compact ? "w-4 h-4" : "w-6 h-6"}`} style={{ background: t.color }} />
-              <span>{t.label}</span>
-              {!compact && <span className="text-xs opacity-70 font-normal">{t.desc}</span>}
+              <ThemeSwatch preview={t.preview} label={t.label} />
+              <div className="flex items-center justify-between px-1 pt-2 pb-0.5">
+                <div>
+                  <div className="text-[13px] font-medium">{t.label}</div>
+                  <div className="text-2xs text-fg-subtle">{t.desc}</div>
+                </div>
+                {selected && (
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-accent text-accent-fg">
+                    <CheckIcon size={11} />
+                  </span>
+                )}
+              </div>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -401,7 +451,17 @@ export function shortcutFromEvent(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "a
   return [...modifiers, e.code].join("+");
 }
 
-function ShortcutsTab({ compact }: { compact: boolean }) {
+function KeyCaps({ hotkey }: { hotkey: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {formatHotkey(hotkey).split(" + ").map((key, i) => (
+        <span key={i} className="kbd h-6 min-w-[24px] px-1.5 text-[11px]">{key}</span>
+      ))}
+    </span>
+  );
+}
+
+function ShortcutsTab() {
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState("");
   const [saving, setSaving] = useState(false);
@@ -472,25 +532,21 @@ function ShortcutsTab({ compact }: { compact: boolean }) {
     }
   };
 
-  const text = compact ? "text-xs" : "text-sm";
-
   return (
-    <div className={compact ? "space-y-2" : "space-y-4"}>
-      {!compact && <TabHeading title="Keyboard Shortcuts" description="Change the global shortcut that shows and hides OmniRecall." />}
-
+    <div className="space-y-2.5">
       {hotkeyError.value && !recording && (
-        <div className="flex items-start gap-2 p-2.5 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning" role="alert">
-          <AlertIcon size={14} className="flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-warning/10 border border-warning/30 text-xs text-warning" role="alert">
+          <AlertIcon size={14} className="flex-shrink-0 mt-px" />
           <span>{hotkeyError.value}</span>
         </div>
       )}
 
-      <div className={`bg-bg-secondary rounded-lg border transition-colors px-3 py-2 ${recording ? "border-accent-primary" : "border-border"}`}>
-        <div className="flex justify-between items-center gap-2">
+      <div className={`card p-4 transition-colors ${recording ? "border-accent/60" : ""}`}>
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className={`text-text-primary font-medium ${text}`}>Show / hide window</div>
-            <p className="text-xs text-text-tertiary">
-              {recording ? "Press the new shortcut (Esc to cancel)" : "Works from any app"}
+            <div className="text-[13px] font-medium">Show / hide OmniRecall</div>
+            <p className="text-xs text-fg-subtle mt-0.5">
+              {recording ? "Press the new combination — Esc to cancel" : "Works from any app, wherever your cursor is"}
             </p>
           </div>
           {recording ? (
@@ -500,33 +556,30 @@ function ShortcutsTab({ compact }: { compact: boolean }) {
                 readOnly
                 ref={focusOnMount}
                 value={recorded ? formatHotkey(recorded) : ""}
-                placeholder="…"
+                placeholder="Listening…"
                 onKeyDown={handleKeyDown}
                 aria-label="Press the new shortcut"
-                className="w-32 px-2 py-1.5 bg-accent-primary/10 border border-accent-primary rounded-lg text-xs text-accent-primary font-mono text-center outline-none"
+                className="w-36 h-8 px-2 rounded-lg bg-accent/10 border border-accent/50 text-xs text-accent font-mono text-center outline-none placeholder:text-accent/60"
               />
-              <button
-                onClick={() => void handleSave()}
-                disabled={!recorded || saving}
-                className="px-2.5 py-1.5 bg-success/20 text-success rounded-lg text-xs font-medium disabled:opacity-50"
-              >
+              <button onClick={() => void handleSave()} disabled={!recorded || saving} className="btn btn-sm btn-primary">
                 {saving ? "Saving…" : "Save"}
               </button>
-              <button onClick={cancelRecording} className="px-2.5 py-1.5 bg-bg-tertiary text-text-secondary rounded-lg text-xs font-medium">
+              <button onClick={cancelRecording} className="btn btn-sm btn-ghost">
                 Cancel
               </button>
             </div>
           ) : (
             <button
               onClick={startRecording}
-              className="flex-shrink-0 px-3 py-1.5 bg-bg-tertiary hover:bg-accent-primary/10 rounded-lg text-xs text-text-secondary font-mono transition-colors border border-border hover:border-accent-primary"
+              className="group flex items-center gap-2 flex-shrink-0 h-9 pl-2 pr-3 rounded-lg border border-line hover:border-accent/50 hover:bg-surface-2 transition-colors"
               aria-label={`Global shortcut ${formatHotkey(globalHotkey.value)}. Change`}
             >
-              {formatHotkey(globalHotkey.value)}
+              <KeyCaps hotkey={globalHotkey.value} />
+              <span className="text-xs text-fg-subtle group-hover:text-accent">Change</span>
             </button>
           )}
         </div>
-        {error && <p className="text-xs text-error mt-1.5" role="alert">{error}</p>}
+        {error && <p className="text-xs text-danger mt-2" role="alert">{error}</p>}
       </div>
 
       <button
@@ -534,26 +587,18 @@ function ShortcutsTab({ compact }: { compact: boolean }) {
           isSettingsOpen.value = false;
           isShortcutsHelpOpen.value = true;
         }}
-        className={`w-full px-3 py-2 rounded-lg border border-border text-text-secondary hover:bg-bg-tertiary transition-colors ${text}`}
+        className="btn btn-secondary w-full h-9"
       >
-        View all keyboard shortcuts
+        <KeyboardIcon size={14} />
+        See every keyboard shortcut
       </button>
-    </div>
-  );
-}
-
-function DeveloperTab() {
-  return (
-    <div className="space-y-4">
-      <TabHeading title="Developer Tools" description="Inspect the document search index." />
-      <RagDebugPanel />
     </div>
   );
 }
 
 /// Launch-at-login switch. The OS setting is the source of truth, so the
 /// state is read from it rather than stored.
-function LaunchAtLogin({ compact }: { compact: boolean }) {
+function LaunchAtLogin() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -578,37 +623,23 @@ function LaunchAtLogin({ compact }: { compact: boolean }) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-bg-secondary">
-      <div className="min-w-0">
-        <div className={`font-medium text-text-primary ${compact ? "text-xs" : "text-sm"}`} id="autostart-label">Launch at login</div>
-        <p className={`text-text-tertiary mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`}>
-          Start in the tray when you sign in, so the shortcut is always ready.
-        </p>
-      </div>
+    <Row id="autostart-label" title="Launch at login" description="Start quietly in the tray when you sign in, so the shortcut is always ready.">
       <button
         role="switch"
         aria-checked={enabled === true}
         aria-labelledby="autostart-label"
         disabled={enabled === null || busy}
         onClick={() => void toggle()}
-        className={`relative flex-shrink-0 w-9 h-5 rounded-full transition-colors disabled:opacity-50 ${
-          enabled ? "bg-accent-primary" : "bg-bg-tertiary border border-border"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-            enabled ? "translate-x-4" : ""
-          }`}
-        />
-      </button>
-    </div>
+        className="switch"
+      />
+    </Row>
   );
 }
 
 /// Behavior tab: startup and the persistent system prompt. The text area is
 /// bounded to MAX_SYSTEM_PROMPT_CHARS at the store level — the visible
 /// counter exists so users see how much budget they have.
-function BehaviorTab({ compact }: { compact: boolean }) {
+function BehaviorTab() {
   const [draft, setDraft] = useState(systemPrompt.value);
   const [saved, setSaved] = useState(false);
 
@@ -625,53 +656,38 @@ function BehaviorTab({ compact }: { compact: boolean }) {
   const tooLong = draft.length > MAX_SYSTEM_PROMPT_CHARS;
 
   return (
-    <div className={compact ? "space-y-3" : "space-y-4"}>
-      {!compact && <TabHeading title="Behavior" description="How OmniRecall starts and how it talks to you." />}
+    <div className="space-y-2.5">
+      <LaunchAtLogin />
 
-      <LaunchAtLogin compact={compact} />
-
-      <div>
-        <label htmlFor="system-prompt" className={`block font-medium text-text-primary mb-1.5 ${compact ? "text-xs" : "text-sm"}`}>
+      <div className="card p-4">
+        <label htmlFor="system-prompt" className="block text-[13px] font-medium">
           System prompt
         </label>
-        <p className={`text-text-tertiary mb-2 ${compact ? "text-[10px]" : "text-xs"}`}>
-          Sets persona, tone, or context. Sent with every message, in every chat.
+        <p className="text-xs text-fg-subtle mt-0.5 mb-3">
+          Persona, tone or context sent with every message, in every chat. You can also type <span className="font-mono">/system …</span> in the composer.
         </p>
         <textarea
           id="system-prompt"
           value={draft}
           onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)}
           placeholder="e.g. You are a senior software engineer. Be concise and direct. Prefer code examples."
-          rows={compact ? 4 : 6}
+          rows={6}
           maxLength={MAX_SYSTEM_PROMPT_CHARS + 100}
           aria-invalid={tooLong}
-          className={`w-full px-3 py-2 bg-bg-tertiary border rounded-lg text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary transition-colors resize-y leading-relaxed ${
-            compact ? "text-xs" : "text-sm"
-          } ${tooLong ? "border-error" : "border-border"}`}
+          className={`field resize-y min-h-[120px] ${tooLong ? "!border-danger" : ""}`}
         />
-        <div className={`flex items-center justify-between mt-1.5 ${compact ? "text-[10px]" : "text-xs"}`}>
-          <span className={tooLong ? "text-error" : "text-text-tertiary"}>
+        <div className="flex items-center justify-between mt-2.5">
+          <span className={`text-2xs tabular-nums ${tooLong ? "text-danger" : "text-fg-subtle"}`}>
             {draft.length.toLocaleString()} / {MAX_SYSTEM_PROMPT_CHARS.toLocaleString()}
           </span>
           <div className="flex items-center gap-2">
-            {saved && <span className="text-success" role="status">Saved</span>}
+            {saved && <span className="text-xs text-success" role="status">Saved</span>}
             {isDirty && (
-              <button
-                onClick={() => setDraft(systemPrompt.value)}
-                className="px-2 py-1 rounded bg-bg-tertiary text-text-secondary hover:text-text-primary"
-              >
+              <button onClick={() => setDraft(systemPrompt.value)} className="btn btn-sm btn-ghost">
                 Discard
               </button>
             )}
-            <button
-              onClick={handleSave}
-              disabled={!isDirty || tooLong}
-              className={`px-3 py-1 rounded font-medium transition-colors ${
-                !isDirty || tooLong
-                  ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-                  : "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-              }`}
-            >
+            <button onClick={handleSave} disabled={!isDirty || tooLong} className="btn btn-sm btn-primary">
               Save
             </button>
           </div>
@@ -682,12 +698,9 @@ function BehaviorTab({ compact }: { compact: boolean }) {
 }
 
 /// Privacy tab: back up, restore, and erase local data.
-function PrivacyTab({ compact }: { compact: boolean }) {
+function PrivacyTab() {
   const [resetting, setResetting] = useState(false);
   const chatCount = chatHistory.value.length;
-  const title = `font-medium text-text-primary ${compact ? "text-xs" : "text-sm"}`;
-  const note = `text-text-tertiary mt-0.5 ${compact ? "text-[10px]" : "text-xs"}`;
-  const button = `mt-2 w-full px-3 rounded-lg font-medium transition-colors ${compact ? "text-xs py-1.5" : "text-sm py-2"}`;
 
   const handleReset = async () => {
     const confirmed = await confirmAction({
@@ -711,55 +724,37 @@ function PrivacyTab({ compact }: { compact: boolean }) {
   };
 
   return (
-    <div className={compact ? "space-y-2" : "space-y-4"}>
-      {!compact && (
-        <TabHeading
-          title="Privacy & Data"
-          description="Chats, documents and settings are stored on this device only. Messages are sent to the AI provider you choose."
-        />
-      )}
-
-      <div className="p-3 rounded-lg border border-border bg-bg-secondary">
-        <div className={title}>Back up chats</div>
-        <p className={note}>One JSON file with all chats, branches, and folders.</p>
-        <button
-          onClick={() => void exportAllChats()}
-          disabled={chatCount === 0}
-          className={`${button} ${
-            chatCount === 0
-              ? "bg-bg-tertiary text-text-tertiary cursor-not-allowed"
-              : "bg-accent-primary text-on-accent hover:bg-accent-primary/90"
-          }`}
-        >
-          {chatCount === 0 ? "No chats to export" : `Export ${chatCount} chat${chatCount === 1 ? "" : "s"}`}
+    <div className="space-y-2.5">
+      <Row title="Back up chats" description="One JSON file with every chat, branch and folder.">
+        <button onClick={() => void exportAllChats()} disabled={chatCount === 0} className="btn btn-secondary">
+          <DownloadIcon size={14} />
+          {chatCount === 0 ? "No chats yet" : `Export ${chatCount}`}
         </button>
-      </div>
+      </Row>
 
-      <div className="p-3 rounded-lg border border-border bg-bg-secondary">
-        <div className={title}>Restore from a backup</div>
-        <p className={note}>Adds the chats from a backup file. Chats you already have are kept.</p>
+      <Row title="Restore from a backup" description="Adds the chats from a backup file. Chats you already have are kept.">
         <button
           onClick={() => {
             isSettingsOpen.value = false;
             exportDialog.value = "import";
           }}
-          className={`${button} border border-border text-text-secondary hover:bg-bg-tertiary`}
+          className="btn btn-secondary"
         >
-          Import chats…
+          <UploadIcon size={14} />
+          Import…
         </button>
-      </div>
+      </Row>
 
-      <div className="p-3 rounded-lg border border-error/30 bg-error/5">
-        <div className={title}>Reset all data</div>
-        <p className={note}>
-          Deletes all chats, folders, documents and their search index, API keys, custom models and settings from this device.
-        </p>
-        <button
-          onClick={() => void handleReset()}
-          disabled={resetting}
-          className={`${button} bg-error/10 text-error border border-error/30 hover:bg-error/20 disabled:opacity-60`}
-        >
-          {resetting ? "Clearing…" : "Reset all data…"}
+      <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-danger/25 bg-danger/5">
+        <div className="min-w-0">
+          <div className="text-[13px] font-medium">Reset all data</div>
+          <p className="text-xs text-fg-subtle mt-0.5 leading-relaxed">
+            Deletes chats, folders, documents and their index, API keys, custom models and settings from this device.
+          </p>
+        </div>
+        <button onClick={() => void handleReset()} disabled={resetting} className="btn btn-danger flex-shrink-0">
+          <TrashIcon size={14} />
+          {resetting ? "Clearing…" : "Reset…"}
         </button>
       </div>
     </div>

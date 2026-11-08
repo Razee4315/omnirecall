@@ -5,6 +5,40 @@ All notable changes to OmniRecall will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-11-08
+
+A complete visual redesign, plus window behavior and model fixes.
+
+### Design
+- New design system: six reworked themes (Graphite, Porcelain, Glass, Paper, Dusk, Tide) built on shared color tokens, with Geist, Geist Mono and Instrument Serif type
+- New icon set (Lucide) at one consistent stroke weight; new brand mark
+- Answers read like a document, with actions underneath instead of a floating toolbar; user turns are quiet bubbles; a caret shows while an answer streams
+- Spotlight: a lighter header, a greeting with suggestions, and a single composer capsule with attach, quote-clipboard and docs controls
+- Dashboard: Windows-style caption buttons, rounded window corners when not maximized, chat title in the title bar, sidebar grouped Today / Yesterday / Previous 7 days / Previous 30 days
+- Chat rows use one ⋯ menu (pin, rename, export, move to folder, delete with Undo)
+- Model picker with search, readable model names, provider tiles and a "Manage providers" link
+- Redesigned Settings (theme cards with live previews, provider cards with status), command palette with shortcut hints, toasts, dialogs, onboarding and keyboard-shortcut sheet
+- Context usage is a ring gauge; documents show file-type badges
+
+### Window behavior
+- The window can be dragged by its title bar again (Tauri v2 ignores `-webkit-app-region`; dragging now uses `startDragging`)
+- Double-click the title bar: maximize/restore in the Dashboard, expand to the Dashboard in Spotlight
+- Spotlight can be resized up to 980 × 1200 (was 500 × 700); its size is remembered
+- The Dashboard reopens at its last size, position and maximized state, and never opens larger than the screen
+- The sidebar can be resized by dragging its edge (drag far left to collapse, double-click to reset) and toggled with `Ctrl+B`
+- The maximize icon stays correct after Win+Up, Aero Snap or a double-click
+
+### Models
+- Built-in lists updated to current models: Gemini 3.8 Flash / 4 Argon, GPT-6.1 Sol / GPT-6 Astra, Claude Sonnet 5.5 / Opus 5.5 / Haiku 5.5 / Fable 5.1, GLM-5.3, and gpt-oss / Qwen 3.6 / Gemma 4 for Ollama
+- A saved model from an older built-in list that is no longer offered moves to the current default
+- Live model lists put the recommended models first and dated snapshots last
+- Requests no longer send `temperature` (current reasoning models reject it); Claude may answer up to 32K tokens (was 4K) and Gemini up to 32K (was 8K)
+- Context-window sizes updated for the new models
+
+### Fixes
+- About 110 color styles never rendered: opacity modifiers such as `bg-accent/10` produced no CSS because theme colors were plain `var()` values. Selected rows, tabs, badges, error banners and hover states now show
+- Bare borders used Tailwind's light gray on dark themes
+
 ## [1.2.0] - 2026-10-03
 
 Implementation of the full product audit. Item-by-item status: `AUDIT_PROGRESS.md`.

@@ -114,99 +114,80 @@ export function FolderManager() {
         sessions.map(session => <SessionRow key={session.id} session={session} onDragStart={handleDragStart} />);
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
-                <span className="text-xs text-text-tertiary font-medium">Folders</span>
-                <button
-                    onClick={() => setIsAddingFolder(true)}
-                    className="p-1 hover:bg-bg-tertiary rounded transition-colors text-text-tertiary hover:text-text-primary"
-                    title="New folder"
-                    aria-label="New folder"
-                >
+        <div className="px-1.5 pb-3">
+            <div className="flex items-center justify-between pl-2.5 pr-1 pt-1 pb-1">
+                <span className="section-label">Folders {chatFolders.value.length > 0 && `· ${chatFolders.value.length}`}</span>
+                <button onClick={() => setIsAddingFolder(true)} className="icon-btn icon-btn-sm" title="New folder" aria-label="New folder">
                     <PlusIcon size={14} />
                 </button>
             </div>
 
             {isAddingFolder && (
-                <div className="p-2 border-b border-border">
-                    <div className="flex items-center gap-2">
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={newFolderName}
-                            maxLength={80}
-                            onInput={(e) => setNewFolderName((e.target as HTMLInputElement).value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") handleAddFolder();
-                                if (e.key === "Escape") {
-                                    e.stopPropagation();
-                                    setIsAddingFolder(false);
-                                }
-                            }}
-                            placeholder="Folder name..."
-                            aria-label="New folder name"
-                            className="flex-1 min-w-0 px-2 py-1.5 bg-bg-tertiary border border-border rounded text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent-primary"
-                        />
-                        <button
-                            onClick={handleAddFolder}
-                            disabled={!newFolderName.trim()}
-                            className="p-1.5 bg-accent-primary text-on-accent rounded hover:bg-accent-primary/90 disabled:opacity-50"
-                            aria-label="Create folder"
-                        >
-                            <CheckIcon size={12} />
-                        </button>
-                        <button
-                            onClick={() => setIsAddingFolder(false)}
-                            className="p-1.5 bg-bg-tertiary rounded hover:bg-border text-text-tertiary"
-                            aria-label="Cancel"
-                        >
-                            <CloseIcon size={12} />
-                        </button>
-                    </div>
+                <div className="flex items-center gap-1 px-1 pb-2 animate-pop-in">
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={newFolderName}
+                        maxLength={80}
+                        onInput={(e) => setNewFolderName((e.target as HTMLInputElement).value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddFolder();
+                            if (e.key === "Escape") {
+                                e.stopPropagation();
+                                setIsAddingFolder(false);
+                            }
+                        }}
+                        placeholder="Folder name"
+                        aria-label="New folder name"
+                        className="field h-8 flex-1 min-w-0"
+                    />
+                    <button onClick={handleAddFolder} disabled={!newFolderName.trim()} className="icon-btn bg-accent !text-accent-fg hover:brightness-110 disabled:opacity-40" aria-label="Create folder">
+                        <CheckIcon size={14} />
+                    </button>
+                    <button onClick={() => setIsAddingFolder(false)} className="icon-btn" aria-label="Cancel">
+                        <CloseIcon size={14} />
+                    </button>
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto">
-                {chatFolders.value.length === 0 && !isAddingFolder && (
-                    <div className="px-3 py-6 text-center">
-                        <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-bg-tertiary flex items-center justify-center">
-                            <FolderIcon size={20} className="text-text-tertiary" />
-                        </div>
-                        <p className="text-xs text-text-secondary mb-1 font-medium">Organize chats into folders</p>
-                        <p className="text-[10px] text-text-tertiary leading-relaxed mb-3">
-                            Create a folder, then use the folder button on any chat to file it.
-                        </p>
-                        <button
-                            onClick={() => setIsAddingFolder(true)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-accent-primary text-on-accent text-xs hover:bg-accent-primary/90 transition-colors"
-                        >
-                            <PlusIcon size={12} />
-                            New folder
-                        </button>
+            {chatFolders.value.length === 0 && !isAddingFolder && (
+                <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+                    <div className="w-10 h-10 rounded-xl bg-surface-2 border border-line flex items-center justify-center text-fg-subtle">
+                        <FolderIcon size={18} />
                     </div>
-                )}
+                    <p className="text-[13px] text-fg-muted font-medium">Organize chats into folders</p>
+                    <p className="text-2xs text-fg-subtle leading-relaxed">
+                        Create a folder, then file chats from their ⋯ menu, or drag them here.
+                    </p>
+                    <button onClick={() => setIsAddingFolder(true)} className="btn btn-sm btn-secondary mt-1">
+                        <PlusIcon size={12} />
+                        New folder
+                    </button>
+                </div>
+            )}
 
+            <div className="space-y-0.5">
                 {chatFolders.value.map((folder) => {
                     const sessions = folderSessions.get(folder.id) ?? [];
                     const isEditing = editingFolderId === folder.id;
                     return (
                         <div
                             key={folder.id}
-                            className={`border-b border-border/50 transition-colors ${dragOverFolderId === folder.id ? "bg-accent-primary/10" : ""}`}
+                            className={`rounded-xl transition-colors ${dragOverFolderId === folder.id ? "bg-accent/10 ring-1 ring-accent/40" : ""}`}
                             {...dropTarget(folder.id)}
                         >
-                            <div className="group flex items-center gap-2 px-2 py-2 hover:bg-bg-tertiary">
+                            <div className="group flex items-center gap-1.5 h-8 pl-1 pr-1 rounded-lg hover:bg-surface-2">
                                 <button
                                     onClick={() => toggleFolderCollapse(folder.id)}
-                                    className="text-text-tertiary hover:text-text-primary"
+                                    className="icon-btn icon-btn-sm"
                                     aria-expanded={!folder.isCollapsed}
                                     aria-label={`${folder.isCollapsed ? "Expand" : "Collapse"} folder ${folder.name}`}
                                 >
-                                    {folder.isCollapsed ? <ChevronRightIcon size={14} /> : <ChevronDownIcon size={14} />}
+                                    {folder.isCollapsed ? <ChevronRightIcon size={13} /> : <ChevronDownIcon size={13} />}
                                 </button>
 
-                                <span style={{ color: folder.color }}>
-                                    {folder.isCollapsed ? <FolderIcon size={14} /> : <FolderOpenIcon size={14} />}
+                                <span style={{ color: folder.color }} className="flex-shrink-0">
+                                    {folder.isCollapsed ? <FolderIcon size={15} /> : <FolderOpenIcon size={15} />}
                                 </span>
 
                                 {isEditing ? (
@@ -225,21 +206,21 @@ export function FolderManager() {
                                         }}
                                         onBlur={handleSaveEdit}
                                         aria-label="Folder name"
-                                        className="flex-1 min-w-0 px-1 bg-bg-tertiary border border-accent-primary rounded text-sm text-text-primary outline-none"
+                                        className="flex-1 min-w-0 h-6 px-1.5 rounded-md bg-canvas border border-accent/60 text-[13px] text-fg outline-none"
                                     />
                                 ) : (
-                                    <span className="flex-1 text-sm text-text-primary truncate">{folder.name}</span>
+                                    <span className="flex-1 min-w-0 text-[13px] font-medium text-fg truncate">{folder.name}</span>
                                 )}
 
-                                <span className="text-xs text-text-tertiary">{sessions.length}</span>
+                                <span className="text-2xs text-fg-subtle tabular-nums group-hover:hidden group-focus-within:hidden px-1">{sessions.length}</span>
 
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                                <div className="hidden group-hover:flex group-focus-within:flex items-center">
                                     <button
                                         onClick={() => {
                                             setEditingFolderId(folder.id);
                                             setEditingName(folder.name);
                                         }}
-                                        className="p-1 hover:bg-bg-secondary rounded text-text-tertiary hover:text-text-primary"
+                                        className="icon-btn icon-btn-sm"
                                         aria-label={`Rename folder ${folder.name}`}
                                         title="Rename"
                                     >
@@ -247,7 +228,7 @@ export function FolderManager() {
                                     </button>
                                     <button
                                         onClick={() => void handleDeleteFolder(folder, sessions.length)}
-                                        className="p-1 hover:bg-bg-secondary rounded text-text-tertiary hover:text-error"
+                                        className="icon-btn icon-btn-sm hover:!text-danger"
                                         aria-label={`Delete folder ${folder.name}`}
                                         title="Delete"
                                     >
@@ -257,9 +238,9 @@ export function FolderManager() {
                             </div>
 
                             {!folder.isCollapsed && (
-                                <div className="pl-5 pr-1 pb-1 space-y-0.5">
+                                <div className="ml-4 pl-2 border-l border-line space-y-px py-0.5">
                                     {sessions.length === 0 ? (
-                                        <div className="py-1.5 pl-1 text-xs text-text-tertiary italic">No chats in this folder</div>
+                                        <div className="py-1.5 pl-2 text-2xs text-fg-subtle">Empty. Drag a chat here.</div>
                                     ) : (
                                         renderSessions(sessions)
                                     )}
@@ -268,21 +249,20 @@ export function FolderManager() {
                         </div>
                     );
                 })}
-
-                {chatFolders.value.length > 0 && (
-                    <div
-                        className={`transition-colors ${dragOverFolderId === null ? "bg-accent-primary/10" : ""}`}
-                        {...dropTarget(null)}
-                    >
-                        <div className="flex items-center gap-2 px-2 py-2 text-text-tertiary">
-                            <FolderIcon size={14} />
-                            <span className="text-xs font-medium">Uncategorized</span>
-                            <span className="text-xs ml-auto">{uncategorized.length}</span>
-                        </div>
-                        <div className="px-1 pb-1 space-y-0.5">{renderSessions(uncategorized)}</div>
-                    </div>
-                )}
             </div>
+
+            {chatFolders.value.length > 0 && uncategorized.length > 0 && (
+                <div
+                    className={`mt-2 rounded-xl transition-colors ${dragOverFolderId === null ? "bg-accent/10 ring-1 ring-accent/40" : ""}`}
+                    {...dropTarget(null)}
+                >
+                    <div className="section-label flex items-center gap-1.5 px-2.5 pt-2 pb-1">
+                        Uncategorized
+                        <span className="ml-auto tabular-nums normal-case tracking-normal">{uncategorized.length}</span>
+                    </div>
+                    <div className="space-y-px">{renderSessions(uncategorized)}</div>
+                </div>
+            )}
         </div>
     );
 }
